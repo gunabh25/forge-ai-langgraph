@@ -122,8 +122,11 @@ def validate_config():
         # pyrefly: ignore [missing-attribute]
         assert settings.LLM_MODEL is not None
         assert settings.ARTIFACT_ROOT is not None
-        assert os.environ.get("OPENAI_API_KEY"), "OPENAI_API_KEY environment variable is not set."
-        print("✅ Configuration is valid.")
+        assert (
+    os.environ.get("GOOGLE_API_KEY")
+    or os.environ.get("GEMINI_API_KEY")
+# pyrefly: ignore [not-callable]
+), "GOOGLE_API_KEY or GEMINI_API_KEY environment variable is not set."("✅ Configuration is valid.")
     except AssertionError as e:
         print(f"❌ Configuration Invalid: {e}")
 

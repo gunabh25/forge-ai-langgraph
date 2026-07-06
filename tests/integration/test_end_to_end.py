@@ -12,9 +12,12 @@ def mock_all_agent_llms():
     """Mocks all LLM instances for the agents."""
     with patch("core.llm.LLMFactory.create_llm") as mock_create_llm:
         mock_llm = MagicMock()
-        mock_msg = MagicMock()
-        mock_msg.content = '{"src/main.py": "print(\'hello\')"}'  # Return non-empty JSON object
-        mock_llm.invoke.return_value = mock_msg
+        def side_effect(messages, **kwargs):
+            import json
+            if messages and "Manifest Generator" in messages[0].content:
+                return MagicMock(content=json.dumps({"project_name": "Test", "files": ["src/main.py"]}))
+            return MagicMock(content='{"src/main.py": "print(\'hello\')"}')
+        mock_llm.invoke.side_effect = side_effect
         mock_create_llm.return_value = mock_llm
         yield mock_create_llm
 

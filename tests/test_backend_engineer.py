@@ -31,11 +31,11 @@ class SimulatedApprovalInterface(ApprovalInterface):
 def mock_all_agent_llms():
     """Mock LLMs for EM, RA, SA, BE, and ASE agents."""
     import json
-    ase_workspace = json.dumps({
-        "src/main.py": "# main\n",
-        "Dockerfile": "FROM python:3.12-slim\n",
-        "README.md": "# App\n",
-    })
+    def ase_side_effect(messages, **kwargs):
+        system = messages[0].content
+        if "Manifest Generator" in system:
+            return AIMessage(content=json.dumps({"project_name": "Test", "files": ["src/main.py", "Dockerfile", "README.md"]}), name="ai_software_engineer")
+        return AIMessage(content="# main app code\n", name="ai_software_engineer")
 
     with patch("agents.engineering_manager.agent.get_llm") as mock_em, \
          patch("agents.requirement_analyst.agent.get_llm") as mock_ra, \
@@ -68,7 +68,7 @@ def mock_all_agent_llms():
 
         # ASE
         ase_inst = MagicMock()
-        ase_inst.invoke.return_value = AIMessage(content=ase_workspace, name="ai_software_engineer")
+        ase_inst.invoke.side_effect = ase_side_effect
         mock_ase.return_value = ase_inst
         
         yield {

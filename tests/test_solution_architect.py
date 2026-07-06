@@ -21,11 +21,11 @@ def temp_artifact_dir(tmp_path):
 def mock_llm_responses():
     """Mock the LLMs for EM, RA, SA, BE, and ASE agents."""
     import json
-    ase_workspace = json.dumps({
-        "src/main.py": "# main\n",
-        "Dockerfile": "FROM python:3.12-slim\n",
-        "README.md": "# App\n",
-    })
+    def ase_side_effect(messages, **kwargs):
+        system = messages[0].content
+        if "Manifest Generator" in system:
+            return AIMessage(content=json.dumps({"project_name": "Test", "files": ["src/main.py", "Dockerfile", "README.md"]}), name="ai_software_engineer")
+        return AIMessage(content="# main app code\n", name="ai_software_engineer")
 
     with patch("agents.engineering_manager.agent.get_llm") as mock_em_llm, \
          patch("agents.requirement_analyst.agent.get_llm") as mock_ra_llm, \
@@ -67,10 +67,7 @@ def mock_llm_responses():
 
         # Mock ASE response
         ase_instance = MagicMock()
-        ase_instance.invoke.return_value = AIMessage(
-            content=ase_workspace,
-            name="ai_software_engineer"
-        )
+        ase_instance.invoke.side_effect = ase_side_effect
         mock_ase_llm.return_value = ase_instance
         
         yield {

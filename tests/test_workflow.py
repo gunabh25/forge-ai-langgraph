@@ -16,11 +16,11 @@ from core.approval import ApprovalInterface, ApprovalResult
 def mock_llm_invoke():
     """Mock the LLM's invoke method to return a dummy response."""
     import json
-    ase_workspace = json.dumps({
-        "src/main.py": "# main\n",
-        "Dockerfile": "FROM python:3.12-slim\n",
-        "README.md": "# App\n",
-    })
+    def ase_side_effect(messages, **kwargs):
+        system = messages[0].content
+        if "Manifest Generator" in system:
+            return AIMessage(content=json.dumps({"project_name": "Test", "files": ["src/main.py", "Dockerfile", "README.md"]}), name="ai_software_engineer")
+        return AIMessage(content="# main app code\n", name="ai_software_engineer")
 
     with patch("agents.engineering_manager.agent.get_llm") as mock_get_llm_em, \
          patch("agents.requirement_analyst.agent.get_llm") as mock_get_llm_ra, \
@@ -45,7 +45,7 @@ def mock_llm_invoke():
         mock_get_llm_be.return_value = mock_llm_be
 
         mock_llm_ase = MagicMock()
-        mock_llm_ase.invoke.return_value = AIMessage(content=ase_workspace, name="ai_software_engineer")
+        mock_llm_ase.invoke.side_effect = ase_side_effect
         mock_get_llm_ase.return_value = mock_llm_ase
         
         yield (mock_llm_em, mock_llm_ra, mock_llm_sa, mock_llm_be, mock_llm_ase)

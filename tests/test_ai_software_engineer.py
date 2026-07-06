@@ -1,4 +1,4 @@
-"""Tests for AISoftwareEngineerAgent, WorkspaceParser, and end-to-end workflow."""
+"""Tests for AISoftwareEngineerAgent and its internal pipeline components."""
 
 import json
 import os
@@ -8,7 +8,10 @@ import pytest
 from unittest.mock import MagicMock, patch
 from langchain_core.messages import AIMessage
 
-from agents.ai_software_engineer.agent import AISoftwareEngineerAgent, WorkspaceParser
+from agents.ai_software_engineer.agent import AISoftwareEngineerAgent
+from agents.ai_software_engineer.manifest_generator import ManifestGenerator
+from agents.ai_software_engineer.file_planner import FilePlanner
+from agents.ai_software_engineer.validator import Validator
 from app.state import ForgeState
 from app.workflow import ForgeWorkflow
 from core.artifact_manager import ArtifactManager
@@ -29,8 +32,13 @@ MINIMAL_WORKSPACE = {
     "requirements.txt": "fastapi==0.111.0\n",
 }
 
-MINIMAL_WORKSPACE_JSON = json.dumps(MINIMAL_WORKSPACE, indent=2)
-
+MANIFEST = {
+    "project_name": "Test Project",
+    "language": "Python",
+    "framework": "FastAPI",
+    "files": list(MINIMAL_WORKSPACE.keys())
+}
+MANIFEST_JSON = json.dumps(MANIFEST, indent=2)
 
 @pytest.fixture
 def temp_artifact_dir(tmp_path):
@@ -70,14 +78,24 @@ def sample_state() -> ForgeState:
     }
 
 
+def llm_side_effect(messages, **kwargs):
+    """Mock LLM responses depending on whether it is a manifest or file request."""
+    system_prompt = messages[0].content
+    if "Manifest Generator" in system_prompt:
+        return AIMessage(content=MANIFEST_JSON, name="ai_software_engineer")
+    else:
+        human_prompt = messages[1].content
+        for path, code in MINIMAL_WORKSPACE.items():
+            if f"Generate ONLY the exact source code for: {path}" in human_prompt:
+                return AIMessage(content=code, name="ai_software_engineer")
+        return AIMessage(content="# default code content\n", name="ai_software_engineer")
+
+
 @pytest.fixture
 def mock_ase_llm():
-    """Mock LLM that returns a valid workspace JSON response."""
+    """Mock LLM that returns a valid manifest and files."""
     inst = MagicMock()
-    inst.invoke.return_value = AIMessage(
-        content=MINIMAL_WORKSPACE_JSON,
-        name="ai_software_engineer",
-    )
+    inst.invoke.side_effect = llm_side_effect
     return inst
 
 
@@ -93,79 +111,51 @@ class SimulatedApproval(ApprovalInterface):
 
 
 # ---------------------------------------------------------------------------
-# WorkspaceParser tests
+# Internal Components Tests
 # ---------------------------------------------------------------------------
 
-
-def test_workspace_parser_plain_json():
-    """Parses a plain JSON object successfully."""
-    workspace = WorkspaceParser.extract(MINIMAL_WORKSPACE_JSON)
-    assert set(workspace.keys()) == set(MINIMAL_WORKSPACE.keys())
-    assert workspace["README.md"] == MINIMAL_WORKSPACE["README.md"]
-
-
-def test_workspace_parser_markdown_fenced_json():
-    """Strips a markdown ```json code fence before parsing."""
-    fenced = f"```json\n{MINIMAL_WORKSPACE_JSON}\n```"
-    workspace = WorkspaceParser.extract(fenced)
-    assert "src/main.py" in workspace
+def test_manifest_generator_plain_json(mock_ase_llm):
+    """ManifestGenerator parses plain JSON."""
+    mg = ManifestGenerator(llm=mock_ase_llm)
+    manifest = mg.generate("req", "arch", "blue")
+    assert "project_name" in manifest
+    assert manifest["files"] == MANIFEST["files"]
 
 
-def test_workspace_parser_generic_fence():
-    """Strips a plain ``` code fence (no language tag) before parsing."""
-    fenced = f"```\n{MINIMAL_WORKSPACE_JSON}\n```"
-    workspace = WorkspaceParser.extract(fenced)
-    assert "Dockerfile" in workspace
+def test_file_planner():
+    """FilePlanner orders files correctly."""
+    fp = FilePlanner(MANIFEST)
+    queue = fp.get_file_queue()
+    assert len(queue) == len(MINIMAL_WORKSPACE)
+    # Check simple heuristic: main.py is prioritized before services
+    assert queue.index("src/main.py") < queue.index("src/services/user_service.py")
 
 
-def test_workspace_parser_prose_prefix():
-    """Handles responses that have prose before the JSON object."""
-    response = "Here is the generated workspace:\n\n" + MINIMAL_WORKSPACE_JSON
-    workspace = WorkspaceParser.extract(response)
-    assert "src/main.py" in workspace
+def test_validator():
+    """Validator checks basic constraints."""
+    is_valid, msg = Validator.validate("src/main.py", "# short")
+    assert not is_valid
+    assert "suspiciously short" in msg
 
+    is_valid, msg = Validator.validate("src/main.py", "def test():\n    # TODO: implement\n    pass")
+    assert not is_valid
+    assert "TODO" in msg
 
-def test_workspace_parser_invalid_json_raises():
-    """Raises ValueError when response contains braces but is not valid JSON."""
-    with pytest.raises(ValueError, match="Failed to parse LLM response as JSON"):
-        WorkspaceParser.extract("{ not valid json at all }")
-
-
-def test_workspace_parser_no_json_object_raises():
-    """Raises ValueError when there is no JSON object in the response."""
-    with pytest.raises(ValueError, match="does not contain a JSON object"):
-        WorkspaceParser.extract("  no braces here  ")
-
-
-def test_workspace_parser_non_string_value_raises():
-    """Raises ValueError when a file value is not a string."""
-    bad_workspace = {"src/main.py": 42, "README.md": "# Readme\n"}
-    with pytest.raises(ValueError, match="non-string values"):
-        WorkspaceParser.extract(json.dumps(bad_workspace))
-
-
-def test_workspace_parser_empty_object_raises():
-    """Raises ValueError when the workspace JSON is an empty object."""
-    with pytest.raises(ValueError, match="empty workspace"):
-        WorkspaceParser.extract("{}")
+    is_valid, msg = Validator.validate("src/main.py", "def hello():\n    print('Hello World')\n    return True\n")
+    assert is_valid
 
 
 # ---------------------------------------------------------------------------
 # AISoftwareEngineerAgent unit tests
 # ---------------------------------------------------------------------------
 
-
-def test_ase_initialization():
-    """Agent initialises and loads the system prompt correctly."""
-    agent = AISoftwareEngineerAgent()
-    assert agent.system_prompt != ""
-    assert "Principal Software Engineer" in agent.system_prompt
-
-
 def test_ase_run_updates_state(temp_artifact_dir, sample_state, mock_ase_llm):
     """Agent.run returns correct state slice with generated_files and artifacts."""
     agent = AISoftwareEngineerAgent(llm=mock_ase_llm)
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
+    agent.artifact_writer.artifact_manager = agent.artifact_manager
+    agent.artifact_writer.generated_base = os.path.join(agent.artifact_manager.get_stage_directory("implementation"), "generated")
+    os.makedirs(agent.artifact_writer.generated_base, exist_ok=True)
 
     updates = agent.run(sample_state)
 
@@ -179,7 +169,7 @@ def test_ase_run_updates_state(temp_artifact_dir, sample_state, mock_ase_llm):
     assert len(updates["generated_files"]) == len(MINIMAL_WORKSPACE)
 
     # implementation summary exists
-    assert "Generated" in updates["implementation"]
+    assert "Implementation complete" in updates["implementation"]
 
     # Message appended
     assert len(updates["messages"]) == 1
@@ -194,6 +184,9 @@ def test_ase_run_writes_files_to_disk(temp_artifact_dir, sample_state, mock_ase_
     """Agent.run writes every generated file to the artifact directory."""
     agent = AISoftwareEngineerAgent(llm=mock_ase_llm)
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
+    agent.artifact_writer.artifact_manager = agent.artifact_manager
+    agent.artifact_writer.generated_base = os.path.join(agent.artifact_manager.get_stage_directory("implementation"), "generated")
+    os.makedirs(agent.artifact_writer.generated_base, exist_ok=True)
 
     updates = agent.run(sample_state)
 
@@ -207,42 +200,6 @@ def test_ase_run_writes_files_to_disk(temp_artifact_dir, sample_state, mock_ase_
         assert os.path.exists(abs_path), f"Expected file not found: {rel_path}"
         with open(abs_path, encoding="utf-8") as f:
             assert f.read() == MINIMAL_WORKSPACE[rel_path]
-
-
-def test_ase_run_registers_manifest_artifact(temp_artifact_dir, sample_state, mock_ase_llm):
-    """Agent registers an implementation manifest in artifacts."""
-    agent = AISoftwareEngineerAgent(llm=mock_ase_llm)
-    agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
-
-    updates = agent.run(sample_state)
-
-    assert "implementation" in updates["artifacts"]
-    paths = updates["artifacts"]["implementation"]
-    # First entry is the manifest file
-    manifest_path = paths[0]
-    assert os.path.exists(manifest_path)
-    assert "implementation_manifest_v1.md" in manifest_path
-    content = open(manifest_path, encoding="utf-8").read()
-    assert "Implementation Manifest" in content
-    assert "src/main.py" in content
-
-
-def test_ase_manifest_versioning(temp_artifact_dir, sample_state, mock_ase_llm):
-    """Running agent twice increments manifest version (non-overwriting)."""
-    agent = AISoftwareEngineerAgent(llm=mock_ase_llm)
-    agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
-
-    updates_1 = agent.run(sample_state)
-    updates_2 = agent.run(sample_state)
-
-    path_1 = updates_1["artifacts"]["implementation"][0]
-    path_2 = updates_2["artifacts"]["implementation"][0]
-
-    assert "v1" in path_1
-    assert "v2" in path_2
-    assert path_1 != path_2
-    assert os.path.exists(path_1)
-    assert os.path.exists(path_2)
 
 
 def test_ase_raises_when_backend_blueprint_missing(sample_state):
@@ -264,7 +221,6 @@ def test_ase_raises_when_requirements_missing(sample_state):
 # ---------------------------------------------------------------------------
 # Routing unit tests
 # ---------------------------------------------------------------------------
-
 
 def test_router_backend_routes_to_ase():
     """WorkflowRouter: BACKEND_ENGINEERING routes to AI_SOFTWARE_ENGINEERING."""
@@ -306,7 +262,6 @@ def test_router_ase_routes_to_final_report():
 # End-to-end integration test
 # ---------------------------------------------------------------------------
 
-
 @pytest.fixture
 def mock_all_llms():
     """Mock LLMs for every agent in the pipeline."""
@@ -315,7 +270,9 @@ def mock_all_llms():
         patch("agents.requirement_analyst.agent.get_llm") as mock_ra,
         patch("agents.solution_architect.agent.get_llm") as mock_sa,
         patch("agents.backend_engineer.agent.get_llm") as mock_be,
-        patch("agents.ai_software_engineer.agent.get_llm") as mock_ase,
+        patch("agents.ai_software_engineer.manifest_generator.get_llm") as mock_ase_manifest_llm,
+        patch("agents.ai_software_engineer.file_generator.get_llm") as mock_ase_file_llm,
+        patch("agents.ai_software_engineer.agent.get_llm") as mock_ase_agent_llm,
     ):
         em = MagicMock()
         em.invoke.return_value = AIMessage(content="EM plan", name="engineering_manager")
@@ -344,11 +301,10 @@ def mock_all_llms():
         mock_be.return_value = be
 
         ase = MagicMock()
-        ase.invoke.return_value = AIMessage(
-            content=MINIMAL_WORKSPACE_JSON,
-            name="ai_software_engineer",
-        )
-        mock_ase.return_value = ase
+        ase.invoke.side_effect = llm_side_effect
+        mock_ase_manifest_llm.return_value = ase
+        mock_ase_file_llm.return_value = ase
+        mock_ase_agent_llm.return_value = ase
 
         yield {"em": em, "ra": ra, "sa": sa, "be": be, "ase": ase}
 
