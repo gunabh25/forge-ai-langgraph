@@ -6,6 +6,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.state import ForgeState
 from core.constants import WorkflowStages
 from agents.engineering_manager.agent import EngineeringManagerAgent
+from agents.requirement_analyst.agent import RequirementAnalystAgent
 from app.router import WorkflowRouter
 from config.logging import get_logger
 
@@ -22,6 +23,20 @@ def create_engineering_manager_node(agent: EngineeringManagerAgent):
     """
     def node(state: ForgeState) -> dict:
         logger.info(f"Executing node: {WorkflowStages.ENGINEERING_MANAGEMENT}")
+        return agent.run(state)
+    return node
+
+def create_requirement_analyst_node(agent: RequirementAnalystAgent):
+    """Wrapper function to create the node for the Requirement Analyst.
+    
+    Args:
+        agent: The RequirementAnalystAgent instance.
+        
+    Returns:
+        Callable node function.
+    """
+    def node(state: ForgeState) -> dict:
+        logger.info(f"Executing node: {WorkflowStages.REQUIREMENT_ANALYSIS}")
         return agent.run(state)
     return node
 
@@ -53,9 +68,11 @@ def compile_workflow() -> CompiledStateGraph:
     
     # Instantiate the agent
     em_agent = EngineeringManagerAgent()
+    ra_agent = RequirementAnalystAgent()
     
     # Register the nodes
     workflow.add_node(WorkflowStages.ENGINEERING_MANAGEMENT, create_engineering_manager_node(em_agent))
+    workflow.add_node(WorkflowStages.REQUIREMENT_ANALYSIS, create_requirement_analyst_node(ra_agent))
     
     # Set the entry point
     workflow.set_entry_point(WorkflowStages.ENGINEERING_MANAGEMENT)
@@ -65,9 +82,17 @@ def compile_workflow() -> CompiledStateGraph:
         WorkflowStages.ENGINEERING_MANAGEMENT,
         route_next,
         {
+            END: END,
+            WorkflowStages.REQUIREMENT_ANALYSIS: WorkflowStages.REQUIREMENT_ANALYSIS
+        }
+    )
+    
+    # Register conditional edges from Requirement Analysis node
+    workflow.add_conditional_edges(
+        WorkflowStages.REQUIREMENT_ANALYSIS,
+        route_next,
+        {
             END: END
-            # Future specialist agent nodes will be registered here, e.g.:
-            # WorkflowStages.REQUIREMENT_ANALYSIS: WorkflowStages.REQUIREMENT_ANALYSIS
         }
     )
     

@@ -1,6 +1,7 @@
 """Engineering Manager Agent implementation."""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from core.llm import get_llm
 from core.prompts import load_prompt, load_examples
@@ -14,13 +15,19 @@ logger = get_logger("agents.engineering_manager")
 class EngineeringManagerAgent:
     """Engineering Manager agent responsible for orchestrating the multi-agent workflow."""
     
-    def __init__(self):
-        self.llm = get_llm()
+    def __init__(self, llm: Optional[BaseChatModel] = None):
+        self._llm = llm
         self.system_prompt = load_prompt("engineering_manager")
         try:
             self.examples = load_examples("engineering_manager")
         except FileNotFoundError:
             self.examples = ""
+            
+    @property
+    def llm(self) -> BaseChatModel:
+        if self._llm is None:
+            self._llm = get_llm()
+        return self._llm
             
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the Engineering Manager agent step.

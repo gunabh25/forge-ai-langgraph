@@ -36,10 +36,25 @@ def main() -> None:
     print(f"Current Stage: {final_state.get('current_stage')}")
     print(f"Approval Status: {final_state.get('approval_status')}")
     
+    # Print the saved artifacts
+    artifacts = final_state.get("artifacts", {})
+    if artifacts:
+        print("\n--- Saved Artifacts ---")
+        for stage, paths in artifacts.items():
+            for path in paths:
+                print(f"- {stage.capitalize()}: {path}")
+                
     messages = final_state.get("messages", [])
-    if messages:
-        print("\n--- Engineering Manager Response ---")
-        print(messages[-1].content)
+    for msg in messages:
+        sender = getattr(msg, "name", "Agent")
+        sender_title = sender.replace('_', ' ').title()
+        print(f"\n--- {sender_title} Response ---")
+        # Print a preview if it's long, or full if short
+        content = msg.content
+        if len(content) > 1000:
+            print(content[:1000] + "\n... [truncated preview] ...")
+        else:
+            print(content)
         
     print("\n--- Metadata ---")
     print(json.dumps(final_state.get("metadata", {}), indent=2))

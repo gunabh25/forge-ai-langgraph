@@ -31,8 +31,9 @@ class WorkflowRouter:
             return WorkflowStages.ENGINEERING_MANAGEMENT
             
         if current_stage == WorkflowStages.ENGINEERING_MANAGEMENT:
-            # In future milestones, this will route to WorkflowStages.REQUIREMENT_ANALYSIS.
-            # For Milestone 3, we terminate immediately.
+            return WorkflowStages.REQUIREMENT_ANALYSIS
+            
+        if current_stage == WorkflowStages.REQUIREMENT_ANALYSIS:
             return "END"
             
         # Catch-all: terminate if we reach an unknown stage

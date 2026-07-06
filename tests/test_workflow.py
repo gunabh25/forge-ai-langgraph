@@ -14,11 +14,18 @@ from core.constants import WorkflowStages, ApprovalStatuses
 @pytest.fixture
 def mock_llm_invoke():
     """Mock the LLM's invoke method to return a dummy response."""
-    with patch("agents.engineering_manager.agent.get_llm") as mock_get_llm:
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = AIMessage(content="Mock EM planning response")
-        mock_get_llm.return_value = mock_llm
-        yield mock_llm
+    with patch("agents.engineering_manager.agent.get_llm") as mock_get_llm_em, \
+         patch("agents.requirement_analyst.agent.get_llm") as mock_get_llm_ra:
+         
+        mock_llm_em = MagicMock()
+        mock_llm_em.invoke.return_value = AIMessage(content="Mock EM planning response", name="engineering_manager")
+        mock_get_llm_em.return_value = mock_llm_em
+        
+        mock_llm_ra = MagicMock()
+        mock_llm_ra.invoke.return_value = AIMessage(content="# Project Overview\n\nMock requirements specification document.", name="requirement_analyst")
+        mock_get_llm_ra.return_value = mock_llm_ra
+        
+        yield (mock_llm_em, mock_llm_ra)
 
 def test_state_validation_valid_before():
     """Test state validation before execution succeeds with valid input."""
@@ -98,7 +105,7 @@ def test_router_transitions():
     next_stage = WorkflowRouter.get_next_stage(state_initial)
     assert next_stage == WorkflowStages.ENGINEERING_MANAGEMENT
 
-    # Test routing from Engineering Management (should end for Milestone 3)
+    # Test routing from Engineering Management (should route to REQUIREMENT_ANALYSIS)
     state_em = cast(
         ForgeState,
         {
@@ -110,7 +117,21 @@ def test_router_transitions():
         }
     )
     next_stage = WorkflowRouter.get_next_stage(state_em)
-    assert next_stage == "END"
+    assert next_stage == WorkflowStages.REQUIREMENT_ANALYSIS
+
+    # Test routing from Requirement Analysis (should end for Milestone 4)
+    state_ra = cast(
+        ForgeState,
+        {
+            "user_request": "Build a chatbot",
+            "current_stage": WorkflowStages.REQUIREMENT_ANALYSIS,
+            "approval_status": "pending",
+            "messages": [],
+            "metadata": {}
+        }
+    )
+    next_stage_ra = WorkflowRouter.get_next_stage(state_ra)
+    assert next_stage_ra == "END"
 
 def test_graph_compilation(mock_llm_invoke):
     """Verify that the StateGraph compiles successfully."""
@@ -123,8 +144,10 @@ def test_workflow_execution(mock_llm_invoke):
     final_state = workflow.execute("Build a simple FastAPI todo API")
 
     # Verify key state values are updated
-    assert final_state["current_stage"] == WorkflowStages.ENGINEERING_MANAGEMENT
+    assert final_state["current_stage"] == WorkflowStages.REQUIREMENT_ANALYSIS
     assert final_state["approval_status"] == ApprovalStatuses.PENDING
-    assert len(final_state["messages"]) == 1
+    assert len(final_state["messages"]) == 2
     assert final_state["messages"][0].content == "Mock EM planning response"
+    assert final_state["messages"][1].content == "# Project Overview\n\nMock requirements specification document."
     assert final_state["metadata"]["engineering_manager_analysis_completed"] is True
+    assert final_state["metadata"]["requirement_analysis_completed"] is True

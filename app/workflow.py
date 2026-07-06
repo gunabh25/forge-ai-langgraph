@@ -62,5 +62,5 @@ class ForgeWorkflow:
         logger.info("Validating final state after execution...")
         validate_forge_state(final_state, is_before_execution=False)
         
-        logger.info("ForgeAI workflow finished successfully.")
+        logger.info("Workflow finished")
         return final_state
