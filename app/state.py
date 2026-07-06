@@ -47,6 +47,24 @@ def merge_approval_history(left: List[Dict[str, Any]], right: List[Dict[str, Any
     """Reducer function to merge approval history logs in LangGraph."""
     return (left or []) + (right or [])
 
+def merge_generated_files(left: Dict[str, str], right: Dict[str, str]) -> Dict[str, str]:
+    """Reducer function to merge generated workspace file registries in LangGraph.
+    
+    Keys are relative file paths (e.g. 'src/controllers/user.py') and values
+    are the file source code strings. Right-side values overwrite left-side
+    values for the same key, allowing retries to update individual files.
+    
+    Args:
+        left: Existing generated files map.
+        right: New or updated generated files.
+        
+    Returns:
+        Merged file registry.
+    """
+    merged = (left or {}).copy()
+    merged.update(right or {})
+    return merged
+
 class ForgeState(TypedDict):
     """Central shared state dictionary for the ForgeAI LangGraph workflow."""
     
@@ -67,6 +85,9 @@ class ForgeState(TypedDict):
     security_report: Optional[str]
     review_report: Optional[str]
     deployment_blueprint: Optional[str]
+    
+    # Generated workspace: relative path → file source code
+    generated_files: Annotated[Dict[str, str], merge_generated_files]
     
     # Reducer-managed tracking collections
     artifacts: Annotated[Dict[str, List[str]], merge_artifacts]

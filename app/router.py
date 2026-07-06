@@ -45,6 +45,9 @@ class WorkflowRouter:
                 return "END"
                 
         if current_stage == WorkflowStages.BACKEND_ENGINEERING:
+            return WorkflowStages.AI_SOFTWARE_ENGINEERING
+
+        if current_stage == WorkflowStages.AI_SOFTWARE_ENGINEERING:
             return "END"
             
         # Catch-all: terminate if we reach an unknown stage

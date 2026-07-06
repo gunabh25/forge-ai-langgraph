@@ -29,11 +29,19 @@ class SimulatedApprovalInterface(ApprovalInterface):
 
 @pytest.fixture
 def mock_all_agent_llms():
-    """Mock LLMs for EM, RA, SA, and BE agents."""
+    """Mock LLMs for EM, RA, SA, BE, and ASE agents."""
+    import json
+    ase_workspace = json.dumps({
+        "src/main.py": "# main\n",
+        "Dockerfile": "FROM python:3.12-slim\n",
+        "README.md": "# App\n",
+    })
+
     with patch("agents.engineering_manager.agent.get_llm") as mock_em, \
          patch("agents.requirement_analyst.agent.get_llm") as mock_ra, \
          patch("agents.solution_architect.agent.get_llm") as mock_sa, \
-         patch("agents.backend_engineer.agent.get_llm") as mock_be:
+         patch("agents.backend_engineer.agent.get_llm") as mock_be, \
+         patch("agents.ai_software_engineer.agent.get_llm") as mock_ase:
          
         # EM
         em_inst = MagicMock()
@@ -57,12 +65,18 @@ def mock_all_agent_llms():
         be_inst = MagicMock()
         be_inst.invoke.return_value = AIMessage(content="# Executive Summary\n\nBackend blueprint docs.", name="backend_engineer")
         mock_be.return_value = be_inst
+
+        # ASE
+        ase_inst = MagicMock()
+        ase_inst.invoke.return_value = AIMessage(content=ase_workspace, name="ai_software_engineer")
+        mock_ase.return_value = ase_inst
         
         yield {
             "em": em_inst,
             "ra": ra_inst,
             "sa": sa_inst,
-            "be": be_inst
+            "be": be_inst,
+            "ase": ase_inst,
         }
 
 def test_backend_engineer_initialization():
@@ -171,15 +185,16 @@ def test_workflow_execution_approved(temp_artifact_dir, mock_all_agent_llms):
         final_state = workflow.execute("Build a simple FastAPI todo API")
         
         # Verify transitions and final state
-        assert final_state["current_stage"] == WorkflowStages.BACKEND_ENGINEERING
+        assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
         assert final_state["approval_status"] == ApprovalStatuses.APPROVED
-        assert len(final_state["messages"]) == 4
+        assert len(final_state["messages"]) == 5
         
         # Check messages list
         assert final_state["messages"][0].name == "engineering_manager"
         assert final_state["messages"][1].name == "requirement_analyst"
         assert final_state["messages"][2].name == "solution_architect"
         assert final_state["messages"][3].name == "backend_engineer"
+        assert final_state["messages"][4].name == "ai_software_engineer"
         
         # Verify history logs
         assert len(final_state["approval_history"]) == 1
@@ -229,7 +244,7 @@ def test_workflow_execution_changes_requested(temp_artifact_dir, mock_all_agent_
         final_state = workflow.execute("Build a simple FastAPI todo API")
         
         # Verify transitions and final state
-        assert final_state["current_stage"] == WorkflowStages.BACKEND_ENGINEERING
+        assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
         assert final_state["approval_status"] == ApprovalStatuses.APPROVED
         
         # Verify approval history logs both decisions
@@ -238,15 +253,14 @@ def test_workflow_execution_changes_requested(temp_artifact_dir, mock_all_agent_
         assert final_state["approval_history"][0]["feedback"] == "Add Redis caching."
         assert final_state["approval_history"][1]["decision"] == ApprovalStatuses.APPROVED
         
-        # Check messages: EM, RA, SA (first try), SA (revised try), BE
-        # Wait, since the graph loops back, SA node runs twice!
-        # Thus the message list should have: EM, RA, SA (v1), SA (v2), BE
-        assert len(final_state["messages"]) == 5
+        # Check messages: EM, RA, SA (first try), SA (revised try), BE, ASE
+        assert len(final_state["messages"]) == 6
         assert final_state["messages"][0].name == "engineering_manager"
         assert final_state["messages"][1].name == "requirement_analyst"
         assert final_state["messages"][2].name == "solution_architect"
         assert final_state["messages"][3].name == "solution_architect"
         assert final_state["messages"][4].name == "backend_engineer"
+        assert final_state["messages"][5].name == "ai_software_engineer"
         
         # Verify that both versions of architecture were saved
         assert len(final_state["artifacts"]["architecture"]) == 2

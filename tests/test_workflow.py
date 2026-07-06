@@ -15,10 +15,18 @@ from core.approval import ApprovalInterface, ApprovalResult
 @pytest.fixture
 def mock_llm_invoke():
     """Mock the LLM's invoke method to return a dummy response."""
+    import json
+    ase_workspace = json.dumps({
+        "src/main.py": "# main\n",
+        "Dockerfile": "FROM python:3.12-slim\n",
+        "README.md": "# App\n",
+    })
+
     with patch("agents.engineering_manager.agent.get_llm") as mock_get_llm_em, \
          patch("agents.requirement_analyst.agent.get_llm") as mock_get_llm_ra, \
          patch("agents.solution_architect.agent.get_llm") as mock_get_llm_sa, \
-         patch("agents.backend_engineer.agent.get_llm") as mock_get_llm_be:
+         patch("agents.backend_engineer.agent.get_llm") as mock_get_llm_be, \
+         patch("agents.ai_software_engineer.agent.get_llm") as mock_get_llm_ase:
          
         mock_llm_em = MagicMock()
         mock_llm_em.invoke.return_value = AIMessage(content="Mock EM planning response", name="engineering_manager")
@@ -35,8 +43,12 @@ def mock_llm_invoke():
         mock_llm_be = MagicMock()
         mock_llm_be.invoke.return_value = AIMessage(content="# Executive Summary\n\nMock backend blueprint document.", name="backend_engineer")
         mock_get_llm_be.return_value = mock_llm_be
+
+        mock_llm_ase = MagicMock()
+        mock_llm_ase.invoke.return_value = AIMessage(content=ase_workspace, name="ai_software_engineer")
+        mock_get_llm_ase.return_value = mock_llm_ase
         
-        yield (mock_llm_em, mock_llm_ra, mock_llm_sa, mock_llm_be)
+        yield (mock_llm_em, mock_llm_ra, mock_llm_sa, mock_llm_be, mock_llm_ase)
 
 def test_state_validation_valid_before():
     """Test state validation before execution succeeds with valid input."""
@@ -197,7 +209,7 @@ def test_router_transitions():
     )
     assert WorkflowRouter.get_next_stage(state_rejected) == "END"
 
-    # Test routing from Backend Engineering (should end)
+    # Test routing from Backend Engineering (should route to AI_SOFTWARE_ENGINEERING)
     state_be = cast(
         ForgeState,
         {
@@ -208,7 +220,20 @@ def test_router_transitions():
             "metadata": {}
         }
     )
-    assert WorkflowRouter.get_next_stage(state_be) == "END"
+    assert WorkflowRouter.get_next_stage(state_be) == WorkflowStages.AI_SOFTWARE_ENGINEERING
+
+    # Test routing from AI Software Engineering (should end)
+    state_ase = cast(
+        ForgeState,
+        {
+            "user_request": "Build a chatbot",
+            "current_stage": WorkflowStages.AI_SOFTWARE_ENGINEERING,
+            "approval_status": "approved",
+            "messages": [],
+            "metadata": {}
+        }
+    )
+    assert WorkflowRouter.get_next_stage(state_ase) == "END"
 
 def test_graph_compilation(mock_llm_invoke):
     """Verify that the StateGraph compiles successfully."""
@@ -219,20 +244,23 @@ class MockApproval(ApprovalInterface):
     def request_approval(self, stage: str, context: Dict[str, Any]) -> ApprovalResult:
         return ApprovalResult(status=ApprovalStatuses.APPROVED)
 
-def test_workflow_execution(mock_llm_invoke):
+def test_workflow_execution(tmp_path, mock_llm_invoke):
     """Verify workflow initialization, execution, and output state."""
-    workflow = ForgeWorkflow(approval_interface=MockApproval())
-    final_state = workflow.execute("Build a simple FastAPI todo API")
+    with patch("app.settings.settings.ARTIFACT_ROOT", new=str(tmp_path)):
+        workflow = ForgeWorkflow(approval_interface=MockApproval())
+        final_state = workflow.execute("Build a simple FastAPI todo API")
 
     # Verify key state values are updated
-    assert final_state["current_stage"] == WorkflowStages.BACKEND_ENGINEERING
+    assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
     assert final_state["approval_status"] == ApprovalStatuses.APPROVED
-    assert len(final_state["messages"]) == 4
+    assert len(final_state["messages"]) == 5
     assert final_state["messages"][0].content == "Mock EM planning response"
     assert final_state["messages"][1].content == "# Project Overview\n\nMock requirements specification document."
     assert final_state["messages"][2].content == "# Executive Summary\n\nMock architecture specification document."
     assert final_state["messages"][3].content == "# Executive Summary\n\nMock backend blueprint document."
+    assert final_state["messages"][4].name == "ai_software_engineer"
     assert final_state["metadata"]["engineering_manager_analysis_completed"] is True
     assert final_state["metadata"]["requirement_analysis_completed"] is True
     assert final_state["metadata"]["solution_architecture_completed"] is True
     assert final_state["metadata"]["backend_engineering_completed"] is True
+    assert final_state["metadata"]["ai_software_engineering_completed"] is True

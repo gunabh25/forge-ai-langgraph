@@ -1,3 +1,5 @@
+"""LangGraph StateGraph workflow definition and compilation."""
+
 from typing import Any, Optional
 from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
@@ -7,6 +9,7 @@ from agents.engineering_manager.agent import EngineeringManagerAgent
 from agents.requirement_analyst.agent import RequirementAnalystAgent
 from agents.solution_architect.agent import SolutionArchitectAgent
 from agents.backend_engineer.agent import BackendEngineerAgent
+from agents.ai_software_engineer.agent import AISoftwareEngineerAgent
 from core.approval import CLIApproval, ApprovalInterface
 from app.router import WorkflowRouter
 from config.logging import get_logger
@@ -108,6 +111,20 @@ def create_backend_engineer_node(agent: BackendEngineerAgent):
         return agent.run(state)
     return node
 
+def create_ai_software_engineer_node(agent: AISoftwareEngineerAgent):
+    """Wrapper function to create the node for the AI Software Engineer.
+    
+    Args:
+        agent: The AISoftwareEngineerAgent instance.
+        
+    Returns:
+        Callable node function.
+    """
+    def node(state: ForgeState) -> dict:
+        logger.info(f"Executing node: {WorkflowStages.AI_SOFTWARE_ENGINEERING}")
+        return agent.run(state)
+    return node
+
 def route_next(state: ForgeState) -> str:
     """Conditional router function for LangGraph.
     
@@ -142,6 +159,7 @@ def compile_workflow(approval_interface: Optional[ApprovalInterface] = None) -> 
     ra_agent = RequirementAnalystAgent()
     sa_agent = SolutionArchitectAgent()
     be_agent = BackendEngineerAgent()
+    ase_agent = AISoftwareEngineerAgent()
     
     # Register the nodes
     workflow.add_node(WorkflowStages.ENGINEERING_MANAGEMENT, create_engineering_manager_node(em_agent))
@@ -149,6 +167,7 @@ def compile_workflow(approval_interface: Optional[ApprovalInterface] = None) -> 
     workflow.add_node(WorkflowStages.SOLUTION_ARCHITECTURE, create_solution_architect_node(sa_agent))
     workflow.add_node(WorkflowStages.HUMAN_APPROVAL, create_human_approval_node(approval_interface))
     workflow.add_node(WorkflowStages.BACKEND_ENGINEERING, create_backend_engineer_node(be_agent))
+    workflow.add_node(WorkflowStages.AI_SOFTWARE_ENGINEERING, create_ai_software_engineer_node(ase_agent))
     
     # Set the entry point
     workflow.set_entry_point(WorkflowStages.ENGINEERING_MANAGEMENT)
@@ -197,6 +216,16 @@ def compile_workflow(approval_interface: Optional[ApprovalInterface] = None) -> 
     # Register conditional edges from Backend Engineering node
     workflow.add_conditional_edges(
         WorkflowStages.BACKEND_ENGINEERING,
+        route_next,
+        {
+            END: END,
+            WorkflowStages.AI_SOFTWARE_ENGINEERING: WorkflowStages.AI_SOFTWARE_ENGINEERING
+        }
+    )
+    
+    # Register conditional edges from AI Software Engineering node
+    workflow.add_conditional_edges(
+        WorkflowStages.AI_SOFTWARE_ENGINEERING,
         route_next,
         {
             END: END

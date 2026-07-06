@@ -40,6 +40,7 @@ class ForgeWorkflow:
             "security_report": None,
             "review_report": None,
             "deployment_blueprint": None,
+            "generated_files": {},
             "artifacts": {},
             "messages": [],
             "metadata": {
