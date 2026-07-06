@@ -1,13 +1,25 @@
-.venv/
+# Environment
 .env
+.venv/
 __pycache__/
 .pytest_cache/
+
+# IDE
 .vscode/
-.idea/
-artifacts/*.tmp
-*.pyc
+
+# Logs
 *.log
+
+# Generated Artifacts
 artifacts/**
+
+# Keep only demo artifacts
+!artifacts/
+!artifacts/demo/
 !artifacts/demo/**
+
+# Generated code
 generated/
-logs/
+
+# OS
+.DS_Store
