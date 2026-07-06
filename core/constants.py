@@ -10,6 +10,7 @@ class WorkflowStages:
     SECURITY_AUDIT = "security_audit"
     CODE_REVIEW = "code_review"
     DEVOPS_ENGINEERING = "devops_engineering"
+    HUMAN_APPROVAL = "human_approval"
 
 class AgentNames:
     ENGINEERING_MANAGER = "engineering_manager"

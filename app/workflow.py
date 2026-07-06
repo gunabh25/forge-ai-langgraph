@@ -1,6 +1,6 @@
 """Workflow entry point for executing the ForgeAI StateGraph."""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.graph import compile_workflow
 from app.state import validate_forge_state, ForgeState
 from config.logging import get_logger
@@ -12,8 +12,8 @@ logger = get_logger("app.workflow")
 class ForgeWorkflow:
     """Entry point for executing the ForgeAI multi-agent workflow."""
     
-    def __init__(self):
-        self.workflow = compile_workflow()
+    def __init__(self, approval_interface: Optional[Any] = None):
+        self.workflow = compile_workflow(approval_interface)
         
     def execute(self, user_request: str) -> Dict[str, Any]:
         """Initializes and runs the StateGraph for a given user request.
@@ -31,6 +31,7 @@ class ForgeWorkflow:
             "user_request": user_request,
             "current_stage": "",
             "approval_status": ApprovalStatuses.PENDING,
+            "approval_history": [],
             "requirements": None,
             "architecture": None,
             "backend_blueprint": None,

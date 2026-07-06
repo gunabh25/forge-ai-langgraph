@@ -1,6 +1,7 @@
 """Unit and integration tests for the RequirementAnalystAgent and workflow integration."""
 
 import os
+from typing import Dict, Any
 import pytest
 from unittest.mock import MagicMock, patch
 from langchain_core.messages import AIMessage
@@ -9,6 +10,7 @@ from app.state import ForgeState
 from app.workflow import ForgeWorkflow
 from core.constants import WorkflowStages, ApprovalStatuses
 from core.artifact_manager import ArtifactManager
+from core.approval import ApprovalInterface, ApprovalResult
 
 @pytest.fixture
 def temp_artifact_dir(tmp_path):
@@ -17,10 +19,11 @@ def temp_artifact_dir(tmp_path):
 
 @pytest.fixture
 def mock_llm_responses():
-    """Mock the LLMs for EM, RA, and SA agents."""
+    """Mock the LLMs for EM, RA, SA, and BE agents."""
     with patch("agents.engineering_manager.agent.get_llm") as mock_em_llm, \
          patch("agents.requirement_analyst.agent.get_llm") as mock_ra_llm, \
-         patch("agents.solution_architect.agent.get_llm") as mock_sa_llm:
+         patch("agents.solution_architect.agent.get_llm") as mock_sa_llm, \
+         patch("agents.backend_engineer.agent.get_llm") as mock_be_llm:
          
         # Mock EM response
         em_instance = MagicMock()
@@ -46,10 +49,19 @@ def mock_llm_responses():
         )
         mock_sa_llm.return_value = sa_instance
         
+        # Mock BE response
+        be_instance = MagicMock()
+        be_instance.invoke.return_value = AIMessage(
+            content="# Executive Summary\n\nMock backend blueprint document.",
+            name="backend_engineer"
+        )
+        mock_be_llm.return_value = be_instance
+        
         yield {
             "em": em_instance,
             "ra": ra_instance,
-            "sa": sa_instance
+            "sa": sa_instance,
+            "be": be_instance
         }
 
 def test_requirement_analyst_initialization():
@@ -64,6 +76,7 @@ def test_requirement_analyst_run(temp_artifact_dir, mock_llm_responses):
     # Override artifact manager's root_dir to use the temp directory
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
     
+    # pyrefly: ignore [bad-typed-dict-key]
     state: ForgeState = {
         "user_request": "Build a library management system",
         "current_stage": WorkflowStages.ENGINEERING_MANAGEMENT,
@@ -104,6 +117,7 @@ def test_version_increment_non_overwriting(temp_artifact_dir, mock_llm_responses
     agent = RequirementAnalystAgent()
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
     
+    # pyrefly: ignore [bad-typed-dict-key]
     state: ForgeState = {
         "user_request": "Build a library management system",
         "current_stage": WorkflowStages.ENGINEERING_MANAGEMENT,
@@ -138,41 +152,52 @@ def test_version_increment_non_overwriting(temp_artifact_dir, mock_llm_responses
     assert os.path.exists(path_2)
     assert path_1 != path_2
 
+class MockApproval(ApprovalInterface):
+    def request_approval(self, stage: str, context: Dict[str, Any]) -> ApprovalResult:
+        return ApprovalResult(status=ApprovalStatuses.APPROVED)
+
 def test_workflow_execution_integration(temp_artifact_dir, mock_llm_responses):
-    """Verify end-to-end workflow execution routes EM -> RA -> SA -> END and stores artifacts."""
+    """Verify end-to-end workflow execution routes EM -> RA -> SA -> HUMAN_APPROVAL -> BE -> END."""
     # We want to test the compiled graph's routing.
     # We patch settings.ARTIFACT_ROOT to write to temp_artifact_dir.
     with patch("app.settings.settings.ARTIFACT_ROOT", new=temp_artifact_dir):
         
-        workflow = ForgeWorkflow()
+        workflow = ForgeWorkflow(approval_interface=MockApproval())
         final_state = workflow.execute("Build a simple FastAPI todo API")
         
         # Verify transitions and final state
-        assert final_state["current_stage"] == WorkflowStages.SOLUTION_ARCHITECTURE
-        assert final_state["approval_status"] == ApprovalStatuses.PENDING
-        assert len(final_state["messages"]) == 3
+        assert final_state["current_stage"] == WorkflowStages.BACKEND_ENGINEERING
+        assert final_state["approval_status"] == ApprovalStatuses.APPROVED
+        assert len(final_state["messages"]) == 4
         
-        # First message from EM, second from RA, third from SA
+        # First message from EM, second from RA, third from SA, fourth from BE
         assert final_state["messages"][0].name == "engineering_manager"
         assert final_state["messages"][1].name == "requirement_analyst"
         assert final_state["messages"][2].name == "solution_architect"
+        assert final_state["messages"][3].name == "backend_engineer"
         
         # Verify artifact list
         assert "requirements" in final_state["artifacts"]
         assert "architecture" in final_state["artifacts"]
+        assert "backend" in final_state["artifacts"]
         
         saved_req_path = final_state["artifacts"]["requirements"][0]
         saved_arch_path = final_state["artifacts"]["architecture"][0]
+        saved_back_path = final_state["artifacts"]["backend"][0]
         
         assert os.path.exists(saved_req_path)
         assert os.path.exists(saved_arch_path)
+        assert os.path.exists(saved_back_path)
         assert "requirements_v1.md" in saved_req_path
         assert "architecture_v1.md" in saved_arch_path
+        assert "backend_blueprint_v1.md" in saved_back_path
         
         assert final_state["requirements"] is not None
         assert final_state["architecture"] is not None
+        assert final_state["backend_blueprint"] is not None
         
         # Verify metadata
         assert final_state["metadata"].get("engineering_manager_analysis_completed") is True
         assert final_state["metadata"].get("requirement_analysis_completed") is True
         assert final_state["metadata"].get("solution_architecture_completed") is True
+        assert final_state["metadata"].get("backend_engineering_completed") is True

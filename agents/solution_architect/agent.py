@@ -65,6 +65,15 @@ class SolutionArchitectAgent:
         if em_analysis:
             human_content += f"\n\nEngineering Manager Initial Context & Guidance:\n{em_analysis}"
             
+        # Check for changes requested feedback
+        approval_history = state.get("approval_history", [])
+        if approval_history:
+            latest_approval = approval_history[-1]
+            if latest_approval.get("decision") == ApprovalStatuses.CHANGES_REQUESTED:
+                feedback = latest_approval.get("feedback")
+                logger.info(f"Retrying architecture generation with human feedback: {feedback}")
+                human_content += f"\n\n⚠️ REVISION REQUESTED BY USER:\n{feedback}\n\nPlease revise the architecture specification addressing this feedback."
+            
         messages = [
             SystemMessage(content=prompt_content),
             HumanMessage(content=human_content)

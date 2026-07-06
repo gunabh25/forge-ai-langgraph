@@ -1,7 +1,7 @@
 """Workflow router for determining LangGraph stage transitions."""
 
 from typing import Dict, Any, List, Optional
-from core.constants import WorkflowStages
+from core.constants import WorkflowStages, ApprovalStatuses
 from app.state import ForgeState
 from config.logging import get_logger
 
@@ -13,10 +13,6 @@ class WorkflowRouter:
     @staticmethod
     def get_next_stage(state: ForgeState) -> str:
         """Determines the next stage based on the current state.
-        
-        For Milestone 3:
-        Initially supports: ENGINEERING_MANAGEMENT -> END.
-        Designed for future expansion to route through the standard SDLC path.
         
         Args:
             state: The current ForgeState.
@@ -37,6 +33,18 @@ class WorkflowRouter:
             return WorkflowStages.SOLUTION_ARCHITECTURE
             
         if current_stage == WorkflowStages.SOLUTION_ARCHITECTURE:
+            return WorkflowStages.HUMAN_APPROVAL
+            
+        if current_stage == WorkflowStages.HUMAN_APPROVAL:
+            approval_status = state.get("approval_status")
+            if approval_status == ApprovalStatuses.APPROVED:
+                return WorkflowStages.BACKEND_ENGINEERING
+            elif approval_status == ApprovalStatuses.CHANGES_REQUESTED:
+                return WorkflowStages.SOLUTION_ARCHITECTURE
+            else:
+                return "END"
+                
+        if current_stage == WorkflowStages.BACKEND_ENGINEERING:
             return "END"
             
         # Catch-all: terminate if we reach an unknown stage

@@ -43,6 +43,10 @@ def merge_metadata(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any
         merged.update(right)
     return merged
 
+def merge_approval_history(left: List[Dict[str, Any]], right: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Reducer function to merge approval history logs in LangGraph."""
+    return (left or []) + (right or [])
+
 class ForgeState(TypedDict):
     """Central shared state dictionary for the ForgeAI LangGraph workflow."""
     
@@ -52,6 +56,7 @@ class ForgeState(TypedDict):
     
     # Gating and status flags
     approval_status: str  # e.g., "pending", "approved", "rejected", "changes_requested"
+    approval_history: Annotated[List[Dict[str, Any]], merge_approval_history]
     
     # Core stage outputs (Markdown content)
     requirements: Optional[str]
