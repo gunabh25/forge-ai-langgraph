@@ -2,9 +2,6 @@
 from dotenv import load_dotenv
 
 load_dotenv()
-import os
-
-print("GOOGLE_API_KEY:", os.getenv("GOOGLE_API_KEY"))
 
 import sys
 import json
