@@ -104,6 +104,19 @@ class ForgeState(TypedDict):
     # Quality gate decision (set by quality_gate node)
     quality_gate_status: Optional[str]
     
+    # Final Project Report and Metrics
+    production_readiness_report: Optional[str]
+    production_readiness_score: Optional[int]
+    final_report: Optional[str]
+    project_status: Optional[str]
+    generated_artifacts_count: Optional[int]
+    generated_files_count: Optional[int]
+    workflow_execution_time: Optional[str]
+    agents_executed: Optional[int]
+    parallel_executions: Optional[int]
+    approval_gates_completed: Optional[int]
+    estimated_time_saved: Optional[str]
+    
     # Reducer-managed tracking collections
     artifacts: Annotated[Dict[str, List[str]], merge_artifacts]
     messages: Annotated[List[BaseMessage], add_messages]

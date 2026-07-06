@@ -14,6 +14,9 @@ from core.approval import CLIApproval, ApprovalInterface
 from app.router import WorkflowRouter
 from config.logging import get_logger
 from core.utils import generate_timestamp
+from core.constants import WorkflowStages, ArtifactNames, ArtifactFolders
+from core.artifact_manager import ArtifactManager
+from core.report_generator import ReportGenerator
 
 logger = get_logger("app.graph")
 
@@ -125,6 +128,45 @@ def create_ai_software_engineer_node(agent: AISoftwareEngineerAgent):
         return agent.run(state)
     return node
 
+def create_final_report_node():
+    """Wrapper function to create the node for Final Report Generation."""
+    artifact_manager = ArtifactManager()
+    
+    def node(state: ForgeState) -> dict:
+        logger.info(f"Executing node: {WorkflowStages.FINAL_REPORT_GENERATION}")
+        
+        # Generate report content
+        report_content = ReportGenerator.generate(state)
+        
+        # Save artifact
+        saved_path = artifact_manager.save_artifact(
+            stage=ArtifactFolders.REPORTS,
+            base_name=ArtifactNames.FINAL_REPORT,
+            content=report_content,
+            ext="md"
+        )
+        
+        # Calculate metrics for state
+        metrics = ReportGenerator.calculate_metrics(state)
+        
+        # Return state updates
+        return {
+            "final_report": report_content,
+            "artifacts": {
+                ArtifactFolders.REPORTS: [saved_path]
+            },
+            "current_stage": WorkflowStages.FINAL_REPORT_GENERATION,
+            "project_status": metrics["project_status"],
+            "generated_artifacts_count": metrics["generated_artifacts_count"],
+            "generated_files_count": metrics["generated_files_count"],
+            "workflow_execution_time": metrics["workflow_execution_time"],
+            "agents_executed": metrics["agents_executed"],
+            "parallel_executions": metrics["parallel_executions"],
+            "approval_gates_completed": metrics["approval_gates_completed"],
+            "estimated_time_saved": metrics["estimated_time_saved"]
+        }
+    return node
+
 def route_next(state: ForgeState) -> str:
     """Conditional router function for LangGraph.
     
@@ -168,6 +210,7 @@ def compile_workflow(approval_interface: Optional[ApprovalInterface] = None) -> 
     workflow.add_node(WorkflowStages.HUMAN_APPROVAL, create_human_approval_node(approval_interface))
     workflow.add_node(WorkflowStages.BACKEND_ENGINEERING, create_backend_engineer_node(be_agent))
     workflow.add_node(WorkflowStages.AI_SOFTWARE_ENGINEERING, create_ai_software_engineer_node(ase_agent))
+    workflow.add_node(WorkflowStages.FINAL_REPORT_GENERATION, create_final_report_node())
     
     # Set the entry point
     workflow.set_entry_point(WorkflowStages.ENGINEERING_MANAGEMENT)
@@ -226,6 +269,16 @@ def compile_workflow(approval_interface: Optional[ApprovalInterface] = None) -> 
     # Register conditional edges from AI Software Engineering node
     workflow.add_conditional_edges(
         WorkflowStages.AI_SOFTWARE_ENGINEERING,
+        route_next,
+        {
+            END: END,
+            WorkflowStages.FINAL_REPORT_GENERATION: WorkflowStages.FINAL_REPORT_GENERATION
+        }
+    )
+    
+    # Register conditional edges from Final Report Generation node
+    workflow.add_conditional_edges(
+        WorkflowStages.FINAL_REPORT_GENERATION,
         route_next,
         {
             END: END

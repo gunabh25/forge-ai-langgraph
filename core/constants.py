@@ -12,6 +12,8 @@ class WorkflowStages:
     VALIDATION_SUMMARY = "validation_summary"
     QUALITY_GATE = "quality_gate"
     DEVOPS_ENGINEERING = "devops_engineering"
+    PRODUCTION_READINESS = "production_readiness"
+    FINAL_REPORT_GENERATION = "final_report_generation"
     HUMAN_APPROVAL = "human_approval"
 
 class AgentNames:
@@ -42,6 +44,8 @@ class ArtifactNames:
     VALIDATION_SUMMARY = "validation_summary"
     QUALITY_REPORT = "quality_report"
     DEPLOYMENT_BLUEPRINT = "deployment_blueprint"
+    PRODUCTION_READINESS_REPORT = "production_readiness_report"
+    FINAL_REPORT = "forgeai_final_report"
 
 class ArtifactFolders:
     REQUIREMENTS = "requirements"
@@ -54,6 +58,7 @@ class ArtifactFolders:
     VALIDATION = "validation"
     QUALITY = "quality"
     DEPLOYMENT = "deployment"
+    REPORTS = "reports"
 
 class ModelDefaults:
     GEMINI_MODEL = "gemini-2.5-flash"
