@@ -1,4 +1,7 @@
 """Main entry point for ForgeAI CLI."""
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import sys
 import json
