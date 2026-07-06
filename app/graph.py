@@ -164,11 +164,15 @@ def route_next(state: ForgeState) -> str:
         return END
     return next_stage
 
-def compile_workflow(approval_interface: Optional[ApprovalInterface] = None) -> CompiledStateGraph:
+def compile_workflow(
+    approval_interface: Optional[ApprovalInterface] = None,
+    quality_gate_interface: Optional[Any] = None
+) -> CompiledStateGraph:
     """Build, configure, and compile the StateGraph.
     
     Args:
         approval_interface: Optional custom approval interface to use for human approval gate.
+        quality_gate_interface: Optional custom quality gate interface.
         
     Returns:
         Compiled LangGraph StateGraph workflow.

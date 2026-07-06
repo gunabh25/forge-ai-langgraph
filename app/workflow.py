@@ -17,8 +17,12 @@ logger = get_logger("app.workflow")
 class ForgeWorkflow:
     """Entry point for executing the ForgeAI multi-agent workflow."""
     
-    def __init__(self, approval_interface: Optional[Any] = None):
-        self.workflow = compile_workflow(approval_interface)
+    def __init__(
+        self, 
+        approval_interface: Optional[Any] = None,
+        quality_gate_interface: Optional[Any] = None
+    ):
+        self.workflow = compile_workflow(approval_interface, quality_gate_interface)
         
     def execute(self, user_request: str) -> Dict[str, Any]:
         """Initializes and runs the StateGraph for a given user request.

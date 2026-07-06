@@ -62,6 +62,8 @@ class ArtifactPreview:
         c.print("──────────────────────────────\n")
         
         # Prompt to open
+        if "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("DEMO_MODE") == "1" or not __import__("sys").stdin.isatty():
+            return
         try:
             choice = input(f"Open this artifact? [Y] Yes / [N] No: ").strip().lower()
             if choice == "y":

@@ -222,7 +222,7 @@ def test_router_transitions():
     )
     assert WorkflowRouter.get_next_stage(state_be) == WorkflowStages.AI_SOFTWARE_ENGINEERING
 
-    # Test routing from AI Software Engineering (should end)
+    # Test routing from AI Software Engineering (should route to FINAL_REPORT_GENERATION)
     state_ase = cast(
         ForgeState,
         {
@@ -233,7 +233,7 @@ def test_router_transitions():
             "metadata": {}
         }
     )
-    assert WorkflowRouter.get_next_stage(state_ase) == "END"
+    assert WorkflowRouter.get_next_stage(state_ase) == WorkflowStages.FINAL_REPORT_GENERATION
 
 def test_graph_compilation(mock_llm_invoke):
     """Verify that the StateGraph compiles successfully."""
@@ -251,7 +251,7 @@ def test_workflow_execution(tmp_path, mock_llm_invoke):
         final_state = workflow.execute("Build a simple FastAPI todo API")
 
     # Verify key state values are updated
-    assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
+    assert final_state["current_stage"] == WorkflowStages.FINAL_REPORT_GENERATION
     assert final_state["approval_status"] == ApprovalStatuses.APPROVED
     assert len(final_state["messages"]) == 5
     assert final_state["messages"][0].content == "Mock EM planning response"

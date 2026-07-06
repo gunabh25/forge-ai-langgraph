@@ -183,7 +183,7 @@ def test_workflow_execution_integration(temp_artifact_dir, mock_llm_responses):
         final_state = workflow.execute("Build a simple FastAPI todo API")
         
         # Verify transitions and final state
-        assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
+        assert final_state["current_stage"] == WorkflowStages.FINAL_REPORT_GENERATION
         assert final_state["approval_status"] == ApprovalStatuses.APPROVED
         assert len(final_state["messages"]) == 5
         

@@ -1,0 +1,15 @@
+graph TD
+    User --> EngineeringManager
+    EngineeringManager --> RequirementAnalyst
+    RequirementAnalyst --> SolutionArchitect
+    SolutionArchitect --> BackendEngineer
+    BackendEngineer --> AISoftwareEngineer
+    AISoftwareEngineer --> QA
+    AISoftwareEngineer --> Security
+    AISoftwareEngineer --> CodeReviewer
+    QA --> ValidationSummary
+    Security --> ValidationSummary
+    CodeReviewer --> ValidationSummary
+    ValidationSummary --> QualityGate
+    QualityGate --> DevOps
+    DevOps --> FinalReport

@@ -144,6 +144,14 @@ class CLIApproval(ApprovalInterface):
             else:
                 print("Invalid input. Please enter 1, 2, or 3.")
 
+class AutoApproval(ApprovalInterface):
+    """Automatic approval utility for demo and testing environments."""
+    
+    def request_approval(self, stage: str, context: Dict[str, Any]) -> ApprovalResult:
+        """Automatically approves the given stage without interaction."""
+        logger.info(f"Auto-approved stage: {stage}")
+        return ApprovalResult(status=ApprovalStatuses.APPROVED, feedback="Auto-approved for demo/test mode.")
+
 
 class QualityGateInterface(ABC):
     """Abstract interface for the Quality Gate approval checkpoint.
@@ -240,4 +248,12 @@ class CLIQualityGate(QualityGateInterface):
                 )
             else:
                 print("Invalid input. Please enter 1, 2, or 3.")
+
+class AutoQualityGate(QualityGateInterface):
+    """Automatic Quality Gate approval utility for demo and testing environments."""
+    
+    def request_gate(self, context: Dict[str, Any]) -> ApprovalResult:
+        """Automatically approves the quality gate without interaction."""
+        logger.info("Auto-approved quality gate")
+        return ApprovalResult(status=ApprovalStatuses.APPROVED, feedback="Auto-approved for demo/test mode.")
 

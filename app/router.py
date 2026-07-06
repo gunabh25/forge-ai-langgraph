@@ -48,7 +48,7 @@ class WorkflowRouter:
             return WorkflowStages.AI_SOFTWARE_ENGINEERING
 
         if current_stage == WorkflowStages.AI_SOFTWARE_ENGINEERING:
-            return "END"
+            return WorkflowStages.FINAL_REPORT_GENERATION
             
         if current_stage == WorkflowStages.PRODUCTION_READINESS:
             return WorkflowStages.FINAL_REPORT_GENERATION

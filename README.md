@@ -114,6 +114,22 @@ forge-ai-langgraph/
 
 ---
 
+## 💻 Command Line Interface
+
+ForgeAI provides a robust CLI to run, test, and manage workflows:
+
+- `python main.py` - Runs the interactive workflow prompt.
+- `python main.py --demo` - Runs the end-to-end Demo Mode using a predefined prompt with auto-approvals.
+- `python main.py --test` - Runs the smoke test suite to validate the environment and graph compilation.
+- `python main.py --validate` - Validates the environment configuration.
+- `python main.py --metrics` - Displays the workflow metrics.
+- `python main.py --artifacts` - Lists all generated artifacts in the workspace.
+- `python main.py --clean` - Cleans up the generated artifacts workspace.
+- `python main.py --timeline` - Displays the execution timeline.
+- `python main.py --report` - Displays the final generated report.
+
+---
+
 ## 🛠️ Technology Stack
 
 - **Language:** Python 3.12+

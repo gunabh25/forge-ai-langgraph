@@ -284,8 +284,8 @@ def test_router_backend_routes_to_ase():
     assert WorkflowRouter.get_next_stage(state) == WorkflowStages.AI_SOFTWARE_ENGINEERING
 
 
-def test_router_ase_routes_to_end():
-    """WorkflowRouter: AI_SOFTWARE_ENGINEERING routes to END."""
+def test_router_ase_routes_to_final_report():
+    """WorkflowRouter: AI_SOFTWARE_ENGINEERING routes to FINAL_REPORT_GENERATION."""
     from app.router import WorkflowRouter
     from typing import cast
 
@@ -299,7 +299,7 @@ def test_router_ase_routes_to_end():
             "metadata": {},
         },
     )
-    assert WorkflowRouter.get_next_stage(state) == "END"
+    assert WorkflowRouter.get_next_stage(state) == WorkflowStages.FINAL_REPORT_GENERATION
 
 
 # ---------------------------------------------------------------------------
@@ -360,7 +360,7 @@ def test_full_pipeline_approved(tmp_path, mock_all_llms):
         final_state = workflow.execute("Build a bookstore REST API")
 
     # Final stage
-    assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
+    assert final_state["current_stage"] == WorkflowStages.FINAL_REPORT_GENERATION
     assert final_state["approval_status"] == ApprovalStatuses.APPROVED
 
     # Messages: EM, RA, SA, BE, ASE

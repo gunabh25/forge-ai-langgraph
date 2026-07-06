@@ -185,7 +185,7 @@ def test_workflow_execution_approved(temp_artifact_dir, mock_all_agent_llms):
         final_state = workflow.execute("Build a simple FastAPI todo API")
         
         # Verify transitions and final state
-        assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
+        assert final_state["current_stage"] == WorkflowStages.FINAL_REPORT_GENERATION
         assert final_state["approval_status"] == ApprovalStatuses.APPROVED
         assert len(final_state["messages"]) == 5
         
@@ -244,7 +244,7 @@ def test_workflow_execution_changes_requested(temp_artifact_dir, mock_all_agent_
         final_state = workflow.execute("Build a simple FastAPI todo API")
         
         # Verify transitions and final state
-        assert final_state["current_stage"] == WorkflowStages.AI_SOFTWARE_ENGINEERING
+        assert final_state["current_stage"] == WorkflowStages.FINAL_REPORT_GENERATION
         assert final_state["approval_status"] == ApprovalStatuses.APPROVED
         
         # Verify approval history logs both decisions
