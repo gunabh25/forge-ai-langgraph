@@ -46,6 +46,8 @@ class ArtifactNames:
     DEPLOYMENT_BLUEPRINT = "deployment_blueprint"
     PRODUCTION_READINESS_REPORT = "production_readiness_report"
     FINAL_REPORT = "forgeai_final_report"
+    EXECUTION_TIMELINE = "execution_timeline"
+    ENGINEERING_DECISIONS = "engineering_decisions"
 
 class ArtifactFolders:
     REQUIREMENTS = "requirements"
@@ -59,6 +61,9 @@ class ArtifactFolders:
     QUALITY = "quality"
     DEPLOYMENT = "deployment"
     REPORTS = "reports"
+    TIMELINE = "timeline"
+    REASONING = "reasoning"
+    DIAGRAMS = "diagrams"
 
 class ModelDefaults:
     GEMINI_MODEL = "gemini-2.5-flash"

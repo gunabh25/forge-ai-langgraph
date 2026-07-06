@@ -14,119 +14,102 @@ from core.approval import CLIApproval, ApprovalInterface
 from app.router import WorkflowRouter
 from config.logging import get_logger
 from core.utils import generate_timestamp
+from core.workflow_events import WorkflowEventManager, EventTypes
 from core.constants import WorkflowStages, ArtifactNames, ArtifactFolders
 from core.artifact_manager import ArtifactManager
 from core.report_generator import ReportGenerator
 
 logger = get_logger("app.graph")
 
-def create_engineering_manager_node(agent: EngineeringManagerAgent):
-    """Wrapper function to create the node for the Engineering Manager.
+def _wrap_agent_node(agent_run_fn, stage_name: str):
+    """Wraps an agent execution with event publishing and reasoning capture."""
+    event_manager = WorkflowEventManager()
     
-    Args:
-        agent: The EngineeringManagerAgent instance.
-        
-    Returns:
-        Callable node function.
-    """
     def node(state: ForgeState) -> dict:
-        logger.info(f"Executing node: {WorkflowStages.ENGINEERING_MANAGEMENT}")
-        return agent.run(state)
+        logger.info(f"Executing node: {stage_name}")
+        event_manager.publish(EventTypes.AGENT_STARTED, {"stage": stage_name, "state": state})
+        
+        reasoning_logs = []
+        def on_llm_completed(payload: dict):
+            reasoning_logs.append({
+                "agent": stage_name,
+                "reasoning": payload.get("reasoning", "")
+            })
+            
+        event_manager.subscribe(EventTypes.LLM_COMPLETED, on_llm_completed)
+        
+        try:
+            result = agent_run_fn(state)
+        finally:
+            event_manager.unsubscribe(EventTypes.LLM_COMPLETED, on_llm_completed)
+            
+        if result is None:
+            result = {}
+            
+        if reasoning_logs:
+            result["reasoning_logs"] = reasoning_logs
+            
+        event_manager.publish(EventTypes.AGENT_COMPLETED, {"stage": stage_name, "result": result})
+        return result
+        
     return node
+
+def create_engineering_manager_node(agent: EngineeringManagerAgent):
+    """Wrapper function to create the node for the Engineering Manager."""
+    return _wrap_agent_node(agent.run, WorkflowStages.ENGINEERING_MANAGEMENT)
 
 def create_requirement_analyst_node(agent: RequirementAnalystAgent):
-    """Wrapper function to create the node for the Requirement Analyst.
-    
-    Args:
-        agent: The RequirementAnalystAgent instance.
-        
-    Returns:
-        Callable node function.
-    """
-    def node(state: ForgeState) -> dict:
-        logger.info(f"Executing node: {WorkflowStages.REQUIREMENT_ANALYSIS}")
-        return agent.run(state)
-    return node
+    """Wrapper function to create the node for the Requirement Analyst."""
+    return _wrap_agent_node(agent.run, WorkflowStages.REQUIREMENT_ANALYSIS)
 
 def create_solution_architect_node(agent: SolutionArchitectAgent):
-    """Wrapper function to create the node for the Solution Architect.
-    
-    Args:
-        agent: The SolutionArchitectAgent instance.
-        
-    Returns:
-        Callable node function.
-    """
-    def node(state: ForgeState) -> dict:
-        logger.info(f"Executing node: {WorkflowStages.SOLUTION_ARCHITECTURE}")
-        return agent.run(state)
-    return node
+    """Wrapper function to create the node for the Solution Architect."""
+    return _wrap_agent_node(agent.run, WorkflowStages.SOLUTION_ARCHITECTURE)
 
 def create_human_approval_node(approval_interface: Optional[ApprovalInterface] = None):
-    """Wrapper function to create the node for Human Approval.
-    
-    Args:
-        approval_interface: Custom approval interface. Defaults to CLIApproval.
-        
-    Returns:
-        Callable node function.
-    """
-    interface = approval_interface or CLIApproval()
+    """Wrapper function to create the node for Human Approval."""
+    event_manager = WorkflowEventManager()
     
     def node(state: ForgeState) -> dict:
-        logger.info("Human approval node started execution")
+        logger.info(f"Executing node: {WorkflowStages.HUMAN_APPROVAL}")
+        interface = approval_interface or CLIApproval()
+        
         # Prepare context for display
         context = {
             "requirements": state.get("requirements", ""),
             "architecture": state.get("architecture", "")
         }
         
+        event_manager.publish(EventTypes.APPROVAL_REQUESTED, {"stage": WorkflowStages.HUMAN_APPROVAL})
+        
         # Invoke approval interface
-        result = interface.request_approval(stage=state.get("current_stage", ""), context=context)
+        approval_result = interface.request_approval(stage=state.get("current_stage", ""), context=context)
         
         # Build approval record
         record = {
             "stage": state.get("current_stage", ""),
-            "decision": result.status,
-            "feedback": result.feedback,
+            "decision": approval_result.status,
+            "feedback": approval_result.feedback,
             "timestamp": generate_timestamp()
         }
         
+        event_manager.publish(EventTypes.APPROVAL_COMPLETED, {"stage": WorkflowStages.HUMAN_APPROVAL, "decision": approval_result.status})
+        
         # Return updates
         return {
-            "approval_status": result.status,
+            "approval_status": approval_result.status,
             "approval_history": [record],
             "current_stage": WorkflowStages.HUMAN_APPROVAL
         }
     return node
 
 def create_backend_engineer_node(agent: BackendEngineerAgent):
-    """Wrapper function to create the node for the Backend Engineer.
-    
-    Args:
-        agent: The BackendEngineerAgent instance.
-        
-    Returns:
-        Callable node function.
-    """
-    def node(state: ForgeState) -> dict:
-        logger.info(f"Executing node: {WorkflowStages.BACKEND_ENGINEERING}")
-        return agent.run(state)
-    return node
+    """Wrapper function to create the node for the Backend Engineer."""
+    return _wrap_agent_node(agent.run, WorkflowStages.BACKEND_ENGINEERING)
 
 def create_ai_software_engineer_node(agent: AISoftwareEngineerAgent):
-    """Wrapper function to create the node for the AI Software Engineer.
-    
-    Args:
-        agent: The AISoftwareEngineerAgent instance.
-        
-    Returns:
-        Callable node function.
-    """
-    def node(state: ForgeState) -> dict:
-        logger.info(f"Executing node: {WorkflowStages.AI_SOFTWARE_ENGINEERING}")
-        return agent.run(state)
-    return node
+    """Wrapper function to create the node for the AI Software Engineer."""
+    return _wrap_agent_node(agent.run, WorkflowStages.AI_SOFTWARE_ENGINEERING)
 
 def create_final_report_node():
     """Wrapper function to create the node for Final Report Generation."""

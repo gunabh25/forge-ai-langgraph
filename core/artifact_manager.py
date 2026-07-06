@@ -5,6 +5,7 @@ from typing import Optional, List, Tuple
 from app.settings import settings
 from core.versioning import VersionManager
 from core.utils import safe_write_file, ensure_directory
+from core.workflow_events import WorkflowEventManager, EventTypes
 
 class ArtifactManager:
     """Manager class to load, version, list, and write artifacts to disk."""
@@ -55,6 +56,13 @@ class ArtifactManager:
         filename = VersionManager.get_next_filename(dir_path, base_name, ext)
         full_path = os.path.join(dir_path, filename)
         safe_write_file(full_path, content)
+        
+        # Publish event
+        WorkflowEventManager().publish(
+            EventTypes.ARTIFACT_GENERATED, 
+            {"stage": stage, "base_name": base_name, "path": full_path}
+        )
+        
         return full_path
 
     def load_latest_artifact(self, stage: str, base_name: str, ext: str = "md") -> Tuple[Optional[str], Optional[str]]:

@@ -47,6 +47,14 @@ def merge_approval_history(left: List[Dict[str, Any]], right: List[Dict[str, Any
     """Reducer function to merge approval history logs in LangGraph."""
     return (left or []) + (right or [])
 
+def merge_reasoning_logs(left: List[Dict[str, str]], right: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Reducer function to merge reasoning logs."""
+    return (left or []) + (right or [])
+
+def merge_timeline_events(left: List[Dict[str, Any]], right: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Reducer function to merge timeline events."""
+    return (left or []) + (right or [])
+
 def merge_generated_files(left: Dict[str, str], right: Dict[str, str]) -> Dict[str, str]:
     """Reducer function to merge generated workspace file registries in LangGraph.
     
@@ -103,6 +111,13 @@ class ForgeState(TypedDict):
     
     # Quality gate decision (set by quality_gate node)
     quality_gate_status: Optional[str]
+    
+    # Execution Timeline and Explainability
+    reasoning_logs: Annotated[List[Dict[str, str]], merge_reasoning_logs]
+    timeline_events: Annotated[List[Dict[str, Any]], merge_timeline_events]
+    execution_timeline: Optional[str]
+    workflow_start_time: Optional[str]
+    workflow_end_time: Optional[str]
     
     # Final Project Report and Metrics
     production_readiness_report: Optional[str]
