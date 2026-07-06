@@ -7,3 +7,5 @@ __pycache__/
 artifacts/*.tmp
 *.pyc
 *.log
+artifacts/**
+!artifacts/demo/**
