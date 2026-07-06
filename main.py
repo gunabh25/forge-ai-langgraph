@@ -3,9 +3,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import os
 import sys
-import json
 import argparse
+
 from app.workflow import ForgeWorkflow
 from core.artifact_manager import ArtifactManager
 
@@ -62,7 +63,6 @@ def list_artifacts():
     """List generated artifacts."""
     print("Generated Artifacts:\n")
     # For demo purposes, we will just print some placeholders or list actual files
-    import os
     from app.settings import settings
     if os.path.exists(settings.ARTIFACT_ROOT):
         for root, _, files in os.walk(settings.ARTIFACT_ROOT):
@@ -101,7 +101,6 @@ def display_metrics():
 
 def clean_workspace():
     """Delete generated workspace."""
-    import os
     import shutil
     from app.settings import settings
     if os.path.exists(settings.ARTIFACT_ROOT):
@@ -111,26 +110,56 @@ def clean_workspace():
         print("Workspace is already clean.")
 
 def validate_config():
-    """Validate configuration."""
+    """Validate application configuration."""
     from app.settings import settings
-    import os
-    print("Validating Configuration...")
-    try:
-        # pyrefly: ignore [missing-attribute]
-        assert settings.LLM_MODEL is not None
-        assert settings.ARTIFACT_ROOT is not None
-        assert (
-    os.environ.get("GOOGLE_API_KEY")
-    or os.environ.get("GEMINI_API_KEY")
-# pyrefly: ignore [not-callable]
-), "GOOGLE_API_KEY or GEMINI_API_KEY environment variable is not set."("✅ Configuration is valid.")
-    except AssertionError as e:
-        print(f"❌ Configuration Invalid: {e}")
 
+    print("================================================")
+    print("ForgeAI Configuration Validation")
+    print("================================================")
+
+    try:
+        assert settings.MODEL_NAME is not None, "MODEL_NAME is missing."
+        assert settings.ARTIFACT_ROOT is not None, "ARTIFACT_ROOT is missing."
+
+        assert (
+            os.environ.get("GOOGLE_API_KEY")
+            or os.environ.get("GEMINI_API_KEY")
+        ), "GOOGLE_API_KEY or GEMINI_API_KEY environment variable is not set."
+
+        print("✓ Model:", settings.MODEL_NAME)
+        print("✓ Artifact Root:", settings.ARTIFACT_ROOT)
+        print("✓ Gemini API Key Loaded")
+        print("\n✅ Configuration is valid.")
+
+    except AssertionError as e:
+        print(f"\n❌ Configuration Invalid: {e}")
+        sys.exit(1)
+
+        
 def execute_agent(agent_name: str):
     """Execute an individual agent."""
-    print(f"Executing agent: {agent_name} (Not implemented)")
 
+    print("================================================")
+    print("Standalone Agent Execution")
+    print("================================================")
+
+    print(f"\nAgent: {agent_name}")
+
+    print("\n⚠ Standalone agent execution is not implemented yet.")
+
+    print("\nCurrently supported:")
+
+    print("  python main.py")
+    print("  python main.py --demo")
+    print("  python main.py --test")
+    print("  python main.py --validate")
+    print("  python main.py --timeline")
+    print("  python main.py --metrics")
+    print("  python main.py --artifacts")
+    print("  python main.py --report")
+
+    print("\nStandalone execution will be implemented after the")
+    print("end-to-end workflow is stable.")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="ForgeAI CLI")
