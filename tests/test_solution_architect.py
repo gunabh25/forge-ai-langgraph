@@ -1,10 +1,10 @@
-"""Unit and integration tests for the RequirementAnalystAgent and workflow integration."""
+"""Unit and integration tests for the SolutionArchitectAgent and workflow integration."""
 
 import os
 import pytest
 from unittest.mock import MagicMock, patch
 from langchain_core.messages import AIMessage
-from agents.requirement_analyst.agent import RequirementAnalystAgent
+from agents.solution_architect.agent import SolutionArchitectAgent
 from app.state import ForgeState
 from app.workflow import ForgeWorkflow
 from core.constants import WorkflowStages, ApprovalStatuses
@@ -33,7 +33,7 @@ def mock_llm_responses():
         # Mock RA response
         ra_instance = MagicMock()
         ra_instance.invoke.return_value = AIMessage(
-            content="# Project Overview\n\nMock requirements specification document.",
+            content="# Project Overview\n\nMock requirements specification.",
             name="requirement_analyst"
         )
         mock_ra_llm.return_value = ra_instance
@@ -41,7 +41,7 @@ def mock_llm_responses():
         # Mock SA response
         sa_instance = MagicMock()
         sa_instance.invoke.return_value = AIMessage(
-            content="# Executive Summary\n\nMock architecture specification document.",
+            content="# Executive Summary\n\nMock architecture specification.",
             name="solution_architect"
         )
         mock_sa_llm.return_value = sa_instance
@@ -52,23 +52,22 @@ def mock_llm_responses():
             "sa": sa_instance
         }
 
-def test_requirement_analyst_initialization():
-    """Test that RequirementAnalystAgent initializes and loads prompts correctly."""
-    agent = RequirementAnalystAgent()
+def test_solution_architect_initialization():
+    """Test that SolutionArchitectAgent initializes and loads prompts correctly."""
+    agent = SolutionArchitectAgent()
     assert agent.system_prompt != ""
-    assert "Senior Requirement Analyst" in agent.system_prompt
+    assert "Principal Software Architect" in agent.system_prompt
 
-def test_requirement_analyst_run(temp_artifact_dir, mock_llm_responses):
-    """Test RequirementAnalystAgent run method, state updates, and artifact creation."""
-    agent = RequirementAnalystAgent()
-    # Override artifact manager's root_dir to use the temp directory
+def test_solution_architect_run(temp_artifact_dir, mock_llm_responses):
+    """Test SolutionArchitectAgent run method, state updates, and artifact creation."""
+    agent = SolutionArchitectAgent()
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
     
     state: ForgeState = {
         "user_request": "Build a library management system",
-        "current_stage": WorkflowStages.ENGINEERING_MANAGEMENT,
+        "current_stage": WorkflowStages.REQUIREMENT_ANALYSIS,
         "approval_status": ApprovalStatuses.PENDING,
-        "requirements": None,
+        "requirements": "# Project Overview\n\nMock requirements specification.",
         "architecture": None,
         "backend_blueprint": None,
         "implementation": None,
@@ -76,9 +75,12 @@ def test_requirement_analyst_run(temp_artifact_dir, mock_llm_responses):
         "security_report": None,
         "review_report": None,
         "deployment_blueprint": None,
-        "artifacts": {},
+        "artifacts": {
+            "requirements": ["/path/to/requirements_v1.md"]
+        },
         "messages": [
-            AIMessage(content="Mock EM planning response", name="engineering_manager")
+            AIMessage(content="Mock EM planning response", name="engineering_manager"),
+            AIMessage(content="# Project Overview\n\nMock requirements specification.", name="requirement_analyst")
         ],
         "metadata": {}
     }
@@ -87,28 +89,28 @@ def test_requirement_analyst_run(temp_artifact_dir, mock_llm_responses):
     updates = agent.run(state)
     
     # Check returned state updates
-    assert updates["current_stage"] == WorkflowStages.REQUIREMENT_ANALYSIS
-    assert updates["requirements"] == "# Project Overview\n\nMock requirements specification document."
-    assert "requirements" in updates["artifacts"]
+    assert updates["current_stage"] == WorkflowStages.SOLUTION_ARCHITECTURE
+    assert updates["architecture"] == "# Executive Summary\n\nMock architecture specification."
+    assert "architecture" in updates["artifacts"]
     
-    saved_path = updates["artifacts"]["requirements"][0]
+    saved_path = updates["artifacts"]["architecture"][0]
     assert os.path.exists(saved_path)
-    assert "requirements_v1.md" in saved_path
+    assert "architecture_v1.md" in saved_path
     
     with open(saved_path, "r", encoding="utf-8") as f:
         content = f.read()
-        assert "Mock requirements specification document." in content
+        assert "Mock architecture specification." in content
 
 def test_version_increment_non_overwriting(temp_artifact_dir, mock_llm_responses):
-    """Verify that multiple executions increment artifact version and do not overwrite."""
-    agent = RequirementAnalystAgent()
+    """Verify that multiple executions increment architecture artifact version sequentially."""
+    agent = SolutionArchitectAgent()
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
     
     state: ForgeState = {
         "user_request": "Build a library management system",
-        "current_stage": WorkflowStages.ENGINEERING_MANAGEMENT,
+        "current_stage": WorkflowStages.REQUIREMENT_ANALYSIS,
         "approval_status": ApprovalStatuses.PENDING,
-        "requirements": None,
+        "requirements": "# Project Overview\n\nMock requirements specification.",
         "architecture": None,
         "backend_blueprint": None,
         "implementation": None,
@@ -116,22 +118,25 @@ def test_version_increment_non_overwriting(temp_artifact_dir, mock_llm_responses
         "security_report": None,
         "review_report": None,
         "deployment_blueprint": None,
-        "artifacts": {},
+        "artifacts": {
+            "requirements": ["/path/to/requirements_v1.md"]
+        },
         "messages": [
-            AIMessage(content="Mock EM planning response", name="engineering_manager")
+            AIMessage(content="Mock EM planning response", name="engineering_manager"),
+            AIMessage(content="# Project Overview\n\nMock requirements specification.", name="requirement_analyst")
         ],
         "metadata": {}
     }
     
     # Execute first time
     updates_1 = agent.run(state)
-    path_1 = updates_1["artifacts"]["requirements"][0]
-    assert "requirements_v1.md" in path_1
+    path_1 = updates_1["artifacts"]["architecture"][0]
+    assert "architecture_v1.md" in path_1
     
     # Execute second time (simulate subsequent run/retry)
     updates_2 = agent.run(state)
-    path_2 = updates_2["artifacts"]["requirements"][0]
-    assert "requirements_v2.md" in path_2
+    path_2 = updates_2["artifacts"]["architecture"][0]
+    assert "architecture_v2.md" in path_2
     
     # Check both files exist
     assert os.path.exists(path_1)
@@ -140,8 +145,6 @@ def test_version_increment_non_overwriting(temp_artifact_dir, mock_llm_responses
 
 def test_workflow_execution_integration(temp_artifact_dir, mock_llm_responses):
     """Verify end-to-end workflow execution routes EM -> RA -> SA -> END and stores artifacts."""
-    # We want to test the compiled graph's routing.
-    # We patch settings.ARTIFACT_ROOT to write to temp_artifact_dir.
     with patch("app.settings.settings.ARTIFACT_ROOT", new=temp_artifact_dir):
         
         workflow = ForgeWorkflow()
@@ -152,7 +155,7 @@ def test_workflow_execution_integration(temp_artifact_dir, mock_llm_responses):
         assert final_state["approval_status"] == ApprovalStatuses.PENDING
         assert len(final_state["messages"]) == 3
         
-        # First message from EM, second from RA, third from SA
+        # Messages from EM, RA, and SA
         assert final_state["messages"][0].name == "engineering_manager"
         assert final_state["messages"][1].name == "requirement_analyst"
         assert final_state["messages"][2].name == "solution_architect"
@@ -161,12 +164,12 @@ def test_workflow_execution_integration(temp_artifact_dir, mock_llm_responses):
         assert "requirements" in final_state["artifacts"]
         assert "architecture" in final_state["artifacts"]
         
-        saved_req_path = final_state["artifacts"]["requirements"][0]
+        saved_reqs_path = final_state["artifacts"]["requirements"][0]
         saved_arch_path = final_state["artifacts"]["architecture"][0]
         
-        assert os.path.exists(saved_req_path)
+        assert os.path.exists(saved_reqs_path)
         assert os.path.exists(saved_arch_path)
-        assert "requirements_v1.md" in saved_req_path
+        assert "requirements_v1.md" in saved_reqs_path
         assert "architecture_v1.md" in saved_arch_path
         
         assert final_state["requirements"] is not None

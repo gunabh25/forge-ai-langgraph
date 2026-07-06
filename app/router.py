@@ -34,6 +34,9 @@ class WorkflowRouter:
             return WorkflowStages.REQUIREMENT_ANALYSIS
             
         if current_stage == WorkflowStages.REQUIREMENT_ANALYSIS:
+            return WorkflowStages.SOLUTION_ARCHITECTURE
+            
+        if current_stage == WorkflowStages.SOLUTION_ARCHITECTURE:
             return "END"
             
         # Catch-all: terminate if we reach an unknown stage

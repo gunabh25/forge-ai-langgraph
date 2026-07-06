@@ -7,6 +7,7 @@ from app.state import ForgeState
 from core.constants import WorkflowStages
 from agents.engineering_manager.agent import EngineeringManagerAgent
 from agents.requirement_analyst.agent import RequirementAnalystAgent
+from agents.solution_architect.agent import SolutionArchitectAgent
 from app.router import WorkflowRouter
 from config.logging import get_logger
 
@@ -40,6 +41,20 @@ def create_requirement_analyst_node(agent: RequirementAnalystAgent):
         return agent.run(state)
     return node
 
+def create_solution_architect_node(agent: SolutionArchitectAgent):
+    """Wrapper function to create the node for the Solution Architect.
+    
+    Args:
+        agent: The SolutionArchitectAgent instance.
+        
+    Returns:
+        Callable node function.
+    """
+    def node(state: ForgeState) -> dict:
+        logger.info(f"Executing node: {WorkflowStages.SOLUTION_ARCHITECTURE}")
+        return agent.run(state)
+    return node
+
 def route_next(state: ForgeState) -> str:
     """Conditional router function for LangGraph.
     
@@ -69,10 +84,12 @@ def compile_workflow() -> CompiledStateGraph:
     # Instantiate the agent
     em_agent = EngineeringManagerAgent()
     ra_agent = RequirementAnalystAgent()
+    sa_agent = SolutionArchitectAgent()
     
     # Register the nodes
     workflow.add_node(WorkflowStages.ENGINEERING_MANAGEMENT, create_engineering_manager_node(em_agent))
     workflow.add_node(WorkflowStages.REQUIREMENT_ANALYSIS, create_requirement_analyst_node(ra_agent))
+    workflow.add_node(WorkflowStages.SOLUTION_ARCHITECTURE, create_solution_architect_node(sa_agent))
     
     # Set the entry point
     workflow.set_entry_point(WorkflowStages.ENGINEERING_MANAGEMENT)
@@ -90,6 +107,16 @@ def compile_workflow() -> CompiledStateGraph:
     # Register conditional edges from Requirement Analysis node
     workflow.add_conditional_edges(
         WorkflowStages.REQUIREMENT_ANALYSIS,
+        route_next,
+        {
+            END: END,
+            WorkflowStages.SOLUTION_ARCHITECTURE: WorkflowStages.SOLUTION_ARCHITECTURE
+        }
+    )
+    
+    # Register conditional edges from Solution Architecture node
+    workflow.add_conditional_edges(
+        WorkflowStages.SOLUTION_ARCHITECTURE,
         route_next,
         {
             END: END
