@@ -1,6 +1,7 @@
 """Application settings management powered by Pydantic Settings."""
 
-from typing import Optional
+from typing import Optional, Dict
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from core.constants import ModelDefaults
 
@@ -29,6 +30,14 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: Optional[str] = "http://localhost:11434"
     GROQ_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
+
+    # Quality Engine configuration
+    QUALITY_WEIGHTS: Dict[str, float] = Field(
+        default_factory=lambda: {"qa": 0.30, "security": 0.40, "review": 0.30}
+    )
+    QUALITY_THRESHOLDS: Dict[str, int] = Field(
+        default_factory=lambda: {"ready": 90, "needs_improvement": 75}
+    )
 
 # Reusable settings instance
 settings = Settings()

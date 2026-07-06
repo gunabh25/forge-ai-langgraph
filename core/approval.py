@@ -143,3 +143,101 @@ class CLIApproval(ApprovalInterface):
                 return ApprovalResult(status=ApprovalStatuses.REJECTED, feedback=feedback)
             else:
                 print("Invalid input. Please enter 1, 2, or 3.")
+
+
+class QualityGateInterface(ABC):
+    """Abstract interface for the Quality Gate approval checkpoint.
+
+    Implementations are injectable so tests can bypass the interactive CLI.
+    """
+
+    @abstractmethod
+    def request_gate(self, context: Dict[str, Any]) -> ApprovalResult:
+        """Display validation results and prompt for a go/no-go decision.
+
+        Args:
+            context: Quality data including individual scores, overall score,
+                     and deployment status.
+
+        Returns:
+            ApprovalResult with status APPROVED, CHANGES_REQUESTED, or REJECTED.
+        """
+        pass
+
+
+class CLIQualityGate(QualityGateInterface):
+    """Command-line Quality Gate that displays validation results and prompts."""
+
+    def request_gate(self, context: Dict[str, Any]) -> ApprovalResult:
+        """Display quality dashboard and prompt user decision.
+
+        Args:
+            context: Dict with keys: qa_score, security_score, review_score,
+                     overall_score, deployment_status, deployment_emoji.
+
+        Returns:
+            ApprovalResult with the human's decision.
+        """
+        qa_score = context.get("qa_score", "N/A")
+        sec_score = context.get("security_score", "N/A")
+        rev_score = context.get("review_score", "N/A")
+        overall = context.get("overall_score", "N/A")
+        status = context.get("deployment_status", "UNKNOWN")
+        emoji = context.get("deployment_emoji", "")
+
+        print("\n====================================")
+        print("\nForgeAI Validation Complete")
+        print("\nRequirements     ✅")
+        print("Architecture     ✅")
+        print("Backend Blueprint ✅")
+        print("Implementation   ✅")
+        print(f"\nQA           {qa_score}/100")
+        print(f"Security     {sec_score}/100")
+        print(f"Code Review  {rev_score}/100")
+        print("\n--------------------------------")
+        print(f"Overall      {overall}/100")
+        print(f"Status       {emoji} {status}")
+        print("\nChoose")
+        print("1  Approve")
+        print("2  Request Changes")
+        print("3  Reject")
+        print("\n====================================")
+
+        logger.info("Quality Gate opened")
+
+        while True:
+            try:
+                choice = input("\nEnter choice (1-3): ").strip()
+            except (KeyboardInterrupt, EOFError):
+                print("\nAborted.")
+                return ApprovalResult(
+                    status=ApprovalStatuses.REJECTED,
+                    feedback="Quality Gate CLI input interrupted",
+                )
+
+            if choice == "1":
+                logger.info("Quality Gate approved")
+                return ApprovalResult(status=ApprovalStatuses.APPROVED)
+            elif choice == "2":
+                try:
+                    feedback = input("📝 Describe the changes needed: ").strip()
+                except (KeyboardInterrupt, EOFError):
+                    feedback = "Changes requested via CLI abort"
+                logger.info("Quality Gate: changes requested")
+                return ApprovalResult(
+                    status=ApprovalStatuses.CHANGES_REQUESTED,
+                    feedback=feedback,
+                )
+            elif choice == "3":
+                try:
+                    feedback = input("❌ Reason for rejection: ").strip()
+                except (KeyboardInterrupt, EOFError):
+                    feedback = "Rejected via CLI abort"
+                logger.info("Quality Gate rejected")
+                return ApprovalResult(
+                    status=ApprovalStatuses.REJECTED,
+                    feedback=feedback,
+                )
+            else:
+                print("Invalid input. Please enter 1, 2, or 3.")
+

@@ -89,6 +89,21 @@ class ForgeState(TypedDict):
     # Generated workspace: relative path → file source code
     generated_files: Annotated[Dict[str, str], merge_generated_files]
     
+    # Validation pipeline scores (set by parallel validation agents)
+    qa_score: Optional[int]
+    security_score: Optional[int]
+    review_score: Optional[int]
+    
+    # Quality engine outputs (set by validation_summary node)
+    quality_weights: Optional[Dict[str, float]]
+    overall_quality_score: Optional[int]
+    deployment_status: Optional[str]
+    validation_summary: Optional[str]
+    quality_report: Optional[str]
+    
+    # Quality gate decision (set by quality_gate node)
+    quality_gate_status: Optional[str]
+    
     # Reducer-managed tracking collections
     artifacts: Annotated[Dict[str, List[str]], merge_artifacts]
     messages: Annotated[List[BaseMessage], add_messages]

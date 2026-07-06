@@ -9,6 +9,8 @@ class WorkflowStages:
     QA_TESTING = "qa_testing"
     SECURITY_AUDIT = "security_audit"
     CODE_REVIEW = "code_review"
+    VALIDATION_SUMMARY = "validation_summary"
+    QUALITY_GATE = "quality_gate"
     DEVOPS_ENGINEERING = "devops_engineering"
     HUMAN_APPROVAL = "human_approval"
 
@@ -37,6 +39,8 @@ class ArtifactNames:
     QA_REPORT = "qa_report"
     SECURITY_REPORT = "security_report"
     REVIEW_REPORT = "review_report"
+    VALIDATION_SUMMARY = "validation_summary"
+    QUALITY_REPORT = "quality_report"
     DEPLOYMENT_BLUEPRINT = "deployment_blueprint"
 
 class ArtifactFolders:
@@ -47,6 +51,8 @@ class ArtifactFolders:
     QA = "qa"
     SECURITY = "security"
     REVIEW = "review"
+    VALIDATION = "validation"
+    QUALITY = "quality"
     DEPLOYMENT = "deployment"
 
 class ModelDefaults:
