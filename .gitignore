@@ -9,3 +9,5 @@ artifacts/*.tmp
 *.log
 artifacts/**
 !artifacts/demo/**
+generated/
+logs/
