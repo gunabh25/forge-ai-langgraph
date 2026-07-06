@@ -90,6 +90,7 @@ def test_backend_engineer_run(temp_artifact_dir, mock_all_agent_llms):
     agent = BackendEngineerAgent()
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
     
+    # pyrefly: ignore [bad-typed-dict-key]
     state: ForgeState = {
         "user_request": "Build a library management system",
         "current_stage": WorkflowStages.HUMAN_APPROVAL,
@@ -136,6 +137,7 @@ def test_backend_version_increment_non_overwriting(temp_artifact_dir, mock_all_a
     agent = BackendEngineerAgent()
     agent.artifact_manager = ArtifactManager(root_dir=temp_artifact_dir)
     
+    # pyrefly: ignore [bad-typed-dict-key]
     state: ForgeState = {
         "user_request": "Build a library management system",
         "current_stage": WorkflowStages.HUMAN_APPROVAL,
