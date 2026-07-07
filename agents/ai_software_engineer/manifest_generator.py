@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -19,7 +19,7 @@ class ManifestGenerator:
         re.DOTALL,
     )
 
-    def __init__(self, llm: BaseChatModel = None):
+    def __init__(self, llm: Optional[BaseChatModel] = None):
         self.llm = llm or get_llm()
         import os
         prompt_path = os.path.join(os.path.dirname(__file__), "manifest_prompt.md")

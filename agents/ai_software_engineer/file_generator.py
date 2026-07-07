@@ -19,7 +19,7 @@ class FileGenerator:
         re.DOTALL,
     )
 
-    def __init__(self, llm: BaseChatModel = None):
+    def __init__(self, llm: Optional[BaseChatModel] = None):
         self.llm = llm or get_llm()
         import os
         prompt_path = os.path.join(os.path.dirname(__file__), "file_prompt.md")
