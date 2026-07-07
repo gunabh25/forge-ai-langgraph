@@ -18,22 +18,41 @@ class ForgeWorkflow:
     """Entry point for executing the ForgeAI multi-agent workflow."""
     
     def __init__(
-        self, 
-        approval_interface: Optional[Any] = None,
-        quality_gate_interface: Optional[Any] = None
+        self,
+        dashboard=None,
+        approval_interface=None,
+        quality_gate_interface=None
     ):
-        self.workflow = compile_workflow(approval_interface, quality_gate_interface)
+        self.dashboard = dashboard
+        self.approval_interface = approval_interface
+        self.quality_gate_interface = quality_gate_interface
+
+        self.workflow = compile_workflow(
+            dashboard=dashboard,
+            approval_interface=approval_interface,
+            quality_gate_interface=quality_gate_interface
+        )
         
     def execute(self, user_request: str) -> Dict[str, Any]:
-        """Initializes and runs the StateGraph for a given user request.
-        
-        Args:
-            user_request: The description of the software to build.
-            
-        Returns:
-            The final state dict of the workflow.
-        """
-        logger.info("Starting ForgeAI workflow...", extra={"user_request": user_request})
+        """Initializes and runs the StateGraph."""
+
+        # Create ONE dashboard instance
+        dashboard = ForgeDashboard()
+
+        # Save it
+        self.dashboard = dashboard
+
+        # Rebuild workflow with this dashboard
+        self.workflow = compile_workflow(
+            dashboard=dashboard,
+            approval_interface=self.approval_interface,
+            quality_gate_interface=self.quality_gate_interface,
+        )
+
+        logger.info(
+            "Starting ForgeAI workflow...",
+            extra={"user_request": user_request},
+        )
         
         # Initialize the state
         initial_state: Dict[str, Any] = {

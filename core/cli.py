@@ -85,9 +85,12 @@ class ForgeDashboard:
         self.completed_stages = self.total_stages
         self._refresh()
         
-    def _on_approval(self, payload: Dict[str, Any]):
+    def _on_approval(self, payload):
         self.current_stage = "Waiting for Human Approval..."
-        self._refresh()
+
+        if self.live:
+            self.live.update(self._generate_layout())
+            self.live.stop()
 
     def _on_artifact(self, payload: Dict[str, Any]):
         """When an artifact is generated, pause dashboard and show preview."""
@@ -153,8 +156,24 @@ class ForgeDashboard:
 
     def start(self):
         """Returns a Live context manager to display the dashboard."""
-        # Ensure we don't nest live instances on the same console stack
         if hasattr(self.console, "_live_stack"):
             self.console._live_stack.clear()
-        self.live = Live(self._generate_layout(), refresh_per_second=4, console=self.console)
+
+        self.live = Live(
+            self._generate_layout(),
+            refresh_per_second=4,
+            console=self.console
+        )
         return self.live
+
+    def pause(self):
+        """Pause the live dashboard before interactive input."""
+        if self.live:
+            self.live.stop()
+
+
+    def resume(self):
+        """Resume the live dashboard after interactive input."""
+        if self.live:
+            self.live.start()
+            self._refresh()

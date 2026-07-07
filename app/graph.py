@@ -66,13 +66,13 @@ def create_solution_architect_node(agent: SolutionArchitectAgent):
     """Wrapper function to create the node for the Solution Architect."""
     return _wrap_agent_node(agent.run, WorkflowStages.SOLUTION_ARCHITECTURE)
 
-def create_human_approval_node(approval_interface: Optional[ApprovalInterface] = None):
+def create_human_approval_node(dashboard, approval_interface: Optional[ApprovalInterface] = None):
     """Wrapper function to create the node for Human Approval."""
     event_manager = WorkflowEventManager()
     
     def node(state: ForgeState) -> dict:
         logger.info(f"Executing node: {WorkflowStages.HUMAN_APPROVAL}")
-        interface = approval_interface or CLIApproval()
+        interface = approval_interface or CLIApproval(dashboard)
         
         # Prepare context for display
         context = {
@@ -165,8 +165,9 @@ def route_next(state: ForgeState) -> str:
     return next_stage
 
 def compile_workflow(
-    approval_interface: Optional[ApprovalInterface] = None,
-    quality_gate_interface: Optional[Any] = None
+    dashboard=None,
+    approval_interface=None,
+    quality_gate_interface=None
 ) -> CompiledStateGraph:
     """Build, configure, and compile the StateGraph.
     
@@ -194,7 +195,7 @@ def compile_workflow(
     workflow.add_node(WorkflowStages.ENGINEERING_MANAGEMENT, create_engineering_manager_node(em_agent))
     workflow.add_node(WorkflowStages.REQUIREMENT_ANALYSIS, create_requirement_analyst_node(ra_agent))
     workflow.add_node(WorkflowStages.SOLUTION_ARCHITECTURE, create_solution_architect_node(sa_agent))
-    workflow.add_node(WorkflowStages.HUMAN_APPROVAL, create_human_approval_node(approval_interface))
+    workflow.add_node(WorkflowStages.HUMAN_APPROVAL, create_human_approval_node(dashboard, approval_interface))
     workflow.add_node(WorkflowStages.BACKEND_ENGINEERING, create_backend_engineer_node(be_agent))
     workflow.add_node(WorkflowStages.AI_SOFTWARE_ENGINEERING, create_ai_software_engineer_node(ase_agent))
     workflow.add_node(WorkflowStages.FINAL_REPORT_GENERATION, create_final_report_node())
