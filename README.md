@@ -145,7 +145,7 @@ ForgeAI provides a robust CLI to run, test, and manage workflows:
 
 ## 🚀 Roadmap & Future Capabilities
 
-- [ ] **Human-in-the-Loop Gating:** Implement robust blocking UI and API prompts for manual manager review steps.
+- [x] **Human-in-the-Loop Gating:** Implement robust blocking UI and API prompts for manual manager review steps.
 - [ ] **Parallel Agent Execution:** Execute QA, Security, and Code Reviewers in parallel utilizing LangGraph's native fan-out/fan-in.
 - [ ] **Artifact Versioning:** Enable semantic diffs and rollback capabilities for generated artifacts.
 - [ ] **Model Context Protocol (MCP):** Connect agents to external development environments, consoles, and search tools.
