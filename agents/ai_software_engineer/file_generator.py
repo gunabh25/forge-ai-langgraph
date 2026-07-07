@@ -7,7 +7,6 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from config.logging import get_logger
 from core.llm import get_llm
-from core.prompts import load_prompt
 
 logger = get_logger("agents.ai_software_engineer.file_generator")
 
@@ -53,8 +52,9 @@ class FileGenerator:
             # To avoid prompt bloat, we just list the paths of what was generated, 
             # and perhaps minimal content if needed. But for simplicity:
             context_str += "Previously Generated Files:\n"
-            for p, content in previously_generated.items():
-                context_str += f"--- {p} ---\n{content}\n\n"
+            for p in previously_generated.keys():
+                context_str += f"- {p}\n"
+            context_str += "\n"
         
         human_content = f"{context_str}\n\nGenerate ONLY the exact source code for: {file_path}"
         if feedback:
