@@ -28,6 +28,14 @@ class ImpactAnalysisAgent(BaseAgent):
     def capabilities(self) -> List[str]:
         return ["impact_analysis", "incremental_update"]
 
+    @property
+    def requires(self) -> List[str]:
+        return ["architecture_json", "uml_recommendation_report"]
+
+    @property
+    def produces(self) -> List[str]:
+        return ["impact_analysis_report", "selected_uml_diagrams"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         
@@ -101,8 +109,18 @@ DO NOT include markdown tags or explanation. Output ONLY the JSON.
             "last_updated": generate_timestamp()
         }
         
+        affected_diagram_names = set(impact_report.get('affected_diagrams', []))
+        current_selected = state.get("selected_uml_diagrams") or []
+        filtered_diagrams = [
+            d for d in current_selected 
+            if d.get("diagram") in affected_diagram_names
+        ]
+        if affected_diagram_names:
+            logger.info(f"Filtered UML regeneration down to {len(filtered_diagrams)} diagrams due to Impact Analysis.")
+
         return {
             "impact_analysis_report": impact_report,
+            "selected_uml_diagrams": filtered_diagrams,
             "messages": [new_message],
             "metadata": updated_metadata,
             "current_stage": "impact_analysis"

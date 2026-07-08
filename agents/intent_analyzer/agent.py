@@ -61,14 +61,22 @@ class IntentAnalyzerAgent(BaseAgent):
 Your task is to analyze the user's prompt and classify the engineering task into exactly one of the following intents:
 {', '.join(INTENTS)}
 
-Respond ONLY with a valid JSON object containing exactly two keys:
+Respond ONLY with a valid JSON object containing:
 1. "intent": a string from the allowed intents list.
 2. "confidence": a float between 0.0 and 1.0.
+3. "workflow_specification": an object containing a "required_outputs" array.
+
+For example, if the user asks to generate UML diagrams, the required_outputs should be ["rendered_svg_references"].
+If the user asks to update an existing architecture, the required_outputs should be ["rendered_svg_references", "impact_analysis_report"].
+If the user asks for architecture design only, it should be ["architecture_json"].
 
 Example:
 {{
     "intent": "uml_generation",
-    "confidence": 0.97
+    "confidence": 0.97,
+    "workflow_specification": {{
+        "required_outputs": ["rendered_svg_references"]
+    }}
 }}
 
 Do NOT include any other text, markdown formatting, or explanation.

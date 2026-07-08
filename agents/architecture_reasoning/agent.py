@@ -25,7 +25,15 @@ class ArchitectureReasoningAgent(BaseAgent):
         
     @property
     def capabilities(self) -> List[str]:
-        return ["architecture_design", "structured_reasoning"]
+        return ["architecture_design", "system_modeling"]
+
+    @property
+    def requires(self) -> List[str]:
+        return ["requirements_json"]
+
+    @property
+    def produces(self) -> List[str]:
+        return ["architecture_json"]
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm

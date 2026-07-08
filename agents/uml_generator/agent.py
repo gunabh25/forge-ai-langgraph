@@ -33,6 +33,14 @@ class UMLGeneratorAgent(BaseAgent):
             "Timing", "Profile", "Composite Structure", "Interaction Overview"
         ]
 
+    @property
+    def requires(self) -> List[str]:
+        return ["architecture_json", "selected_uml_diagrams"]
+
+    @property
+    def produces(self) -> List[str]:
+        return ["plantuml_diagrams"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         self.artifact_manager = ArtifactManager()

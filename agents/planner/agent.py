@@ -1,7 +1,7 @@
 """Planner Agent implementation."""
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from agents.base import BaseAgent
@@ -40,18 +40,25 @@ class PlannerAgent(BaseAgent):
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the Planner agent step."""
         user_request = state.get("user_request", "").strip()
-        intent_info = state.get("intent_classification", {})
+        intent_info = cast(Dict[str, Any], state.get("intent_classification", {}))
         
-        logger.info("Planner starting execution...", extra={"user_request": user_request})
+        logger.info("Planner starting capability-driven execution...", extra={"user_request": user_request})
         
         if not user_request:
             raise ValueError("State validation failed: user_request is empty.")
             
+        required_outputs = intent_info.get("workflow_specification", {}).get("required_outputs", [])
+        if not required_outputs:
+            logger.warning("No workflow_specification.required_outputs found in intent. Falling back to default.")
+            intent_name = intent_info.get("intent")
+            if intent_name == "architecture_design":
+                required_outputs = ["architecture_json"]
+            else:
+                required_outputs = ["rendered_svg_references"]
+                
+        # Gather available domain agents
         registry = AgentRegistry()
         available_agents = registry.list_agents()
-        agents_info = []
-        
-        # Exclude orchestration and infrastructure components
         infrastructure_agents = {
             "Planner",
             "Intent Analyzer",
@@ -61,101 +68,74 @@ class PlannerAgent(BaseAgent):
             "Feedback Manager"
         }
         
+        all_agents = []
+        all_produced = set()
         for agent_name in available_agents:
             if agent_name in infrastructure_agents:
                 continue
             agent = registry.get(agent_name)
             if agent:
-                agents_info.append(
-                    f"- {agent.name}: {agent.description} (Capabilities: {', '.join(agent.capabilities)})"
-                )
+                all_agents.append(agent)
+                all_produced.update(agent.produces)
                 
-        agents_context = "\n".join(agents_info)
+        # What is already provided by state?
+        provided_outputs = set()
+        for key, value in state.items():
+            if value:
+                provided_outputs.add(key)
+                
+        # Backward Chaining
+        needed_outputs = {req for req in required_outputs if req in all_produced and req not in provided_outputs}
+        selected_agents = set()
         
-        system_prompt = f"""You are a Workflow Planner for an AI engineering platform.
-Based on the User's Request and the identified Intent, your task is to choose the optimal ordered sequence of agents to fulfill the request.
-"""
+        while needed_outputs:
+            progress = False
+            for agent in all_agents:
+                if agent in selected_agents:
+                    continue
+                produces = set(agent.produces)
+                if produces.intersection(needed_outputs):
+                    selected_agents.add(agent)
+                    needed_outputs -= produces
+                    
+                    for req in agent.requires:
+                        if req in all_produced and req not in provided_outputs:
+                            needed_outputs.add(req)
+                    progress = True
+                    
+            if not progress:
+                logger.warning(f"Could not resolve dependencies for: {needed_outputs}")
+                break
+                
+        # Topological Sort
+        dependencies = {a: set() for a in selected_agents}
+        for a in selected_agents:
+            for req in a.requires:
+                for b in selected_agents:
+                    if req in b.produces:
+                        dependencies[a].add(b)
+                        
+        sorted_plan = []
+        visited = set()
         
-        impact_report = state.get("impact_analysis_report", {})
-        if impact_report and impact_report.get("affected_diagrams"):
-            system_prompt += f"""
-An Impact Analysis has been completed.
-Affected Diagrams: {impact_report.get('affected_diagrams')}
-Reuse Diagrams: {impact_report.get('reuse_diagrams')}
-
-DO NOT regenerate everything. Only schedule agents necessary to regenerate the affected diagrams.
-"""
-
-        system_prompt += f"""
-Available Agents:
-{agents_context}
-
-CRITICAL INSTRUCTION:
-You must NEVER include infrastructure or orchestration components (like Planner, Intent Analyzer, etc.) in your execution plan. Only return executable domain agents.
-
-Based on the request type, you MUST output the exact sequence:
-
-1. For UML generation requests:
-[
-    "Requirement Extraction Agent",
-    "Architecture Reasoning Agent",
-    "UML Recommendation Agent",
-    "UML Generator",
-    "UML Validator",
-    "Renderer Agent"
-]
-
-2. For architecture-only requests:
-[
-    "Requirement Extraction Agent",
-    "Architecture Reasoning Agent"
-]
-
-3. For update requests (modifying existing architecture/diagrams):
-[
-    "Impact Analysis Agent",
-    "UML Generator",
-    "UML Validator",
-    "Renderer Agent"
-]
-
-Output ONLY a valid JSON array of strings, where each string is the exact name of an agent from the available list. Choose ONLY the required agents. Provide the list in the exact order they should be executed.
-
-Do NOT include any other text, markdown formatting, or explanation.
-"""
-
-        human_content = f"User Request: {user_request}\nIdentified Intent: {json.dumps(intent_info)}"
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=human_content)
-        ]
-        
-        logger.info("Invoking LLM for Planner...")
-        llm_response = self.llm.invoke(messages)
-        
-        response_content = llm_response.content
-        if isinstance(response_content, list):
-            response_content = "\n".join([str(item) for item in response_content])
-        elif not isinstance(response_content, str):
-            response_content = str(response_content)
+        def visit(node, path):
+            if node in path:
+                return # cycle detected
+            if node in visited:
+                return
+            path.add(node)
+            for dep in dependencies[node]:
+                visit(dep, path)
+            path.remove(node)
+            visited.add(node)
+            sorted_plan.append(node)
             
-        clean_content = response_content.replace("```json", "").replace("```", "").strip()
+        for a in selected_agents:
+            visit(a, set())
+            
+        execution_plan = [a.name for a in sorted_plan]
         
-        try:
-            execution_plan = json.loads(clean_content)
-            if not isinstance(execution_plan, list):
-                execution_plan = []
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse JSON from response: {clean_content}")
-            execution_plan = []
-            
-        # Post-process to ensure no infrastructure agents sneak in
-        execution_plan = [
-            agent for agent in execution_plan 
-            if agent not in infrastructure_agents
-        ]
-            
-        logger.info(f"Execution plan generated: {execution_plan}")
+        logger.info(f"Capability-driven execution plan generated: {execution_plan}")
         
         new_message = AIMessage(
             content=json.dumps(execution_plan, indent=2),
@@ -169,24 +149,11 @@ Do NOT include any other text, markdown formatting, or explanation.
             "last_updated": generate_timestamp()
         }
         
-        state_updates = {
+        return {
             "execution_plan": execution_plan,
             "messages": [new_message],
             "metadata": updated_metadata
         }
-        
-        # Filter selected_uml_diagrams if impact analysis restricts them
-        if impact_report and impact_report.get("affected_diagrams"):
-            affected_diagram_names = set(impact_report["affected_diagrams"])
-            current_selected = state.get("selected_uml_diagrams") or []
-            filtered_diagrams = [
-                d for d in current_selected 
-                if d.get("diagram") in affected_diagram_names
-            ]
-            state_updates["selected_uml_diagrams"] = filtered_diagrams
-            logger.info(f"Filtered UML regeneration down to {len(filtered_diagrams)} diagrams due to Impact Analysis.")
-        
-        return state_updates
 
 # Automatically register the agent
 AgentRegistry().register(PlannerAgent())

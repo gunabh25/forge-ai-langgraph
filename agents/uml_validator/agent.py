@@ -26,7 +26,15 @@ class UMLValidatorAgent(BaseAgent):
         
     @property
     def capabilities(self) -> List[str]:
-        return ["uml_validation", "syntax_checking"]
+        return ["plantuml_validation", "syntax_checking"]
+
+    @property
+    def requires(self) -> List[str]:
+        return ["plantuml_diagrams"]
+
+    @property
+    def produces(self) -> List[str]:
+        return ["plantuml_validation_report"]
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm

@@ -27,6 +27,14 @@ class RequirementExtractionAgent(BaseAgent):
     def capabilities(self) -> List[str]:
         return ["requirement_extraction", "structured_analysis"]
 
+    @property
+    def requires(self) -> List[str]:
+        return []
+
+    @property
+    def produces(self) -> List[str]:
+        return ["requirements_json"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         

@@ -28,6 +28,14 @@ class UMLRecommendationAgent(BaseAgent):
     def capabilities(self) -> List[str]:
         return ["uml_recommendation", "architecture_reasoning"]
 
+    @property
+    def requires(self) -> List[str]:
+        return ["architecture_json"]
+
+    @property
+    def produces(self) -> List[str]:
+        return ["selected_uml_diagrams"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         

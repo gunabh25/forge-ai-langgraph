@@ -27,7 +27,15 @@ class RendererAgent(BaseAgent):
         
     @property
     def capabilities(self) -> List[str]:
-        return ["uml_rendering", "svg_generation"]
+        return ["plantuml_rendering", "svg_generation"]
+
+    @property
+    def requires(self) -> List[str]:
+        return ["plantuml_validation_report"]
+
+    @property
+    def produces(self) -> List[str]:
+        return ["rendered_svg_references"]
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
