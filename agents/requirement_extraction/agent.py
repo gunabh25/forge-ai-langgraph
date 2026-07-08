@@ -44,7 +44,7 @@ class RequirementExtractionAgent(BaseAgent):
         
         system_prompt = """You are a Principal Requirement Analyst.
 Analyze the user's request and extract structured requirements for a software system.
-Identify functional requirements, non-functional requirements, actors, services, external systems, databases, and workflows.
+Identify functional requirements, non-functional requirements, actors, external systems, APIs, services, databases, business workflows, constraints, and assumptions.
 
 Output ONLY valid JSON matching this exact structure:
 {
@@ -52,9 +52,12 @@ Output ONLY valid JSON matching this exact structure:
     "non_functional_requirements": ["Req 1", "Req 2"],
     "actors": ["User", "Admin"],
     "services": ["Auth Service", "Payment Service"],
+    "apis": ["Stripe API", "Google Maps API"],
     "external_systems": ["Stripe", "AWS S3"],
     "databases": ["PostgreSQL", "Redis"],
-    "workflows": ["User Login", "Checkout Process"]
+    "workflows": ["User Login", "Checkout Process"],
+    "constraints": ["Must deploy to AWS", "Must use Python 3"],
+    "assumptions": ["Users have internet access"]
 }
 
 DO NOT include markdown tags or explanation. Output ONLY the JSON.
