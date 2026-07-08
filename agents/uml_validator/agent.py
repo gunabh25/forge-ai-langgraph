@@ -62,9 +62,11 @@ class UMLValidatorAgent(BaseAgent):
         system_prompt = """You are a specialized UML Validator Agent.
 Your task is to validate the provided PlantUML syntax for structural correctness.
 Check for:
-1. Missing @startuml or @enduml tags.
-2. Malformed syntax (e.g., unclosed brackets, missing arrows, invalid aliases).
-3. Invalid characters or unsupported directives.
+1. syntax
+2. aliases
+3. participants
+4. relationships
+5. brackets
 
 Respond ONLY with a valid JSON object matching this schema:
 {
