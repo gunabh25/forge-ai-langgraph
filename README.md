@@ -2,6 +2,28 @@
 
 ForgeAI is an extensible Agentic AI Software Engineering Platform that dynamically analyzes user requests, plans execution, selects appropriate AI agents, and generates software engineering artifacts through a plugin-based architecture.
 
+## Why ForgeAI?
+
+- Traditional AI coding assistants rely on a single monolithic prompt.
+- ForgeAI decomposes software engineering into specialized autonomous agents.
+- Dynamic planning.
+- Capability-based routing.
+- Plugin architecture.
+- Human approval checkpoints.
+- Lower LLM cost by executing only relevant agents.
+- Future-ready reinforcement learning integration.
+
+## Evolution
+
+| ForgeAI v1 | ForgeAI v2 |
+|------------|------------|
+| Static LangGraph workflow | Dynamic LangGraph workflow |
+| Fixed execution pipeline | Planner-driven execution |
+| Hardcoded routing | Capability-based routing |
+| Sequential execution | Dynamic execution planning |
+| Fixed agent set | Plugin-based agents |
+| Single software workflow | Multi-domain AI platform |
+
 ## Core Features
 
 - **Dynamic Agent Platform:** Eliminates rigid, hardcoded pipelines in favor of a dynamic execution framework tailored to the specific user request.
@@ -109,7 +131,7 @@ ForgeAI features a highly sophisticated UML Generation Pipeline dedicated to sof
 ↓
 **PlantUML** (The standard textual language utilized for generation)
 ↓
-**Syntax Validator** (An LLM gatekeeper that actively tests the PlantUML for missing brackets, invalid aliases, and structural errors)
+**Syntax Validator** (The Syntax Validator performs structural validation of generated PlantUML artifacts. If validation fails, it automatically triggers a regeneration cycle before artifacts are persisted. The validator can optionally invoke an LLM for self-correction, but structural validation remains the primary responsibility.)
 ↓
 **Renderer** (Converts the validated text into visual outputs)
 
@@ -203,10 +225,29 @@ forge-ai-langgraph/
 └── requirements.txt       
 ```
 
-## Future Roadmap
+## Architectural Trade-offs
+
+### Advantages
+
+- Highly extensible
+- Plugin architecture
+- Dynamic execution
+- Better separation of concerns
+- Lower unnecessary LLM calls
+- Easier maintenance
+
+### Trade-offs
+
+- More orchestration complexity
+- Planner introduces slight latency
+- More infrastructure components
+- Requires capability registration
+- More difficult debugging compared to a static workflow
+
+## ForgeAI v3 Roadmap
 
 - **Parallel Agent Execution:** Execute disparate workflows simultaneously utilizing LangGraph's native fan-out capabilities.
-- **MCP Integration:** Bind agents directly to local IDE tooling via the Model Context Protocol.
+- **MCP Integration:** Future versions will expose ForgeAI agents through the Model Context Protocol (MCP), allowing IDEs, external tools and AI assistants to discover and invoke registered agents securely.
 - **Multi-LLM Routing:** Send basic tasks to rapid models, and complex architecture tasks to heavy reasoning models seamlessly.
 - **Vector Memory:** Transition from JSON metadata to high-dimensional semantic search.
 - **Tool Registry:** Introduce a centralized marketplace of tools that agents can dynamically discover and equip.
