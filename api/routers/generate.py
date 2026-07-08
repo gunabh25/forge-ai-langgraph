@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from api.schemas.models import GenerateRequest, GenerateResponse
 from api.dependencies.core import get_orchestration_service
 from api.services.orchestration_service import OrchestrationService
+import traceback
+import logging
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/generate", response_model=GenerateResponse)
@@ -18,4 +21,10 @@ async def generate_architecture(
         )
         return GenerateResponse(**result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal Server Error during generation")
+        logger.exception("Architecture generation failed")
+    traceback.print_exc()
+    raise HTTPException(
+        status_code=500,
+        # pyrefly: ignore [unbound-name]
+        detail=str(e)
+    )

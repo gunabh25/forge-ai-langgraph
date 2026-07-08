@@ -16,6 +16,25 @@ class AgentRegistry:
     def __init__(self):
         if not hasattr(self, '_agents'):
             self._agents: Dict[str, BaseAgent] = {}
+            self._auto_discover()
+            
+    def _auto_discover(self) -> None:
+        """Automatically discovers and loads all agents in the agents/ package."""
+        import pkgutil
+        import importlib
+        import agents
+        import logging
+        logger = logging.getLogger("core.agent_registry")
+        
+        if not hasattr(agents, '__path__'):
+            return
+            
+        for _, module_name, is_pkg in pkgutil.iter_modules(agents.__path__):
+            if is_pkg:
+                try:
+                    importlib.import_module(f"agents.{module_name}.agent")
+                except Exception as e:
+                    logger.debug(f"Could not auto-load agent {module_name}: {e}")
         
     def register(self, agent: BaseAgent) -> None:
         """Register an agent instance."""
