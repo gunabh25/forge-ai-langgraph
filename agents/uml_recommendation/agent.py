@@ -30,7 +30,7 @@ class UMLRecommendationAgent(BaseAgent):
 
     @property
     def requires(self) -> List[str]:
-        return ["architecture_json"]
+        return ["architecture_json", "requirements_json"]
 
     @property
     def produces(self) -> List[str]:
@@ -50,20 +50,25 @@ class UMLRecommendationAgent(BaseAgent):
         logger.info("UML Recommendation Agent starting execution.")
         
         user_request = state.get("user_request", "")
+        requirements_json = state.get("requirements_json", {})
         architecture_json = state.get("architecture_json", {})
         
         system_prompt = """You are a Principal Software Architect.
-Read the provided architecture description. Decide exactly which UML diagrams are required to visualize it properly.
+Read the provided requirements and architecture description. 
+Reason over the system boundaries, communication, deployment, and state to decide exactly which UML diagrams are required to visualize it properly.
 Supported UML: Use Case, Activity, Sequence, Communication, Class, Object, Component, Deployment, Package, Composite Structure, State Machine, Timing, Interaction Overview, Profile.
 
 You MUST NOT hardcode rules. Use deep architectural reasoning.
+Only recommend diagrams that provide value. Do not automatically generate all UML diagrams.
+
 Output ONLY valid JSON matching this exact structure:
 {
     "selected_diagrams": [
         {
             "diagram": "Diagram Name",
-            "confidence": 0.95,
-            "reason": "Explicit architectural reason."
+            "reason": "Explicit architectural reason based on boundaries, communication, deployment, or state.",
+            "priority": "High|Medium|Low",
+            "confidence": 0.95
         }
     ],
     "rejected_diagrams": [
@@ -79,7 +84,7 @@ DO NOT include markdown tags or explanation. Output ONLY the JSON.
 
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User Request: {user_request}\n\nArchitecture JSON:\n{json.dumps(architecture_json, indent=2)}")
+            HumanMessage(content=f"User Request: {user_request}\n\nRequirements JSON:\n{json.dumps(requirements_json, indent=2)}\n\nArchitecture JSON:\n{json.dumps(architecture_json, indent=2)}")
         ]
         
         logger.info("Invoking LLM for UML Recommendation...")
