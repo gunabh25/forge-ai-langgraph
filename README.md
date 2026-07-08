@@ -1,116 +1,209 @@
 # ForgeAI
 
-ForgeAI is a production-grade, multi-agent AI Software Engineering platform orchestrating specialized autonomous agents that collaborate to transform a software idea into production-ready artifacts. Powered by LangGraph, LangChain, and Google Gemini, ForgeAI operates as a virtual software engineering department.
+ForgeAI is a production-grade, multi-agent AI Software Engineering platform orchestrating specialized autonomous agents that collaborate to transform a software idea into production-ready artifacts. Powered by LangGraph, LangChain, and advanced LLMs, ForgeAI operates as a virtual software engineering department.
+
+**ForgeAI v2 Evolution:** The architecture has been significantly refactored from a static, hardcoded sequence (v1) into a fully dynamic Agentic AI Platform. ForgeAI v2 introduces a plugin-based `AgentRegistry`, dynamic `LangGraph` compilation via Intent Analysis and Planning, robust Conversation Memory, and a foundation for Active Reinforcement Tuning (ART).
 
 ---
 
-## 🏗️ Architecture Overview
+## Key Features
 
-ForgeAI employs a state-gated hierarchical multi-agent workflow where specialized agents handle specific phases of the software development lifecycle (SDLC). The orchestrator routes the execution flow through specialized tasks, incorporating human-in-the-loop approvals at critical alignment milestones.
+- **Dynamic Agent Orchestration:** Workflows are no longer statically hardcoded; they are generated on the fly.
+- **Intent Analyzer:** Analyzes user prompts to classify the core engineering task automatically.
+- **Planner Agent:** Synthesizes an optimized sequence of execution steps matching registered agent capabilities.
+- **Agent Registry (Plugin Architecture):** Agents self-register dynamically, fulfilling the Open/Closed Principle.
+- **Dynamic Workflow Execution:** Constructs and compiles a temporary LangGraph matching the planner's output.
+- **Shared State Management:** `ForgeState` seamlessly shares data natively across the dynamically mapped graph via reducers.
+- **Conversation Memory:** Persists user lifecycles, sessions, artifact histories, and generated plans locally.
+- **Human Approval Workflow:** Checkpoints for manual user validation across critical lifecycle boundaries.
+- **UML Generation Support:** Dedicated UML capabilities mapping textual requirements into visual architecture natively.
+- **Syntax Validation Pipeline:** Specialized validator agents to catch malformed diagrams and trigger generation retries.
+- **Feedback Collection:** Centralized `FeedbackManager` capturing detailed human feedback on generated artifacts.
+- **Future ART Plugin Integration:** Architectural hook ready for Reinforcement Learning from Human Feedback (RLHF).
+- **Extensible Tooling:** Easy to wrap and inject external dependencies.
 
-### System Workflow
+---
+
+## Architecture Overview
 
 ```mermaid
 graph TD
-    User([User Request]) --> EM[Engineering Manager]
-    EM --> RA[Requirement Analyst]
-    RA --> SA[Solution Architect]
-    SA --> HA1{Human Approval}
-    HA1 -- Approved --> BE[Backend Engineer]
-    BE --> SE[AI Software Engineer]
-    SE --> QA[QA Engineer]
-    SE --> SEC[Security Engineer]
-    SE --> CR[Code Reviewer]
-    QA & SEC & CR --> HA2{Human Approval}
-    HA2 -- Approved --> DE[DevOps Engineer]
-    DE --> DB([Deployment Blueprint])
+    User([User]) --> CI[Chat Interface]
+    CI --> CM[Conversation Memory]
+    CM --> IA[Intent Analyzer]
+    IA --> PL[Planner]
+    PL --> AR[Agent Registry]
+    AR --> DE[Dynamic Executor]
+    DE --> SA[Selected Agents]
+    SA --> ART[Artifacts]
+    ART --> FM[Feedback Manager]
+    FM -.-> ART_P[ART Plugin]
 ```
 
 ---
 
-## 🤖 Agent Roles & Packages
+## Dynamic Execution Flow
 
-Every agent is modularized into its own self-contained python package under `agents/` to adhere to the Single Responsibility Principle:
+ForgeAI natively supports iterative conversation flows through its new memory abstractions:
 
-1. **Engineering Manager (`agents/engineering_manager/`)**
-   - High-level orchestrator. Schedules, delegates, and oversees execution across the agents.
-2. **Requirement Analyst (`agents/requirement_analyst/`)**
-   - Refines user input into complete functional requirements and user stories.
-3. **Solution Architect (`agents/solution_architect/`)**
-   - Designs software schemas, architectures, data flows, and system patterns.
-4. **Backend Engineer (`agents/backend_engineer/`)**
-   - Designs database schemas, API specs, and service contracts.
-5. **AI Software Engineer (`agents/ai_software_engineer/`)**
-   - Implements source code files matching requirements and architectural plans.
-6. **QA Engineer (`agents/qa_engineer/`)**
-   - Designs unit/integration test suites and validates functionality.
-7. **Security Engineer (`agents/security_engineer/`)**
-   - Audits code against security vulnerabilities (OWASP, injection, logic bypasses).
-8. **Code Reviewer (`agents/code_reviewer/`)**
-   - Analyzes style, modularity, and best practices. Provides critical PR reviews.
-9. **DevOps Engineer (`agents/devops_engineer/`)**
-   - Generates deployment blueprints, Dockerfiles, and CI/CD pipelines.
+1. **New User**: The `ConversationMemoryManager` auto-generates a new UUID profile, sets up an isolated workspace, and provisions a new `Session`.
+2. **Existing User**: Upon connection, previous context is retrieved, inflating the LLMs with historical architectural knowledge.
+3. **Updated Prompt**: If a user issues follow-up directions, a new `ConversationTurn` is recorded. The Intent Analyzer intercepts it (e.g., flagging as a "Refactor" intent) and the Planner provisions a targeted workflow skipping redundant initial steps.
+4. **User Feedback**: Artifact-specific feedback is passed to the `FeedbackManager`, which logs the critique and securely forwards it to the ART pipeline for future alignment.
 
 ---
 
-## 📂 Project Structure
+## Agent Registry
+
+ForgeAI heavily leverages modern software design patterns. The core of this is the **Agent Registry**:
+
+- **Plugin Architecture:** You do not modify the orchestrator to add new agents.
+- **Dynamic Discovery:** Each agent (e.g., `UMLGeneratorAgent(BaseAgent)`) automatically registers itself upon initialization.
+- **Capability Matching:** Agents expose a `capabilities: List[str]` property. The Planner Agent reads these arrays globally to decide which agent fits the user's current intent.
+- **Adding a new agent:** Simply create a subclass of `BaseAgent`, put it in `agents/new_agent/agent.py`, and export it. The Planner will instantly start utilizing it without you touching `app/dynamic_graph.py`.
+
+---
+
+## Workflow
+
+The ForgeAI v2 dynamic execution lifecycle seamlessly transitions from intent to artifact:
+
+**User Prompt** 
+↓
+**Intent Analysis** (Classifies structural requirement) 
+↓
+**Execution Planning** (Maps capabilities to required tasks)
+↓
+**Dynamic Agent Selection** (Fetches active models from Registry)
+↓
+**Execution** (Runs compiled LangGraph natively)
+↓
+**Artifact Generation** (Stores localized files)
+↓
+**Feedback Collection** (Intercepts user adjustments)
+
+---
+
+## UML Generation
+
+A specialized agentic branch focuses exclusively on system visualizations.
+
+**Input**
+```json
+{
+  "prompt": "Build a secure payment gateway...",
+  "diagram_types": [
+      "sequence",
+      "component",
+      "class",
+      "deployment",
+      "activity"
+  ]
+}
+```
+
+**Output**
+- **PlantUML**: The core structured text mapping logic.
+- **Mermaid**: Secondary render formatting (where applicable).
+- **Validation Report**: Rather than simply dumping text, the `UML Validator Agent` parses the generated strings against PlantUML syntactic rules. If unclosed tags or syntax violations are detected, the validator flags a failure and immediately requests a retry loop from the LangGraph orchestrator!
+
+---
+
+## Design Principles
+
+- **SOLID Principles:** Strict adherence to SRP (Single Responsibility per agent/manager).
+- **Plugin Architecture:** The `AgentRegistry` and `ARTPluginInterface` encapsulate external logic completely.
+- **Separation of Concerns:** Data structures (`memory/models.py`), storage mechanics (`memory/storage.py`), and orchestration logic (`app/dynamic_graph.py`) are strictly decoupled.
+- **Open Closed Principle:** You can scale to 100+ agents without modifying the core graph logic once.
+- **Dependency Injection:** Storage engines (like `JSONMemoryStorage`) are injected into Managers, making transitioning to PostgreSQL trivial.
+- **Extensibility:** The dynamic nature of the Planner allows for infinite workflow shapes.
+- **Backward Compatibility:** The original static LangGraph in `app/graph.py` remains 100% operational alongside the new `dynamic_graph.py`.
+
+---
+
+## Performance Optimizations
+
+- **Dynamic Agent Selection**: Skipping the entire graph overhead when the user only requests a single change.
+- **Reduced unnecessary LLM calls**: Targeted execution paths lower API consumption.
+- **Shared state reuse**: LangGraph reducers effortlessly merge partial outputs.
+- **Conversation memory**: Cached turns prevent duplicate reasoning processing.
+- **Incremental execution**: Resuming from exact failure nodes (e.g., UML syntax fixes).
+- **Future parallel execution**: Designing for LangGraph's native fan-out/fan-in abilities.
+
+---
+
+## Future Roadmap
+
+- **Parallel Agent Execution:** Execute QA, Security, and Code Reviewers in parallel utilizing LangGraph's native fan-out/fan-in.
+- **MCP Integration:** Model Context Protocol for deep IDE tooling.
+- **Multi-LLM Routing:** Send basic tasks to fast models, and complex architecture tasks to reasoning models.
+- **RAG & Vector Memory:** Enhance the storage abstraction with semantic vector search.
+- **Tool Registry:** Global tool availability for dynamically matched agents.
+- **Distributed Agent Execution:** Queue-based agent running.
+- **RLHF / ART Plugin:** Connecting the stubbed `FeedbackManager` to a localized alignment pipeline.
+
+---
+
+## Folder Structure
 
 ```
 forge-ai-langgraph/
 ├── api/                   # FastAPI route endpoints
-│   ├── __init__.py
-│   └── routes.py
 ├── app/                   # Graph execution core & state definitions
-│   ├── __init__.py
-│   ├── graph.py           # LangGraph StateGraph definitions
-│   ├── router.py          # Node routing mechanics
-│   ├── settings.py        # Configuration management
-│   ├── state.py           # State schema structures
-│   └── workflow.py        # Workflow nodes and handlers
+│   ├── dynamic_graph.py   # NEW: Dynamic graph compiler
+│   └── graph.py           # Legacy static graph
 ├── agents/                # Specialist agent modules
-│   ├── __init__.py
-│   └── [agent_name]/
-│       ├── __init__.py
-│       ├── agent.py       # Specialist LLM agent loop
-│       ├── prompt.md      # System prompt template
-│       └── examples.md    # Few-shot examples
+│   ├── base.py            # NEW: BaseAgent abstraction
+│   ├── intent_analyzer/   # NEW: Intent parsing agent
+│   ├── planner/           # NEW: Execution planner
+│   ├── uml_generator/     # NEW: UML syntax generator
+│   ├── uml_validator/     # NEW: UML syntax validator
+│   └── [specialists]/     # Existing engineering agents
 ├── core/                  # Core helpers and shared libraries
-│   ├── __init__.py
-│   ├── llm.py             # LLM configurations (Gemini client wrapper)
-│   ├── prompts.py         # Prompt loading & rendering utils
-│   ├── artifact_manager.py# Disk/object storage manager for outputs
-│   ├── versioning.py      # Output artifact versioning logic
-│   ├── approval.py        # Human-in-the-loop approval gate utilities
-│   ├── utils.py           # Helpers & utility logic
-│   └── constants.py       # Global constants
+│   ├── feedback/          # NEW: Feedback manager and ART plugin
+│   ├── agent_registry.py  # NEW: Global plugin registry
+│   ├── dynamic_executor.py# NEW: Pure sequential executor
+│   └── [utils]/           # Artifact, prompt, LLM utilities
 ├── memory/                # Long & short-term memory layer
-│   ├── __init__.py
-│   └── store.py           # Persistent checkpoint & memory layers
-├── mcp/                   # Model Context Protocol integration
-│   └── __init__.py
-├── schemas/               # API input/output validation models
-│   └── __init__.py
-├── models/                # DB relational schemas
-│   └── __init__.py
-├── config/                # System settings config (Logging, etc.)
-│   ├── __init__.py
-│   └── logging.py
+│   ├── manager.py         # NEW: Conversation orchestrator
+│   ├── models.py          # NEW: Dataclasses for turns & sessions
+│   └── storage.py         # NEW: JSON persistent backend
+├── config/                # System settings config
 ├── artifacts/             # Outputs generated during graph execution
-│   ├── requirements/      # Requirements outputs
-│   ├── architecture/      # Architectural specs
-│   ├── backend/           # API specs and database designs
-│   ├── implementation/    # Output source code
-│   ├── qa/                # QA test scripts and reports
-│   ├── security/          # Security review outputs
-│   ├── review/            # Code review summaries
-│   └── deployment/        # Kubernetes / Docker compose files
 ├── docs/                  # Project-wide developer documentation
 ├── tests/                 # Package test suites
-├── .env.example           # Environment template file
-├── .gitignore             # Git ignore targets
 ├── main.py                # Launch entry point
 └── requirements.txt       # Dependencies
 ```
+
+---
+
+## Technology Stack
+
+- **Python** (3.12+)
+- **LangGraph** (StateGraph, Reducers, Compilers)
+- **LangChain** (LLM Wrapping, Messaging)
+- **FastAPI** (API Core)
+- **Rich** (CLI Output formatting)
+- **PlantUML** & **Mermaid** (Architecture Rendering)
+- **Pydantic** & **Dataclasses** (Validation & Schemas)
+- **OpenAI**, **Gemini**, **OpenRouter** (Multi-LLM Support)
+
+---
+
+## Example Workflow
+
+**Prompt:** 
+*"Generate a compliance monitoring architecture with full sequence, component, and class diagrams."*
+
+**Dynamic Execution Pipeline:**
+1. The **Intent Analyzer** flags this request as `architecture_design` and `uml_generation`.
+2. The **Planner Agent** queries the `AgentRegistry` and constructs the plan: `["Solution Architect", "UML Generator", "UML Validator"]`.
+3. The **Dynamic Orchestrator** creates a `StateGraph`, injects the three nodes sequentially, and compiles the workflow.
+4. The **Solution Architect** outlines the system topology.
+5. The **UML Generator** parses the topology into PlantUML syntax and saves them as `.puml` files via the `ArtifactManager`.
+6. The **UML Validator** validates the syntax. If it misses a bracket, it fails the gate and causes the orchestrator to re-trigger the Generator.
+7. Upon successful validation, the workflow terminates and the User Session is committed to **Conversation Memory**.
 
 ---
 
@@ -130,30 +223,6 @@ ForgeAI provides a robust CLI to run, test, and manage workflows:
 
 ---
 
-## 🛠️ Technology Stack
-
-- **Language:** Python 3.12+
-- **Orchestration:** LangGraph (StateGraph, nodes, edges, conditional routing)
-- **Framework:** LangChain (LLM wrappers, document loading, message handling)
-- **Base LLM:** Google Gemini Models
-- **API Server:** FastAPI & Uvicorn
-- **Validation:** Pydantic v2
-- **Persistent Storage (Future):** Redis & PostgreSQL
-- **Deployment Platform (Future):** Docker & Kubernetes
-
----
-
-## 🚀 Roadmap & Future Capabilities
-
-- [x] **Human-in-the-Loop Gating:** Implement robust blocking UI and API prompts for manual manager review steps.
-- [ ] **Parallel Agent Execution:** Execute QA, Security, and Code Reviewers in parallel utilizing LangGraph's native fan-out/fan-in.
-- [ ] **Artifact Versioning:** Enable semantic diffs and rollback capabilities for generated artifacts.
-- [ ] **Model Context Protocol (MCP):** Connect agents to external development environments, consoles, and search tools.
-- [ ] **GitHub App Integration:** Auto-commit generated code directly to target branches and trigger pull requests.
-- [ ] **Observability & Logging:** Trace agent chains using LangSmith and log output tokens.
-
----
-
 ## 📝 License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) placeholder for details.
+Distributed under the MIT License.
