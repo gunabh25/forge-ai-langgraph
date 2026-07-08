@@ -43,6 +43,7 @@ class RendererAgent(BaseAgent):
             return {}
 
         rendered_svg_references = {}
+        svg_metadata = []
         artifacts_paths = []
         
         for diagram_name, puml_content in plantuml_diagrams.items():
@@ -58,7 +59,7 @@ class RendererAgent(BaseAgent):
             # Save artifact
             safe_name = diagram_name.lower().replace(" ", "_").replace("/", "_")
             saved_path = self.artifact_manager.save_artifact(
-                stage=ArtifactFolders.UML,
+                stage=ArtifactFolders.DIAGRAMS,
                 base_name=f"{safe_name}_rendered",
                 content=mock_svg_content,
                 ext="svg"
@@ -67,7 +68,13 @@ class RendererAgent(BaseAgent):
             rendered_svg_references[diagram_name] = saved_path
             artifacts_paths.append(saved_path)
             
-        logger.info(f"Renderer Complete. Rendered {len(rendered_svg_references)} diagrams.")
+            svg_metadata.append({
+                "diagram": diagram_name,
+                "svg_path": saved_path,
+                "ready_for_react_ui": True
+            })
+            
+        logger.info(f"Renderer Complete. Generated SVG metadata for {len(svg_metadata)} diagrams.")
         
         new_message = AIMessage(
             content=f"Rendered {len(rendered_svg_references)} diagrams into SVGs.",
@@ -82,9 +89,10 @@ class RendererAgent(BaseAgent):
         }
         
         return {
+            "svg_metadata": svg_metadata,
             "rendered_svg_references": rendered_svg_references,
             "artifacts": {
-                ArtifactFolders.UML: artifacts_paths
+                ArtifactFolders.DIAGRAMS: artifacts_paths
             },
             "messages": [new_message],
             "metadata": updated_metadata,

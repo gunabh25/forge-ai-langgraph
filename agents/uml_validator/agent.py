@@ -39,7 +39,7 @@ class UMLValidatorAgent(BaseAgent):
 
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Validator agent step."""
-        artifacts = cast(Dict[str, List[str]], state.get("artifacts", {}))
+        artifacts = state.get("artifacts", {})
         uml_paths = artifacts.get("uml", [])
         
         if not uml_paths:
@@ -118,7 +118,7 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
             name="uml_validator"
         )
         
-        current_metadata = cast(Dict[str, Any], state.get("metadata", {}))
+        current_metadata = state.get("metadata", {}) or {}
         updated_metadata = {
             **current_metadata,
             "uml_validation_completed": True,
