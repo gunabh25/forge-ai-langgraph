@@ -23,3 +23,8 @@ class CodeReviewerAgent(BaseAgent):
         """Execute the agent step."""
         # TODO: Implement agent logic
         return {}
+
+
+# Automatically register the agent
+from core.agent_registry import AgentRegistry
+AgentRegistry().register(CodeReviewerAgent())

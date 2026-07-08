@@ -104,3 +104,8 @@ class EngineeringManagerAgent(BaseAgent):
         
         logger.info("Engineering Manager execution complete. Returning state updates.", extra=state_updates)
         return state_updates
+
+
+# Automatically register the agent
+from core.agent_registry import AgentRegistry
+AgentRegistry().register(EngineeringManagerAgent())

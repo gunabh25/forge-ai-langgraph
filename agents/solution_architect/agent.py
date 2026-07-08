@@ -137,3 +137,8 @@ class SolutionArchitectAgent(BaseAgent):
         
         logger.info("Architecture completed")
         return state_updates
+
+
+# Automatically register the agent
+from core.agent_registry import AgentRegistry
+AgentRegistry().register(SolutionArchitectAgent())

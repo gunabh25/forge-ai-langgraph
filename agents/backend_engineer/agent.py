@@ -129,3 +129,8 @@ class BackendEngineerAgent(BaseAgent):
         }
         
         return state_updates
+
+
+# Automatically register the agent
+from core.agent_registry import AgentRegistry
+AgentRegistry().register(BackendEngineerAgent())

@@ -127,3 +127,8 @@ class RequirementAnalystAgent(BaseAgent):
         
         logger.info("Requirement analysis completed")
         return state_updates
+
+
+# Automatically register the agent
+from core.agent_registry import AgentRegistry
+AgentRegistry().register(RequirementAnalystAgent())
