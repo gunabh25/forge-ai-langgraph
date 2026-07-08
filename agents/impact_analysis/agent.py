@@ -51,14 +51,16 @@ class ImpactAnalysisAgent(BaseAgent):
 
         system_prompt = """You are a Senior Architect determining the blast radius of a new requirement.
 Compare the user's new request against the previous architecture and UML recommendations.
-Detect changed components, affected diagrams (must regenerate), and diagrams that can be safely reused.
+Detect changed components, changed services, and changed workflows.
+Recommend which diagrams must be regenerated and which can be safely reused.
 
 Output ONLY valid JSON matching this exact structure:
 {
     "changed_components": ["Component A"],
+    "changed_services": ["Auth Service"],
+    "changed_workflows": ["Login Flow"],
     "affected_diagrams": ["Component", "Deployment"],
-    "reuse_diagrams": ["Use Case", "Activity"],
-    "reason": "Explicit reasoning."
+    "reuse_diagrams": ["Use Case", "Activity"]
 }
 
 DO NOT include markdown tags or explanation. Output ONLY the JSON.

@@ -111,7 +111,7 @@ Do NOT include any other text, markdown formatting, or explanation.
         response_content = llm_response.content
         if isinstance(response_content, list):
             response_content = "\n".join([str(item) for item in response_content])
-        else:
+        elif not isinstance(response_content, str):
             response_content = str(response_content)
             
         clean_content = response_content.replace("```json", "").replace("```", "").strip()
@@ -143,6 +143,17 @@ Do NOT include any other text, markdown formatting, or explanation.
             "messages": [new_message],
             "metadata": updated_metadata
         }
+        
+        # Filter selected_uml_diagrams if impact analysis restricts them
+        if impact_report and impact_report.get("affected_diagrams"):
+            affected_diagram_names = set(impact_report["affected_diagrams"])
+            current_selected = state.get("selected_uml_diagrams") or []
+            filtered_diagrams = [
+                d for d in current_selected 
+                if d.get("diagram") in affected_diagram_names
+            ]
+            state_updates["selected_uml_diagrams"] = filtered_diagrams
+            logger.info(f"Filtered UML regeneration down to {len(filtered_diagrams)} diagrams due to Impact Analysis.")
         
         return state_updates
 
