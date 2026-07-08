@@ -77,6 +77,7 @@ class RequirementAnalystAgent:
         if isinstance(response_content, list):
             response_content = "\n".join([str(item) for item in response_content])
         else:
+            # pyrefly: ignore [unnecessary-type-conversion]
             response_content = str(response_content)
             
         # Save artifact using ArtifactManager
