@@ -1,0 +1,29 @@
+{
+  "session_id": "72d00395-eb4e-402d-b1da-1759ad7b5732",
+  "user_id": "7abfdc09-84cd-4f07-ac71-cd99798b187f",
+  "turns": [
+    {
+      "turn_id": "8e70fc0a-5b24-4fbe-9280-ab0fb959a97d",
+      "prompt": "Build me a CRM backend",
+      "intent": {
+        "intent": "backend_generation",
+        "confidence": 0.99
+      },
+      "execution_plan": [
+        "Requirement Analyst",
+        "Solution Architect",
+        "Backend Engineer"
+      ],
+      "artifacts": {
+        "backend": [
+          "/tmp/app.py"
+        ]
+      },
+      "final_state_summary": {
+        "status": "success"
+      },
+      "timestamp": "2026-07-08T04:06:56.985504+00:00"
+    }
+  ],
+  "created_at": "2026-07-08T04:06:56.985277+00:00"
+}
