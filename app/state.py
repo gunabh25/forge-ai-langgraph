@@ -132,6 +132,23 @@ class ForgeState(TypedDict):
     approval_gates_completed: Optional[int]
     estimated_time_saved: Optional[str]
     
+    # New execution metadata and observability
+    execution_report: Optional[Dict[str, Any]]
+    
+    # Incremental Update / Impact Analysis
+    impact_analysis_report: Optional[Dict[str, Any]]
+    
+    # AI-Driven UML Recommendation
+    uml_recommendation_report: Optional[Dict[str, Any]]
+    
+    # Solution Architect Reasoning Pipeline
+    requirements_json: Optional[Dict[str, Any]]
+    architecture_json: Optional[Dict[str, Any]]
+    selected_uml_diagrams: Optional[List[Dict[str, str]]]
+    plantuml_diagrams: Optional[Dict[str, str]]
+    plantuml_validation_report: Optional[Dict[str, Any]]
+    rendered_svg_references: Optional[Dict[str, str]]
+    
     # Reducer-managed tracking collections
     artifacts: Annotated[Dict[str, List[str]], merge_artifacts]
     messages: Annotated[List[BaseMessage], add_messages]

@@ -1,6 +1,8 @@
 """Dynamic LangGraph StateGraph workflow definition and compilation."""
 
 from typing import Any, Dict, cast
+import time
+import uuid
 from langgraph.graph import StateGraph, END
 from app.state import ForgeState
 from core.agent_registry import AgentRegistry
@@ -70,6 +72,8 @@ class DynamicWorkflowOrchestrator:
         """
         logger.info("Starting Dynamic Workflow pipeline.")
         
+        start_time = time.time()
+        
         # Cast to dict for manual updates
         current_state = cast(dict, state)
         
@@ -103,12 +107,51 @@ class DynamicWorkflowOrchestrator:
         # Set entry point
         workflow.set_entry_point(execution_plan[0])
         
-        # Add sequential edges
+        # Add edges
         for i in range(len(execution_plan) - 1):
-            workflow.add_edge(execution_plan[i], execution_plan[i + 1])
+            current_node = execution_plan[i]
+            next_node = execution_plan[i + 1]
+            
+            if current_node == "UML Validator" and "UML Generator" in execution_plan:
+                # Add conditional edge for retries
+                def should_retry(state: ForgeState) -> str:
+                    metadata = state.get("metadata", {})
+                    if metadata.get("retry_requested"):
+                        logger.info("Validation failed, retrying UML Generation...")
+                        return "retry"
+                    return "continue"
+                    
+                workflow.add_conditional_edges(
+                    current_node,
+                    should_retry,
+                    {
+                        "retry": "UML Generator",
+                        "continue": next_node
+                    }
+                )
+            else:
+                workflow.add_edge(current_node, next_node)
             
         # Finish with END
-        workflow.add_edge(execution_plan[-1], END)
+        if execution_plan[-1] == "UML Validator" and "UML Generator" in execution_plan:
+             # Add conditional edge for retries at the end
+             def should_retry_end(state: ForgeState) -> str:
+                 metadata = state.get("metadata", {})
+                 if metadata.get("retry_requested"):
+                     logger.info("Validation failed, retrying UML Generation...")
+                     return "retry"
+                 return "continue"
+                 
+             workflow.add_conditional_edges(
+                 execution_plan[-1],
+                 should_retry_end,
+                 {
+                     "retry": "UML Generator",
+                     "continue": END
+                 }
+             )
+        else:
+            workflow.add_edge(execution_plan[-1], END)
         
         # 4. Compile and Execute
         logger.info("Compiling dynamic StateGraph...")
@@ -117,6 +160,23 @@ class DynamicWorkflowOrchestrator:
         
         # Invoke compiled graph
         final_state = compiled_app.invoke(current_state)
+        
+        end_time = time.time()
+        execution_time_ms = int((end_time - start_time) * 1000)
+        
+        execution_report = {
+            "execution_id": str(uuid.uuid4()),
+            "workflow_type": final_state.get("intent_classification", {}).get("primary_intent", "unknown"),
+            "agents_executed": execution_plan,
+            "execution_time_ms": execution_time_ms,
+            "llm_calls": len(final_state.get("reasoning_logs", [])),
+            "validation_retries": 0, # Placeholder unless tracked via explicit metadata flag count
+            "generated_diagrams": len(final_state.get("uml_recommendation_report", {}).get("selected_diagrams", [])),
+            "artifacts": final_state.get("artifacts", {}),
+            "status": "success"
+        }
+        
+        final_state["execution_report"] = execution_report
         
         logger.info("Dynamic execution completed.")
         return cast(ForgeState, final_state)

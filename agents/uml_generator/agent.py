@@ -49,67 +49,54 @@ class UMLGeneratorAgent(BaseAgent):
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Generator agent step."""
         user_request = state.get("user_request", "").strip()
-        # Fallback to look for a specific uml_request or prompt
-        uml_request = cast(Dict[str, Any], state.get("uml_request", {}) if isinstance(state.get("uml_request"), dict) else {})
-        prompt = str(uml_request.get("prompt", user_request))
-        diagram_types = cast(list, state.get("diagram_types") or uml_request.get("diagram_types", []))
+        architecture = state.get("architecture", "")
+        selected_uml_diagrams = state.get("selected_uml_diagrams", [])
         
-        if not prompt:
-            raise ValueError("State validation failed: prompt is empty.")
+        # Fallback to older diagram_types if selected_uml_diagrams not provided
+        if not selected_uml_diagrams:
+            diagram_types = cast(list, state.get("diagram_types", []))
+            for dt in diagram_types:
+                selected_uml_diagrams.append({"diagram": dt, "reason": "Legacy fallback"})
+                
+        if not selected_uml_diagrams:
+            logger.warning("No UML diagrams selected for generation.")
+            return {}
             
-        logger.info("UML Generator starting execution...", extra={"prompt": prompt, "diagram_types": diagram_types})
+        logger.info(f"UML Generator starting iterative generation for {len(selected_uml_diagrams)} diagrams...")
         
-        types_text = ", ".join(diagram_types) if diagram_types else "Sequence Diagram, Component Diagram, Class Diagram, Activity Diagram, Deployment Diagram, Package Diagram"
+        diagrams = {}
+        saved_paths = []
         
-        system_prompt = f"""You are a specialized UML Generator Agent.
-Your task is to generate PlantUML syntax for the following requested diagram types based on the user's prompt: {types_text}.
+        for diagram_info in selected_uml_diagrams:
+            diagram_type = diagram_info.get("diagram")
+            reason = diagram_info.get("reason", "")
+            
+            system_prompt = f"""You are a specialized UML Generator Agent.
+Your task is to generate PlantUML syntax for a {diagram_type} based on the user's request and the architecture.
+Reason for this diagram: {reason}
 
 You must ONLY generate valid PlantUML code. Do NOT render images.
-Respond ONLY with a valid JSON object where keys are the diagram types and values are the corresponding PlantUML syntax strings. The PlantUML strings must start with @startuml and end with @enduml.
-
-Example format:
-{{
-  "Sequence Diagram": "@startuml\\nAlice -> Bob: Request\\n@enduml",
-  "Class Diagram": "@startuml\\nclass User {{\\n}}\\n@enduml"
-}}
-
-Do NOT include any other text, explanations, or markdown formatting blocks (like ```json). Just output raw JSON.
+Respond ONLY with the raw PlantUML syntax string. The string must start with @startuml and end with @enduml.
+DO NOT include markdown formatting blocks (like ```plantuml). Just output the raw syntax.
 """
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User Prompt: {prompt}")
-        ]
-        
-        logger.info("Invoking LLM for UML generation...")
-        llm_response = self.llm.invoke(messages)
-        
-        response_content = llm_response.content
-        if isinstance(response_content, list):
-            response_content = "\n".join([str(item) for item in response_content])
-        elif not isinstance(response_content, str):
-            response_content = str(response_content)
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=f"User Request: {user_request}\n\nArchitecture:\n{architecture}")
+            ]
             
-        clean_content = response_content.replace("```json", "").replace("```", "").strip()
-        
-        try:
-            diagrams = json.loads(clean_content)
-            if not isinstance(diagrams, dict):
-                diagrams = {}
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse JSON from response: {clean_content}")
-            diagrams = {}
+            logger.info(f"Generating {diagram_type}...")
+            llm_response = self.llm.invoke(messages)
             
-        logger.info(f"Generated {len(diagrams)} diagrams.")
-        
-        # Save artifacts
-        saved_paths = []
-        for d_type, d_content in diagrams.items():
-            base_name = d_type.lower().replace(" ", "_")
+            clean_content = str(llm_response.content).replace("```plantuml", "").replace("```puml", "").replace("```", "").strip()
+            
+            diagrams[diagram_type] = clean_content
+            
+            base_name = diagram_type.lower().replace(" ", "_")
             saved_path = self.artifact_manager.save_artifact(
                 stage="uml",
                 base_name=base_name,
-                content=d_content,
+                content=clean_content,
                 ext="puml"
             )
             saved_paths.append(saved_path)
@@ -126,15 +113,15 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
             "last_updated": generate_timestamp()
         }
         
-        state_updates = {
+        return {
+            "plantuml_diagrams": diagrams,
             "artifacts": {
                 "uml": saved_paths
             },
             "messages": [new_message],
-            "metadata": updated_metadata
+            "metadata": updated_metadata,
+            "current_stage": "uml_generator"
         }
-        
-        return state_updates
 
 # Automatically register the agent
 AgentRegistry().register(UMLGeneratorAgent())

@@ -61,9 +61,32 @@ class PlannerAgent(BaseAgent):
         
         system_prompt = f"""You are a Workflow Planner for an AI engineering platform.
 Based on the User's Request and the identified Intent, your task is to choose the optimal ordered sequence of agents to fulfill the request.
+"""
+        
+        impact_report = state.get("impact_analysis_report", {})
+        if impact_report and impact_report.get("affected_diagrams"):
+            system_prompt += f"""
+An Impact Analysis has been completed.
+Affected Diagrams: {impact_report.get('affected_diagrams')}
+Reuse Diagrams: {impact_report.get('reuse_diagrams')}
 
+DO NOT regenerate everything. Only schedule agents necessary to regenerate the affected diagrams.
+"""
+
+        system_prompt += f"""
 Available Agents:
 {agents_context}
+
+CRITICAL INSTRUCTION:
+If the user requests Architecture Design or UML Diagram Generation, and NO impact analysis restricts you, you MUST output this EXACT sequence of agents:
+[
+    "Requirement Extraction Agent",
+    "Architecture Reasoning Agent",
+    "UML Recommendation Agent",
+    "UML Generator",
+    "UML Validator",
+    "Renderer Agent"
+]
 
 Output ONLY a valid JSON array of strings, where each string is the exact name of an agent from the available list. Choose ONLY the required agents. Provide the list in the exact order they should be executed.
 

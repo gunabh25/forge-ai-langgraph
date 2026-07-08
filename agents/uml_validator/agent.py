@@ -127,8 +127,10 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
         }
         
         state_updates = {
+            "plantuml_validation_report": validation_result,
             "messages": [new_message],
-            "metadata": updated_metadata
+            "metadata": updated_metadata,
+            "current_stage": "uml_validator"
         }
         
         return state_updates
