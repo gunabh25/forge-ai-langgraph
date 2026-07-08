@@ -3,8 +3,9 @@
 import json
 from typing import Dict, Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from agents.base import BaseAgent
+from core.llm import get_llm
 from core.agent_registry import AgentRegistry
 from app.state import ForgeState
 from config.logging import get_logger
@@ -41,6 +42,12 @@ class RendererAgent(BaseAgent):
         self._llm = llm
         self.artifact_manager = ArtifactManager()
 
+    @property
+    def llm(self) -> BaseChatModel:
+        if self._llm is None:
+            self._llm = get_llm()
+        return self._llm
+
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the Renderer Agent."""
         logger.info("Renderer Agent starting execution.")
@@ -64,21 +71,47 @@ class RendererAgent(BaseAgent):
   -->
 </svg>"""
             
-            # Save artifact
+            # Generate Mock PNG
+            mock_png_content = f"Mock PNG binary wrapper for {diagram_name}\\n(In production, this would be binary PNG data)"
+            
+            # Generate Mermaid via LLM
+            logger.info(f"Invoking LLM to convert {diagram_name} to Mermaid...")
+            mermaid_prompt = f"Convert the following PlantUML to Mermaid syntax. Return ONLY the raw Mermaid code, no markdown wrappers.\\n\\n{puml_content}"
+            mermaid_response = self.llm.invoke([SystemMessage(content=mermaid_prompt)])
+            mermaid_content = str(mermaid_response.content).replace("```mermaid", "").replace("```", "").strip()
+            
+            # Save artifacts
             safe_name = diagram_name.lower().replace(" ", "_").replace("/", "_")
-            saved_path = self.artifact_manager.save_artifact(
+            
+            svg_path = self.artifact_manager.save_artifact(
                 stage=ArtifactFolders.DIAGRAMS,
-                base_name=f"{safe_name}_rendered",
+                base_name=f"{safe_name}",
                 content=mock_svg_content,
                 ext="svg"
             )
             
-            rendered_svg_references[diagram_name] = saved_path
-            artifacts_paths.append(saved_path)
+            png_path = self.artifact_manager.save_artifact(
+                stage=ArtifactFolders.DIAGRAMS,
+                base_name=f"{safe_name}",
+                content=mock_png_content,
+                ext="png"
+            )
+            
+            mermaid_path = self.artifact_manager.save_artifact(
+                stage=ArtifactFolders.DIAGRAMS,
+                base_name=f"{safe_name}",
+                content=mermaid_content,
+                ext="mmd"
+            )
+            
+            rendered_svg_references[diagram_name] = svg_path
+            artifacts_paths.extend([svg_path, png_path, mermaid_path])
             
             svg_metadata.append({
                 "diagram": diagram_name,
-                "svg_path": saved_path,
+                "svg_path": svg_path,
+                "png_path": png_path,
+                "mermaid_path": mermaid_path,
                 "ready_for_react_ui": True
             })
             

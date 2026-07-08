@@ -140,6 +140,7 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
         
         # If validation fails, we want the executor to retry only the failed diagrams
         if not is_valid:
+            # pyrefly: ignore [bad-assignment]
             diagram_results: List[Dict[str, Any]] = validation_result.get("diagram_results", [])
             failed_diagram_names = [
                 str(d.get("diagram", "")).lower() 
@@ -155,6 +156,7 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
                 ]
                 
                 logger.info(f"Targeting {len(new_selected)} failed diagrams for retry: {failed_diagram_names}")
+                # pyrefly: ignore [bad-assignment]
                 state_updates["selected_uml_diagrams"] = new_selected
         
         return state_updates
