@@ -61,8 +61,9 @@ class UMLGeneratorAgent(BaseAgent):
             
         logger.info(f"UML Generator starting iterative generation for {len(selected_uml_diagrams)} diagrams...")
         
-        diagrams = {}
-        saved_paths = []
+        # Initialize from existing state to preserve previously successful diagrams during retries
+        diagrams = dict(state.get("plantuml_diagrams", {}) or {})
+        saved_paths = list(state.get("artifacts", {}).get("uml", []) or [])
         
         for diagram_info in selected_uml_diagrams:
             diagram_type = diagram_info.get("diagram")

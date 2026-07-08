@@ -47,40 +47,35 @@ class UMLValidatorAgent(BaseAgent):
 
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Validator agent step."""
-        artifacts = state.get("artifacts", {})
-        uml_paths = artifacts.get("uml", [])
+        diagrams_content = state.get("plantuml_diagrams", {})
         
-        if not uml_paths:
-            logger.warning("No UML diagrams found in artifacts to validate.")
+        if not diagrams_content:
+            logger.warning("No PlantUML diagrams found in state to validate.")
             return {}
             
-        logger.info(f"UML Validator starting execution for {len(uml_paths)} diagrams...")
-        
-        diagrams_content = {}
-        for path in uml_paths:
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    diagrams_content[path] = f.read()
-            except Exception as e:
-                logger.error(f"Failed to read UML diagram at {path}: {e}")
-                
-        if not diagrams_content:
-            return {}
+        logger.info(f"UML Validator starting execution for {len(diagrams_content)} diagrams...")
 
         system_prompt = """You are a specialized UML Validator Agent.
 Your task is to validate the provided PlantUML syntax for structural correctness.
 Check for:
-1. syntax
-2. aliases
-3. participants
-4. relationships
-5. brackets
+1. PlantUML syntax
+2. participant aliases
+3. duplicate names
+4. invalid arrows
+5. unclosed blocks
+6. invalid relationships
 
 Respond ONLY with a valid JSON object matching this schema:
 {
   "valid": boolean,
   "report": "Detailed validation report",
-  "errors": ["List of specific errors if any"]
+  "diagram_results": [
+    {
+      "diagram": "component",
+      "valid": boolean,
+      "errors": ["List of specific errors if any"]
+    }
+  ]
 }
 
 Do NOT include any other text, explanations, or markdown formatting blocks (like ```json). Just output raw JSON.
@@ -88,8 +83,8 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
         
         # Format the diagrams for the prompt
         content_to_validate = ""
-        for path, content in diagrams_content.items():
-            content_to_validate += f"--- Diagram: {path} ---\n{content}\n\n"
+        for name, content in diagrams_content.items():
+            content_to_validate += f"--- Diagram: {name} ---\n{content}\n\n"
             
         messages = [
             SystemMessage(content=system_prompt),
@@ -108,13 +103,13 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
         clean_content = response_content.replace("```json", "").replace("```", "").strip()
         
         try:
-            validation_result = json.loads(clean_content)
+            validation_result = cast(Dict[str, Any], json.loads(clean_content))
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON from response: {clean_content}")
             validation_result = {
                 "valid": False,
                 "report": "Failed to parse validation response.",
-                "errors": ["JSON parse error"]
+                "diagram_results": []
             }
             
         is_valid = validation_result.get("valid", False)
@@ -142,6 +137,25 @@ Do NOT include any other text, explanations, or markdown formatting blocks (like
             "metadata": updated_metadata,
             "current_stage": "uml_validator"
         }
+        
+        # If validation fails, we want the executor to retry only the failed diagrams
+        if not is_valid:
+            diagram_results: List[Dict[str, Any]] = validation_result.get("diagram_results", [])
+            failed_diagram_names = [
+                str(d.get("diagram", "")).lower() 
+                for d in diagram_results 
+                if not d.get("valid", True)
+            ]
+            
+            if failed_diagram_names:
+                current_selected: List[Dict[str, Any]] = state.get("selected_uml_diagrams") or []
+                new_selected = [
+                    d for d in current_selected 
+                    if str(d.get("diagram", "")).lower() in failed_diagram_names
+                ]
+                
+                logger.info(f"Targeting {len(new_selected)} failed diagrams for retry: {failed_diagram_names}")
+                state_updates["selected_uml_diagrams"] = new_selected
         
         return state_updates
 
