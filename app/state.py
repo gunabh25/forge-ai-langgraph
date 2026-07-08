@@ -138,6 +138,9 @@ class ForgeState(TypedDict):
     # Incremental Update / Impact Analysis
     impact_analysis_report: Optional[Dict[str, Any]]
     
+    # Feedback Collection
+    user_feedback: Optional[str]
+    
     # AI-Driven UML Recommendation
     uml_recommendation_report: Optional[Dict[str, Any]]
     
