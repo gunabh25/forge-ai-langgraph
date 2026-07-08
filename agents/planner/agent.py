@@ -50,7 +50,20 @@ class PlannerAgent(BaseAgent):
         registry = AgentRegistry()
         available_agents = registry.list_agents()
         agents_info = []
+        
+        # Exclude orchestration and infrastructure components
+        infrastructure_agents = {
+            "Planner",
+            "Intent Analyzer",
+            "Conversation Memory",
+            "Agent Registry",
+            "Dynamic Executor",
+            "Feedback Manager"
+        }
+        
         for agent_name in available_agents:
+            if agent_name in infrastructure_agents:
+                continue
             agent = registry.get(agent_name)
             if agent:
                 agents_info.append(
@@ -78,7 +91,11 @@ Available Agents:
 {agents_context}
 
 CRITICAL INSTRUCTION:
-If the user requests Architecture Design or UML Diagram Generation, and NO impact analysis restricts you, you MUST output this EXACT sequence of agents:
+You must NEVER include infrastructure or orchestration components (like Planner, Intent Analyzer, etc.) in your execution plan. Only return executable domain agents.
+
+Based on the request type, you MUST output the exact sequence:
+
+1. For UML generation requests:
 [
     "Requirement Extraction Agent",
     "Architecture Reasoning Agent",
@@ -88,13 +105,21 @@ If the user requests Architecture Design or UML Diagram Generation, and NO impac
     "Renderer Agent"
 ]
 
-Output ONLY a valid JSON array of strings, where each string is the exact name of an agent from the available list. Choose ONLY the required agents. Provide the list in the exact order they should be executed.
-
-Example:
+2. For architecture-only requests:
 [
-    "Requirement Analyst",
-    "Solution Architect"
+    "Requirement Extraction Agent",
+    "Architecture Reasoning Agent"
 ]
+
+3. For update requests (modifying existing architecture/diagrams):
+[
+    "Impact Analysis Agent",
+    "UML Generator",
+    "UML Validator",
+    "Renderer Agent"
+]
+
+Output ONLY a valid JSON array of strings, where each string is the exact name of an agent from the available list. Choose ONLY the required agents. Provide the list in the exact order they should be executed.
 
 Do NOT include any other text, markdown formatting, or explanation.
 """
@@ -123,6 +148,12 @@ Do NOT include any other text, markdown formatting, or explanation.
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON from response: {clean_content}")
             execution_plan = []
+            
+        # Post-process to ensure no infrastructure agents sneak in
+        execution_plan = [
+            agent for agent in execution_plan 
+            if agent not in infrastructure_agents
+        ]
             
         logger.info(f"Execution plan generated: {execution_plan}")
         
