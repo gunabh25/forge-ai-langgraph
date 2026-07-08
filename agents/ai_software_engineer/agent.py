@@ -18,11 +18,24 @@ from agents.ai_software_engineer.file_generator import FileGenerator
 from agents.ai_software_engineer.validator import Validator
 from agents.ai_software_engineer.artifact_writer import ArtifactWriter
 from agents.ai_software_engineer.progress_tracker import ProgressTracker
+from agents.base import BaseAgent
 
 logger = get_logger("agents.ai_software_engineer")
 
-class AISoftwareEngineerAgent:
+class AISoftwareEngineerAgent(BaseAgent):
     """AI Software Engineer agent that generates a complete project workspace internally using a multi-stage pipeline."""
+
+    @property
+    def name(self) -> str:
+        return "AI Software Engineer"
+        
+    @property
+    def description(self) -> str:
+        return "Generates a complete project workspace internally using a multi-stage pipeline."
+        
+    @property
+    def capabilities(self) -> List[str]:
+        return ["code_generation", "workspace_setup"]
 
     def __init__(self, llm: Optional[BaseChatModel] = None) -> None:
         self._llm = llm

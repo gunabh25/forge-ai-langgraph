@@ -1,6 +1,7 @@
 """Requirement Analyst Agent implementation."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from agents.base import BaseAgent
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from core.llm import get_llm
@@ -13,9 +14,21 @@ from core.artifact_manager import ArtifactManager
 
 logger = get_logger("agents.requirement_analyst")
 
-class RequirementAnalystAgent:
+class RequirementAnalystAgent(BaseAgent):
     """Requirement Analyst agent responsible for generating the Requirements Specification."""
     
+    @property
+    def name(self) -> str:
+        return "Requirement Analyst"
+        
+    @property
+    def description(self) -> str:
+        return "Responsible for generating the Requirements Specification."
+        
+    @property
+    def capabilities(self) -> List[str]:
+        return ["requirement_analysis", "specification_writing"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         self.system_prompt = load_prompt("requirement_analyst")

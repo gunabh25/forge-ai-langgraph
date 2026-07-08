@@ -1,6 +1,7 @@
 """Engineering Manager Agent implementation."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from agents.base import BaseAgent
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from core.llm import get_llm
@@ -12,9 +13,21 @@ from core.utils import generate_timestamp
 
 logger = get_logger("agents.engineering_manager")
 
-class EngineeringManagerAgent:
+class EngineeringManagerAgent(BaseAgent):
     """Engineering Manager agent responsible for orchestrating the multi-agent workflow."""
     
+    @property
+    def name(self) -> str:
+        return "Engineering Manager"
+        
+    @property
+    def description(self) -> str:
+        return "Responsible for orchestrating the multi-agent workflow."
+        
+    @property
+    def capabilities(self) -> List[str]:
+        return ["orchestration", "planning"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         self.system_prompt = load_prompt("engineering_manager")

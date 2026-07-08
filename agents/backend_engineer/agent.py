@@ -1,6 +1,7 @@
 """Backend Engineer Agent implementation."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from agents.base import BaseAgent
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from core.llm import get_llm
@@ -13,9 +14,21 @@ from core.artifact_manager import ArtifactManager
 
 logger = get_logger("agents.backend_engineer")
 
-class BackendEngineerAgent:
+class BackendEngineerAgent(BaseAgent):
     """Backend Engineer agent responsible for generating the Backend Blueprint."""
     
+    @property
+    def name(self) -> str:
+        return "Backend Engineer"
+        
+    @property
+    def description(self) -> str:
+        return "Responsible for generating the Backend Blueprint."
+        
+    @property
+    def capabilities(self) -> List[str]:
+        return ["backend_design", "api_specification"]
+
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         self.system_prompt = load_prompt("backend_engineer")
