@@ -28,9 +28,7 @@ class UMLGeneratorAgent(BaseAgent):
     @property
     def capabilities(self) -> List[str]:
         return [
-            "Component", "Sequence", "Activity", "Deployment", "Use Case",
-            "Class", "Package", "State Machine", "Communication", "Object",
-            "Timing", "Profile", "Composite Structure", "Interaction Overview"
+            "Component", "Sequence", "Activity", "Deployment", "Class", "Use Case"
         ]
 
     @property
@@ -95,7 +93,8 @@ CRITICAL RULES:
             
             clean_content = str(llm_response.content).replace("```plantuml", "").replace("```puml", "").replace("```", "").strip()
             
-            diagrams[diagram_type] = clean_content
+            normalized_type = diagram_type.lower()
+            diagrams[normalized_type] = clean_content
             
             base_name = diagram_type.lower().replace(" ", "_")
             saved_path = self.artifact_manager.save_artifact(
