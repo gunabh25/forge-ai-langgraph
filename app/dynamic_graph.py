@@ -81,7 +81,7 @@ class DynamicWorkflowOrchestrator:
             "execution_time_ms": execution_time_ms,
             "llm_calls": len(final_state.get("reasoning_logs", [])),
             "validation_retries": 0, # Placeholder unless tracked via explicit metadata flag count
-            "generated_diagrams": len(final_state.get("uml_recommendation_report", {}).get("selected_diagrams", [])),
+            "generated_diagrams": len((final_state.get("uml_recommendation_report") or {}).get("selected_diagrams", [])),
             "artifacts": final_state.get("artifacts", {}),
             "status": "success"
         }

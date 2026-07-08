@@ -22,9 +22,9 @@ async def generate_architecture(
         return GenerateResponse(**result)
     except Exception as e:
         logger.exception("Architecture generation failed")
-    traceback.print_exc()
-    raise HTTPException(
-        status_code=500,
-        # pyrefly: ignore [unbound-name]
-        detail=str(e)
-    )
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            # pyrefly: ignore [unbound-name]
+            detail=str(e)
+        )
