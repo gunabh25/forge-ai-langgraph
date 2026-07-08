@@ -42,8 +42,7 @@ class UMLRecommendationAgent(BaseAgent):
         logger.info("UML Recommendation Agent starting execution.")
         
         user_request = state.get("user_request", "")
-        # Assuming architecture is populated by Architecture Reasoning Agent
-        architecture = state.get("architecture", "No structured architecture found.")
+        architecture_json = state.get("architecture_json", {})
         
         system_prompt = """You are a Principal Software Architect.
 Read the provided architecture description. Decide exactly which UML diagrams are required to visualize it properly.
@@ -72,7 +71,7 @@ DO NOT include markdown tags or explanation. Output ONLY the JSON.
 
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User Request: {user_request}\n\nArchitecture Context:\n{architecture}")
+            HumanMessage(content=f"User Request: {user_request}\n\nArchitecture JSON:\n{json.dumps(architecture_json, indent=2)}")
         ]
         
         logger.info("Invoking LLM for UML Recommendation...")
