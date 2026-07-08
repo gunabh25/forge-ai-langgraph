@@ -11,8 +11,11 @@ class AgentRegistry:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(AgentRegistry, cls).__new__(cls)
-            cls._instance._agents = {}
         return cls._instance
+        
+    def __init__(self):
+        if not hasattr(self, '_agents'):
+            self._agents: Dict[str, BaseAgent] = {}
         
     def register(self, agent: BaseAgent) -> None:
         """Register an agent instance."""
