@@ -28,12 +28,9 @@ class UMLGeneratorAgent(BaseAgent):
     @property
     def capabilities(self) -> List[str]:
         return [
-            "sequence_diagram", 
-            "component_diagram", 
-            "class_diagram", 
-            "activity_diagram", 
-            "deployment_diagram", 
-            "package_diagram"
+            "Component", "Sequence", "Activity", "Deployment", "Use Case",
+            "Class", "Package", "State Machine", "Communication", "Object",
+            "Timing", "Profile", "Composite Structure", "Interaction Overview"
         ]
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
@@ -49,15 +46,9 @@ class UMLGeneratorAgent(BaseAgent):
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Generator agent step."""
         user_request = state.get("user_request", "").strip()
-        architecture = state.get("architecture", "")
+        architecture_json = state.get("architecture_json", {})
         selected_uml_diagrams = state.get("selected_uml_diagrams", [])
         
-        # Fallback to older diagram_types if selected_uml_diagrams not provided
-        if not selected_uml_diagrams:
-            diagram_types = cast(list, state.get("diagram_types", []))
-            for dt in diagram_types:
-                selected_uml_diagrams.append({"diagram": dt, "reason": "Legacy fallback"})
-                
         if not selected_uml_diagrams:
             logger.warning("No UML diagrams selected for generation.")
             return {}
@@ -69,20 +60,26 @@ class UMLGeneratorAgent(BaseAgent):
         
         for diagram_info in selected_uml_diagrams:
             diagram_type = diagram_info.get("diagram")
+            if not diagram_type:
+                logger.warning(f"Missing diagram type in diagram_info: {diagram_info}")
+                continue
+            
             reason = diagram_info.get("reason", "")
             
             system_prompt = f"""You are a specialized UML Generator Agent.
-Your task is to generate PlantUML syntax for a {diagram_type} based on the user's request and the architecture.
+Your task is to generate valid PlantUML syntax for a {diagram_type} based on the user's request and the provided architecture JSON.
 Reason for this diagram: {reason}
 
-You must ONLY generate valid PlantUML code. Do NOT render images.
-Respond ONLY with the raw PlantUML syntax string. The string must start with @startuml and end with @enduml.
-DO NOT include markdown formatting blocks (like ```plantuml). Just output the raw syntax.
+CRITICAL RULES:
+1. Generate EXACTLY ONE PlantUML diagram. Never combine multiple diagrams.
+2. You must ONLY generate valid PlantUML code. Do NOT render images.
+3. Respond ONLY with the raw PlantUML syntax string. The string must start with @startuml and end with @enduml.
+4. DO NOT include markdown formatting blocks (like ```plantuml). Just output the raw syntax.
 """
 
             messages = [
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"User Request: {user_request}\n\nArchitecture:\n{architecture}")
+                HumanMessage(content=f"User Request: {user_request}\n\nArchitecture JSON:\n{json.dumps(architecture_json, indent=2)}")
             ]
             
             logger.info(f"Generating {diagram_type}...")
