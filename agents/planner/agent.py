@@ -47,9 +47,13 @@ class PlannerAgent(BaseAgent):
         if not user_request:
             raise ValueError("State validation failed: user_request is empty.")
             
-        required_outputs = intent_info.get("workflow_specification", {}).get("required_outputs", [])
+        # Read required outputs, supporting both new root-level arrays and legacy workflow_specification formats
+        required_outputs = intent_info.get("required_outputs", [])
         if not required_outputs:
-            logger.warning("No workflow_specification.required_outputs found in intent. Falling back to default.")
+            required_outputs = intent_info.get("workflow_specification", {}).get("required_outputs", [])
+            
+        if not required_outputs:
+            logger.warning("No required_outputs found in intent. Falling back to default.")
             intent_name = intent_info.get("intent")
             if intent_name == "architecture_design":
                 required_outputs = ["architecture_json"]

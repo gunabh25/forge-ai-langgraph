@@ -63,19 +63,20 @@ Your task is to analyze the user's prompt and classify the engineering task into
 
 Respond ONLY with a valid JSON object containing:
 1. "intent": a string from the allowed intents list.
-2. "confidence": a float between 0.0 and 1.0.
-3. "workflow_specification": an object containing a "required_outputs" array.
-
-For example, if the user asks to generate UML diagrams, the required_outputs should be ["rendered_svg_references"].
-If the user asks to update an existing architecture, the required_outputs should be ["rendered_svg_references", "impact_analysis_report"].
-If the user asks for architecture design only, it should be ["architecture_json"].
+2. "workflow": a category of the workflow (e.g., "software_design").
+3. "goal": a human-readable description of the goal.
+4. "required_outputs": an array of the final required output keys. For UML generation this is ["rendered_svg_references"]. For an update request, it is ["rendered_svg_references", "impact_analysis_report"]. For architecture design only, it is ["architecture_json"].
+5. "constraints": an object with "allow_parallelism" (boolean) and "reuse_existing" (boolean).
 
 Example:
 {{
     "intent": "uml_generation",
-    "confidence": 0.97,
-    "workflow_specification": {{
-        "required_outputs": ["rendered_svg_references"]
+    "workflow": "software_design",
+    "goal": "Generate UML architecture",
+    "required_outputs": ["rendered_svg_references"],
+    "constraints": {{
+        "allow_parallelism": true,
+        "reuse_existing": false
     }}
 }}
 
