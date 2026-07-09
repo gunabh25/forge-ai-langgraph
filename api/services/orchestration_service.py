@@ -47,10 +47,22 @@ class OrchestrationService:
             ]
             
             last_turn = history[-1]
+            if last_turn.requirements_version:
+                state["previous_requirements"] = last_turn.requirements_version
             if last_turn.architecture_version:
                 state["previous_architecture"] = last_turn.architecture_version
             if last_turn.diagram_versions:
                 state["previous_diagrams"] = last_turn.diagram_versions
+            if last_turn.selected_uml_diagrams_version:
+                state["previous_selected_uml_diagrams"] = last_turn.selected_uml_diagrams_version
+            if last_turn.diagram_execution_states_version:
+                state["previous_diagram_execution_states"] = last_turn.diagram_execution_states_version
+                
+            arch_history = []
+            for turn in history:
+                if turn.architecture_version:
+                    arch_history.append(turn.architecture_version)
+            state["architecture_history"] = arch_history
                 
         return state
         
@@ -63,9 +75,12 @@ class OrchestrationService:
             prompt=prompt,
             intent=final_state.get("metadata", {}).get("intent"),
             execution_plan=final_state.get("metadata", {}).get("execution_plan"),
+            requirements_version=final_state.get("requirements_json"),
             architecture_version=final_state.get("architecture_json"),
             diagram_versions=final_state.get("plantuml_diagrams"),
-            artifacts=final_state.get("artifacts")
+            selected_uml_diagrams_version=final_state.get("selected_uml_diagrams"),
+            diagram_execution_states_version=final_state.get("diagram_execution_states"),
+            artifacts=final_state.get("artifacts"),
         )
         
     def _create_base_state(self, prompt: str) -> ForgeState:
@@ -126,12 +141,17 @@ class OrchestrationService:
             "plantuml_validation_report": None,
             "rendered_svg_references": None,
             "conversation_history": None,
+            "previous_requirements": None,
             "previous_architecture": None,
             "previous_diagrams": None,
+            "previous_selected_uml_diagrams": None,
+            "previous_diagram_execution_states": None,
             "diagram_execution_states": {},
             "current_diagram_id": None,
             "workflow_execution_summary": None,
-            "execution_strategy": None
+            "execution_strategy": None,
+            "change_analysis_report": None,
+            "architecture_history": []
         }
         
     def generate_architecture(

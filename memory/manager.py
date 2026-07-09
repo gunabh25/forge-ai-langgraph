@@ -49,8 +49,11 @@ class ConversationMemoryManager:
         prompt: str,
         intent: Optional[Dict[str, Any]] = None,
         execution_plan: Optional[List[str]] = None,
+        requirements_version: Optional[Dict[str, Any]] = None,
         architecture_version: Optional[Dict[str, Any]] = None,
         diagram_versions: Optional[Dict[str, str]] = None,
+        selected_uml_diagrams_version: Optional[List[Dict[str, Any]]] = None,
+        diagram_execution_states_version: Optional[Dict[str, Any]] = None,
         artifacts: Optional[Dict[str, List[str]]] = None,
         final_state_summary: Optional[Dict[str, Any]] = None
     ) -> ConversationTurn:
@@ -59,21 +62,23 @@ class ConversationMemoryManager:
         if not session:
             raise ValueError(f"Session {session_id} does not exist.")
             
-        turn_id = str(uuid.uuid4())
         turn = ConversationTurn(
-            turn_id=turn_id,
+            turn_id=str(uuid.uuid4()),
             prompt=prompt,
             intent=intent,
             execution_plan=execution_plan,
+            requirements_version=requirements_version,
             architecture_version=architecture_version,
             diagram_versions=diagram_versions,
+            selected_uml_diagrams_version=selected_uml_diagrams_version,
+            diagram_execution_states_version=diagram_execution_states_version,
             artifacts=artifacts or {},
             final_state_summary=final_state_summary or {}
         )
         
         session.turns.append(turn)
         self.storage.save_session(session)
-        logger.info(f"Added turn {turn_id} to session {session_id}")
+        logger.info(f"Added turn {turn.turn_id} to session {session_id}")
         return turn
         
     def get_conversation_history(self, session_id: str) -> List[ConversationTurn]:

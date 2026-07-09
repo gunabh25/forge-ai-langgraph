@@ -41,11 +41,35 @@ class ExecutionDashboardAgent(BaseAgent):
         diagram_states = state.get("diagram_execution_states", {})
         
         total_diagrams = len(diagram_states)
-        success_count = sum(1 for s in diagram_states.values() if s.get("status") == "success")
+        success_count = sum(1 for s in diagram_states.values() if s.get("status") in ("rendered", "UNCHANGED"))
         failed_count = total_diagrams - success_count
         
-        total_execution_time_ms = sum(s.get("execution_time_ms", 0) for s in diagram_states.values())
-        total_llm_calls = sum(s.get("llm_calls", 0) for s in diagram_states.values())
+        total_execution_time_ms = sum(s.get("execution_time_ms", 0) for s in diagram_states.values() if s.get("status") != "UNCHANGED")
+        total_llm_calls = sum(s.get("llm_calls", 0) for s in diagram_states.values() if s.get("status") != "UNCHANGED")
+        
+        previous_states = state.get("previous_diagram_execution_states") or {}
+        
+        reused_artifacts = 0
+        updated_artifacts = 0
+        new_artifacts = 0
+        removed_artifacts = 0
+        saved_llm_calls = 0
+        saved_latency_ms = 0
+        
+        for diag_id, s in diagram_states.items():
+            if s.get("status") == "UNCHANGED":
+                reused_artifacts += 1
+                saved_llm_calls += s.get("llm_calls", 0)
+                saved_latency_ms += s.get("execution_time_ms", 0)
+            else:
+                if diag_id in previous_states:
+                    updated_artifacts += 1
+                else:
+                    new_artifacts += 1
+                    
+        for old_id in previous_states:
+            if old_id not in diagram_states:
+                removed_artifacts += 1
         
         details = []
         for diag_id, s in diagram_states.items():
@@ -65,6 +89,12 @@ class ExecutionDashboardAgent(BaseAgent):
             "success_rate": f"{(success_count / total_diagrams * 100) if total_diagrams > 0 else 0:.1f}%",
             "total_execution_time_ms": total_execution_time_ms,
             "total_llm_calls": total_llm_calls,
+            "reused_artifacts": reused_artifacts,
+            "updated_artifacts": updated_artifacts,
+            "new_artifacts": new_artifacts,
+            "removed_artifacts": removed_artifacts,
+            "saved_llm_calls": saved_llm_calls,
+            "saved_latency_ms": saved_latency_ms,
             "diagram_details": details
         }
         

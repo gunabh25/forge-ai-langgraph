@@ -18,8 +18,11 @@ class ConversationTurn:
     prompt: str
     intent: Optional[Dict[str, Any]] = None
     execution_plan: Optional[List[str]] = None
+    requirements_version: Optional[Dict[str, Any]] = None
     architecture_version: Optional[Dict[str, Any]] = None
     diagram_versions: Optional[Dict[str, str]] = None
+    selected_uml_diagrams_version: Optional[List[Dict[str, Any]]] = None
+    diagram_execution_states_version: Optional[Dict[str, Any]] = None
     artifacts: Dict[str, List[str]] = field(default_factory=dict)
     final_state_summary: Dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=generate_timestamp)

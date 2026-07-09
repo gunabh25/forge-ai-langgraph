@@ -127,9 +127,17 @@ class LangGraphCompiler:
                 # 1. Conditional Edge from dummy node to sub_graph via Send
                 def fan_out_router(state: ForgeState, subgraph_name=f"{node_name}_subgraph"):
                     diagrams = state.get("selected_uml_diagrams") or []
+                    change_report = state.get("change_analysis_report") or {}
+                    affected_diagrams = {d.lower() for d in change_report.get("affected_diagrams", [])}
+                    is_incremental = bool(change_report) and change_report.get("change_type") != "new_project"
+                    
                     sends = []
                     for diag in diagrams:
                         diag_id = diag.get("diagram_id", diag.get("type", "unknown"))
+                        # Skip Send if the diagram is explicitly marked as unaffected by incremental logic
+                        if is_incremental and diag_id.lower() not in affected_diagrams:
+                            continue
+                            
                         sends.append(Send(subgraph_name, {**state, "current_diagram_id": diag_id}))
                     return sends if sends else "skip"
                 

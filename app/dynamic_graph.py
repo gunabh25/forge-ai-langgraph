@@ -15,18 +15,21 @@ from core.compilers.langgraph_compiler import LangGraphCompiler
 
 logger = get_logger("app.dynamic_graph")
 
+from agents.change_analysis.agent import ChangeAnalysisAgent
+
 class DynamicWorkflowOrchestrator:
     """Orchestrates dynamic intent analysis, planning, and graph compilation."""
     
     def __init__(self):
         self.registry = AgentRegistry()
         self.intent_analyzer = IntentAnalyzerAgent()
+        self.change_analyzer = ChangeAnalysisAgent()
         self.planner = PlannerAgent()
         
     def execute_workflow(self, state: ForgeState) -> ForgeState:
         """
         Executes the full dynamic pipeline:
-        User Prompt -> Intent Analyzer -> Planner -> Dynamic LangGraph Construction -> Execution
+        User Prompt -> Intent Analyzer -> Change Analyzer -> Planner -> Dynamic LangGraph Construction -> Execution
         """
         logger.info("Starting Dynamic Workflow pipeline.")
         
@@ -40,6 +43,12 @@ class DynamicWorkflowOrchestrator:
         intent_result = self.intent_analyzer.run(state)
         if isinstance(intent_result, dict):
             current_state.update(intent_result)
+            
+        # 1.5 Change Analysis
+        logger.info("Running Change Analyzer...")
+        change_result = self.change_analyzer.run(cast(ForgeState, current_state))
+        if isinstance(change_result, dict):
+            current_state.update(change_result)
             
         # 2. Planner
         logger.info("Running Planner...")

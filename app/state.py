@@ -97,7 +97,7 @@ class DiagramExecutionState(TypedDict, total=False):
     """Execution state tracked for a single UML diagram branch."""
     diagram_id: str
     diagram_type: str
-    status: str
+    status: str # e.g. "generated", "validated", "UNCHANGED", "UPDATED", "NEW", "REMOVED", "FAILED"
     attempt: int
     generator_output: Optional[str]
     compiler_output: Optional[str]
@@ -192,11 +192,16 @@ class ForgeState(TypedDict):
     
     # Incremental Update / Impact Analysis
     impact_analysis_report: Optional[Dict[str, Any]]
+    change_analysis_report: Optional[Dict[str, Any]]
     
     # Conversation Memory / Context
     conversation_history: Optional[List[Dict[str, Any]]]
+    previous_requirements: Optional[Dict[str, Any]]
     previous_architecture: Optional[Dict[str, Any]]
     previous_diagrams: Optional[Dict[str, str]]
+    previous_selected_uml_diagrams: Optional[List[Dict[str, Any]]]
+    previous_diagram_execution_states: Optional[Dict[str, DiagramExecutionState]]
+    architecture_history: Annotated[List[Dict[str, Any]], merge_approval_history]
     
     # Feedback Collection
     user_feedback: Optional[str]

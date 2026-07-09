@@ -84,6 +84,30 @@ class PlannerAgent(BaseAgent):
                 
         # What is already provided by state?
         provided_outputs = set()
+        
+        # Check incremental requirements from Change Analysis Agent
+        change_report = state.get("change_analysis_report") or {}
+        is_new_project = change_report.get("change_type") == "new_project"
+        
+        if not is_new_project:
+            if not change_report.get("requires_requirement_update", True):
+                state["requirements_json"] = state.get("previous_requirements")
+            
+            if not change_report.get("requires_architecture_update", True):
+                state["architecture_json"] = state.get("previous_architecture")
+                state["selected_uml_diagrams"] = state.get("previous_selected_uml_diagrams")
+                state["uml_recommendation_report"] = {"status": "reused", "message": "Reused previous recommendations."}
+                
+            # Pre-seed diagram states for unchanged diagrams
+            affected_diagrams = {d.lower() for d in change_report.get("affected_diagrams", [])}
+            previous_states = state.get("previous_diagram_execution_states") or {}
+            current_states = state.get("diagram_execution_states") or {}
+            
+            for diag_id, diag_state in previous_states.items():
+                if diag_id.lower() not in affected_diagrams:
+                    current_states[diag_id] = {**diag_state, "status": "UNCHANGED"}
+                    
+            state["diagram_execution_states"] = current_states
         for key, value in state.items():
             if value:
                 provided_outputs.add(key)
