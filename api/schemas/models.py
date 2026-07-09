@@ -28,7 +28,7 @@ class GenerateResponse(BaseModel):
     user_id: Optional[str] = None
     requirements: Optional[Dict[str, Any]] = None
     architecture: Optional[Dict[str, Any]] = None
-    selected_diagrams: Optional[List[Dict[str, str]]] = None
+    selected_diagrams: Optional[List[Dict[str, Any]]] = None
     plantuml: Optional[Dict[str, str]] = None
     validation: Optional[Dict[str, Any]] = None
     rendered_artifacts: Optional[Dict[str, str]] = None
