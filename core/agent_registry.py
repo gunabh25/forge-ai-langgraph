@@ -19,22 +19,33 @@ class AgentRegistry:
             self._auto_discover()
             
     def _auto_discover(self) -> None:
-        """Automatically discovers and loads all agents in the agents/ package."""
+        """Automatically discovers and loads all agents in the agents/ and plugins/ packages."""
         import pkgutil
         import importlib
         import agents
         import logging
         logger = logging.getLogger("core.agent_registry")
         
-        if not hasattr(agents, '__path__'):
-            return
-            
-        for _, module_name, is_pkg in pkgutil.iter_modules(agents.__path__):
-            if is_pkg:
-                try:
-                    importlib.import_module(f"agents.{module_name}.agent")
-                except Exception as e:
-                    logger.debug(f"Could not auto-load agent {module_name}: {e}")
+        if hasattr(agents, '__path__'):
+            for _, module_name, is_pkg in pkgutil.iter_modules(agents.__path__):
+                if is_pkg:
+                    try:
+                        importlib.import_module(f"agents.{module_name}.agent")
+                    except Exception as e:
+                        logger.debug(f"Could not auto-load agent {module_name}: {e}")
+                        
+        # Discover third-party plugins
+        try:
+            import plugins
+            if hasattr(plugins, '__path__'):
+                for _, module_name, is_pkg in pkgutil.iter_modules(plugins.__path__):
+                    if is_pkg:
+                        try:
+                            importlib.import_module(f"plugins.{module_name}.agent")
+                        except Exception as e:
+                            logger.error(f"Could not auto-load plugin {module_name}: {e}")
+        except ImportError:
+            pass
         
     def register(self, agent: BaseAgent) -> None:
         """Register an agent instance."""
