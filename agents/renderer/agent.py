@@ -95,7 +95,8 @@ class RendererAgent(BaseAgent):
             # Generate Mermaid via LLM
             logger.info(f"Invoking LLM to convert {diagram_name} to Mermaid...")
             mermaid_prompt = f"Convert the following PlantUML to Mermaid syntax. Return ONLY the raw Mermaid code, no markdown wrappers.\\n\\n{puml_content}"
-            mermaid_response = self.llm.invoke([SystemMessage(content=mermaid_prompt)])
+            from langchain_core.messages import HumanMessage
+            mermaid_response = self.llm.invoke([HumanMessage(content=mermaid_prompt)])
             mermaid_content = str(mermaid_response.content).replace("```mermaid", "").replace("```", "").strip()
             
             # Save artifacts
