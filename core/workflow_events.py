@@ -13,19 +13,34 @@ logger = get_logger("core.workflow_events")
 
 class EventTypes:
     """Standard workflow event types."""
-    WORKFLOW_STARTED = "workflow_started"
-    WORKFLOW_COMPLETED = "workflow_completed"
-    WORKFLOW_FAILED = "workflow_failed"
+    # Workflow
+    WORKFLOW_STARTED = "WorkflowStarted"
+    WORKFLOW_COMPLETED = "WorkflowCompleted"
     
-    AGENT_STARTED = "agent_started"
-    AGENT_COMPLETED = "agent_completed"
+    # Agent
+    AGENT_STARTED = "AgentStarted"
+    AGENT_COMPLETED = "AgentCompleted"
     
-    ARTIFACT_GENERATED = "artifact_generated"
-    APPROVAL_REQUESTED = "approval_requested"
-    APPROVAL_COMPLETED = "approval_completed"
+    # LLM
+    LLM_STARTED = "LLMStarted"
+    LLM_COMPLETED = "LLMCompleted"
     
-    LLM_INVOKED = "llm_invoked"
-    LLM_COMPLETED = "llm_completed"
+    # Diagram operations
+    DIAGRAM_GENERATED = "DiagramGenerated"
+    DIAGRAM_VALIDATED = "DiagramValidated"
+    DIAGRAM_RENDERED = "DiagramRendered"
+    
+    # Repairs and Retries
+    REPAIR_STARTED = "RepairStarted"
+    REPAIR_COMPLETED = "RepairCompleted"
+    RETRY_TRIGGERED = "RetryTriggered"
+    
+    # Renderer execution
+    RENDERER_STARTED = "RendererStarted"
+    RENDERER_COMPLETED = "RendererCompleted"
+    
+    # Dashboard summary
+    EXECUTION_SUMMARY = "ExecutionSummary"
 
 
 class WorkflowEventManager:

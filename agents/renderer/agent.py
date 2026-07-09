@@ -13,6 +13,8 @@ from config.logging import get_logger
 from core.utils import generate_timestamp
 from core.artifact_manager import ArtifactManager
 from core.constants import ArtifactFolders
+from core.workflow_events import WorkflowEventManager, EventTypes
+import core.context as ctx
 
 logger = get_logger("agents.renderer")
 
@@ -150,141 +152,167 @@ class RendererAgent(BaseAgent):
         failed_files = []
         
         for diagram_name, puml_content in diagrams_to_process.items():
-            safe_name = diagram_name.lower().replace(" ", "_").replace("/", "_")
-            diag_start_time = time.time()
-            
-            existing_state = diagram_states.get(diagram_name, {})
-            
-            if diagram_name.lower() not in selected_diagrams and diagram_name in rendered_svg_references:
-                logger.info(f"Reusing existing SVG for {diagram_name}...")
-                svg_path = rendered_svg_references[diagram_name]
-                png_path = svg_path.replace(".svg", ".png")
-                puml_path = svg_path.replace(".svg", ".puml")
+            token = ctx.current_diagram_var.set(diagram_name)
+            try:
+                safe_name = diagram_name.lower().replace(" ", "_").replace("/", "_")
+                diag_start_time = time.time()
                 
-                # We check if it is already in svg_metadata to prevent duplicates
-                if not any(m.get("diagram") == diagram_name for m in svg_metadata):
-                    svg_metadata.append({
-                        "diagram": diagram_name,
-                        "svg_path": svg_path,
-                        "png_path": png_path,
-                        "puml_path": puml_path,
-                        "ready_for_react_ui": True
-                    })
-                artifacts_paths.extend([svg_path, png_path, puml_path])
-                successful_files.append(diagram_name)
-                continue
-
-            # 1. Write the .puml file
-            puml_path = self.artifact_manager.save_artifact(
-                stage=ArtifactFolders.DIAGRAMS,
-                base_name=f"{safe_name}",
-                content=puml_content,
-                ext="puml"
-            )
-            if puml_path not in artifacts_paths:
-                artifacts_paths.append(puml_path)
-            
-            if not os.path.exists(puml_path):
-                render_success = False
-                failed_files.append({
-                    "diagram": diagram_name,
-                    "status": "failed",
-                    "reason": "File not found (Failed to save .puml to disk)",
-                    "stderr": "",
-                    "return_code": -1,
-                    "command": ""
-                })
+                existing_state = diagram_states.get(diagram_name, {})
                 
-                diagram_states[diagram_name] = {
-                    **existing_state,
-                    "status": "failed_render",
-                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
-                }
-                continue
-
-            # 2. Invoke rendering engine
-            invoke_results = self._invoke_plantuml(puml_path)
-            
-            # The PlantUML engine places the outputs in the same directory as the .puml file
-            expected_svg = puml_path.replace(".puml", ".svg")
-            expected_png = puml_path.replace(".puml", ".png")
-            
-            diagram_success = True
-            diagram_reason = ""
-            diagram_stderr = ""
-            diagram_stdout = ""
-            diagram_returncode = 0
-            diagram_command = ""
-            
-            for res in invoke_results:
-                if res["status"] != "success":
-                    diagram_success = False
-                    diagram_reason = res["reason"]
-                    diagram_stderr = res["stderr"]
-                    diagram_stdout = res["stdout"]
-                    diagram_returncode = res["returncode"]
-                    diagram_command = res["command"]
-                    break
-            
-            # 3. Validation
-            if diagram_success:
-                if not os.path.exists(expected_svg):
-                    diagram_success = False
-                    diagram_reason = "Output file missing (.svg)"
-                elif os.path.getsize(expected_svg) == 0:
-                    diagram_success = False
-                    diagram_reason = "Output file empty (.svg)"
-                elif not os.path.exists(expected_png):
-                    diagram_success = False
-                    diagram_reason = "Output file missing (.png)"
-                elif os.path.getsize(expected_png) == 0:
-                    diagram_success = False
-                    diagram_reason = "Output file empty (.png)"
-            
-            if diagram_success:
-                rendered_svg_references[diagram_name] = expected_svg
-                for p in [expected_svg, expected_png]:
-                    if p not in artifacts_paths:
-                        artifacts_paths.append(p)
-                
-                if not any(m.get("diagram") == diagram_name for m in svg_metadata):
-                    svg_metadata.append({
-                        "diagram": diagram_name,
-                        "svg_path": expected_svg,
-                        "png_path": expected_png,
-                        "puml_path": puml_path,
-                        "ready_for_react_ui": True
-                    })
-                successful_files.append(diagram_name)
-                
-                diagram_states[diagram_name] = {
-                    **existing_state,
-                    "status": "success",
-                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
-                }
-            else:
-                render_success = False
-                logger.error(f"Failed to render {diagram_name}. Reason: {diagram_reason}")
-                
-                # Fetch command info from the first attempt if it failed validation but passed invocation
-                if not diagram_command and invoke_results:
-                    diagram_command = invoke_results[0]["command"]
-                    diagram_returncode = invoke_results[0]["returncode"]
+                if diagram_name.lower() not in selected_diagrams and diagram_name in rendered_svg_references:
+                    logger.info(f"Reusing existing SVG for {diagram_name}...")
+                    svg_path = rendered_svg_references[diagram_name]
+                    png_path = svg_path.replace(".svg", ".png")
+                    puml_path = svg_path.replace(".svg", ".puml")
                     
-                failed_files.append({
-                    "diagram": diagram_name,
-                    "status": "failed",
-                    "reason": diagram_reason,
-                    "stderr": diagram_stderr,
-                    "return_code": diagram_returncode,
-                    "command": diagram_command
+                    if not any(m.get("diagram") == diagram_name for m in svg_metadata):
+                        svg_metadata.append({
+                            "diagram": diagram_name,
+                            "svg_path": svg_path,
+                            "png_path": png_path,
+                            "puml_path": puml_path,
+                            "ready_for_react_ui": True
+                        })
+                    artifacts_paths.extend([svg_path, png_path, puml_path])
+                    successful_files.append(diagram_name)
+                    continue
+
+                WorkflowEventManager().publish(EventTypes.RENDERER_STARTED, {
+                    "diagram": diagram_name
                 })
+
+                # 1. Write the .puml file
+                puml_path = self.artifact_manager.save_artifact(
+                    stage=ArtifactFolders.DIAGRAMS,
+                    base_name=f"{safe_name}",
+                    content=puml_content,
+                    ext="puml"
+                )
+                if puml_path not in artifacts_paths:
+                    artifacts_paths.append(puml_path)
                 
-                diagram_states[diagram_name] = {
-                    **existing_state,
-                    "status": "failed_render",
-                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
-                }
+                if not os.path.exists(puml_path):
+                    render_success = False
+                    failed_files.append({
+                        "diagram": diagram_name,
+                        "status": "failed",
+                        "reason": "File not found (Failed to save .puml to disk)",
+                        "stderr": "",
+                        "return_code": -1,
+                        "command": ""
+                    })
+                    
+                    diagram_states[diagram_name] = {
+                        **existing_state,
+                        "status": "failed_render",
+                        "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
+                    }
+                    WorkflowEventManager().publish(EventTypes.RENDERER_COMPLETED, {
+                        "diagram": diagram_name,
+                        "status": "failed",
+                        "reason": "File not found"
+                    })
+                    continue
+
+                # 2. Invoke rendering engine
+                invoke_results = self._invoke_plantuml(puml_path)
+                
+                expected_svg = puml_path.replace(".puml", ".svg")
+                expected_png = puml_path.replace(".puml", ".png")
+                
+                diagram_success = True
+                diagram_reason = ""
+                diagram_stderr = ""
+                diagram_stdout = ""
+                diagram_returncode = 0
+                diagram_command = ""
+                
+                for res in invoke_results:
+                    if res["status"] != "success":
+                        diagram_success = False
+                        diagram_reason = res["reason"]
+                        diagram_stderr = res["stderr"]
+                        diagram_stdout = res["stdout"]
+                        diagram_returncode = res["returncode"]
+                        diagram_command = res["command"]
+                        break
+                
+                # 3. Validation
+                if diagram_success:
+                    if not os.path.exists(expected_svg):
+                        diagram_success = False
+                        diagram_reason = "Output file missing (.svg)"
+                    elif os.path.getsize(expected_svg) == 0:
+                        diagram_success = False
+                        diagram_reason = "Output file empty (.svg)"
+                    elif not os.path.exists(expected_png):
+                        diagram_success = False
+                        diagram_reason = "Output file missing (.png)"
+                    elif os.path.getsize(expected_png) == 0:
+                        diagram_success = False
+                        diagram_reason = "Output file empty (.png)"
+                
+                if diagram_success:
+                    rendered_svg_references[diagram_name] = expected_svg
+                    for p in [expected_svg, expected_png]:
+                        if p not in artifacts_paths:
+                            artifacts_paths.append(p)
+                            
+                    if not any(m.get("diagram") == diagram_name for m in svg_metadata):
+                        svg_metadata.append({
+                            "diagram": diagram_name,
+                            "svg_path": expected_svg,
+                            "png_path": expected_png,
+                            "puml_path": puml_path,
+                            "ready_for_react_ui": True
+                        })
+                    successful_files.append(diagram_name)
+                    
+                    diagram_states[diagram_name] = {
+                        **existing_state,
+                        "status": "success",
+                        "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
+                    }
+                            
+                    WorkflowEventManager().publish(EventTypes.RENDERER_COMPLETED, {
+                        "diagram": diagram_name,
+                        "status": "success",
+                        "compile_time_ms": int((time.time() - diag_start_time) * 1000),
+                        "svg_size_bytes": os.path.getsize(expected_svg) if os.path.exists(expected_svg) else 0,
+                        "png_size_bytes": os.path.getsize(expected_png) if os.path.exists(expected_png) else 0,
+                    })
+                else:
+                    render_success = False
+                    logger.error(f"Failed to render {diagram_name}. Reason: {diagram_reason}")
+                    
+                    if not diagram_command and invoke_results:
+                        diagram_command = invoke_results[0]["command"]
+                        diagram_returncode = invoke_results[0]["returncode"]
+                        
+                    failed_files.append({
+                        "diagram": diagram_name,
+                        "status": "failed",
+                        "reason": diagram_reason,
+                        "stderr": diagram_stderr,
+                        "return_code": diagram_returncode,
+                        "command": diagram_command
+                    })
+                    
+                    diagram_states[diagram_name] = {
+                        **existing_state,
+                        "status": "failed_render",
+                        "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
+                    }
+                    
+                    WorkflowEventManager().publish(EventTypes.RENDERER_COMPLETED, {
+                        "diagram": diagram_name,
+                        "status": "failed",
+                        "reason": diagram_reason,
+                        "stderr": diagram_stderr,
+                        "compile_time_ms": int((time.time() - diag_start_time) * 1000)
+                    })
+            finally:
+                ctx.current_diagram_var.reset(token)
 
         render_time_ms = int((time.time() - start_time) * 1000)
 

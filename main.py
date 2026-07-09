@@ -27,14 +27,22 @@ def run_interactive():
         sys.exit(1)
         
     print("\nInitializing workflow...")
-    workflow = ForgeWorkflow()
+    # Initialize the CLI Dashboard
+    from core.cli_dashboard import CLIDashboard
+    dashboard = CLIDashboard()
+    dashboard.start()
+    
+    from api.services.orchestration_service import OrchestrationService
+    
+    service = OrchestrationService()
     
     print("Executing Engineering Manager orchestration layer...")
     try:
-        final_state = workflow.execute(user_request)
+        result = service.generate_architecture(user_request)
     except Exception as e:
         print(f"\n❌ Error executing workflow: {e}")
-        sys.exit(1)
+    finally:
+        dashboard.stop()
         
     print("\n==================================================")
     print("Workflow Execution Complete")

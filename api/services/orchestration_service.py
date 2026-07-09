@@ -162,6 +162,23 @@ class OrchestrationService:
         session_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Execute a full Generation workflow."""
+        import time
+        from core.workflow_events import WorkflowEventManager, EventTypes
+        import core.context as ctx
+        
+        workflow_id = str(uuid.uuid4())
+        ctx.workflow_id_var.set(workflow_id)
+        if session_id:
+            ctx.session_id_var.set(session_id)
+        if user_id:
+            ctx.user_id_var.set(user_id)
+            
+        WorkflowEventManager().publish(EventTypes.WORKFLOW_STARTED, {
+            "workflow_id": workflow_id,
+            "timestamp": time.time(),
+            "request": prompt
+        })
+        
         state = self._create_base_state(prompt)
         state = self._prepare_memory_context(state, user_id, session_id)
         
@@ -176,6 +193,12 @@ class OrchestrationService:
         report = final_state.get("execution_report") or {}
         execution_id = report.get("execution_id", str(uuid.uuid4()))
         _EXECUTION_STORE[execution_id] = final_state
+        
+        WorkflowEventManager().publish(EventTypes.WORKFLOW_COMPLETED, {
+            "workflow_id": workflow_id,
+            "timestamp": time.time(),
+            "execution_id": execution_id
+        })
         
         return {
             "execution_id": execution_id,
@@ -196,6 +219,23 @@ class OrchestrationService:
         session_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Execute an Update workflow with Impact Analysis."""
+        import time
+        from core.workflow_events import WorkflowEventManager, EventTypes
+        import core.context as ctx
+        
+        workflow_id = str(uuid.uuid4())
+        ctx.workflow_id_var.set(workflow_id)
+        if session_id:
+            ctx.session_id_var.set(session_id)
+        if user_id:
+            ctx.user_id_var.set(user_id)
+            
+        WorkflowEventManager().publish(EventTypes.WORKFLOW_STARTED, {
+            "workflow_id": workflow_id,
+            "timestamp": time.time(),
+            "request": prompt
+        })
+        
         state = self._create_base_state(prompt)
         state = self._prepare_memory_context(state, user_id, session_id)
         
@@ -215,6 +255,12 @@ class OrchestrationService:
         _EXECUTION_STORE[new_execution_id] = final_state
         
         impact = final_state.get("impact_analysis_report") or {}
+        
+        WorkflowEventManager().publish(EventTypes.WORKFLOW_COMPLETED, {
+            "workflow_id": workflow_id,
+            "timestamp": time.time(),
+            "execution_id": new_execution_id
+        })
         
         return {
             "affected_diagrams": impact.get("affected_diagrams", []),
