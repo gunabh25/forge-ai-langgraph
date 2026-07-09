@@ -57,11 +57,29 @@ class RendererAgent(BaseAgent):
             logger.warning("No PlantUML diagrams found to render.")
             return {}
 
-        rendered_svg_references = {}
+        rendered_svg_references = dict(state.get("rendered_svg_references", {}) or {})
         svg_metadata = []
         artifacts_paths = []
         
+        selected_diagrams = {d.get("diagram", "").lower() for d in (state.get("selected_uml_diagrams") or [])}
+        
         for diagram_name, puml_content in plantuml_diagrams.items():
+            if diagram_name.lower() not in selected_diagrams and diagram_name in rendered_svg_references:
+                logger.info(f"Reusing existing SVG for {diagram_name}...")
+                svg_path = rendered_svg_references[diagram_name]
+                png_path = svg_path.replace(".svg", ".png")
+                mermaid_path = svg_path.replace(".svg", ".mmd")
+                
+                svg_metadata.append({
+                    "diagram": diagram_name,
+                    "svg_path": svg_path,
+                    "png_path": png_path,
+                    "mermaid_path": mermaid_path,
+                    "ready_for_react_ui": True
+                })
+                artifacts_paths.extend([svg_path, png_path, mermaid_path])
+                continue
+
             # Create a mock SVG that simply wraps the PlantUML syntax 
             # (In production, this would call a PlantUML jar or API)
             mock_svg_content = f"""<svg xmlns="http://www.w3.org/2000/svg">

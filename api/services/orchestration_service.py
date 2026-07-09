@@ -180,6 +180,8 @@ class OrchestrationService:
             prev_state = _EXECUTION_STORE[execution_id]
             state["architecture_json"] = prev_state.get("architecture_json")
             state["selected_uml_diagrams"] = prev_state.get("selected_uml_diagrams", [])
+            state["plantuml_diagrams"] = prev_state.get("plantuml_diagrams", {})
+            state["rendered_svg_references"] = prev_state.get("rendered_svg_references", {})
             
         final_state = self.orchestrator.execute_workflow(state)
         self._save_memory_turn(session_id, prompt, final_state)

@@ -109,11 +109,11 @@ DO NOT include markdown tags or explanation. Output ONLY the JSON.
             "last_updated": generate_timestamp()
         }
         
-        affected_diagram_names = set(impact_report.get('affected_diagrams', []))
+        affected_diagram_names = {name.lower() for name in impact_report.get('affected_diagrams', [])}
         current_selected = state.get("selected_uml_diagrams") or []
         filtered_diagrams = [
             d for d in current_selected 
-            if d.get("diagram") in affected_diagram_names
+            if d.get("diagram", "").lower() in affected_diagram_names
         ]
         if affected_diagram_names:
             logger.info(f"Filtered UML regeneration down to {len(filtered_diagrams)} diagrams due to Impact Analysis.")
