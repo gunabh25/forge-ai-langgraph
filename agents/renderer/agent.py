@@ -25,7 +25,7 @@ class RendererAgent(BaseAgent):
         
     @property
     def description(self) -> str:
-        return "Invokes a real PlantUML rendering engine to generate SVGs and PNGs."
+        return "Invokes a real PlantUML rendering engine to generate SVGs and PNGs with deep diagnostics."
         
     @property
     def capabilities(self) -> List[str]:
@@ -40,29 +40,83 @@ class RendererAgent(BaseAgent):
         return ["rendered_svg_references"]
 
     def __init__(self):
-        # We no longer instantiate or need self._llm since rendering is deterministic
         self.artifact_manager = ArtifactManager()
 
-    def _invoke_plantuml(self, puml_path: str) -> bool:
-        """Attempt to render a .puml file using 'plantuml' or 'java -jar plantuml.jar'."""
-        # Try local plantuml command
-        try:
-            # -tsvg generates SVG, -tpng generates PNG
-            subprocess.run(["plantuml", "-tsvg", puml_path], check=True, capture_output=True)
-            subprocess.run(["plantuml", "-tpng", puml_path], check=True, capture_output=True)
-            return True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            pass
+    def _invoke_plantuml(self, puml_path: str) -> List[Dict[str, Any]]:
+        """Attempt to render a .puml file to SVG and PNG, capturing stdout/stderr."""
+        results = []
+        
+        for fmt in ["svg", "png"]:
+            cmd_plantuml = ["plantuml", f"-t{fmt}", puml_path]
+            cmd_java = ["java", "-jar", "plantuml.jar", f"-t{fmt}", puml_path]
+            
+            res = {
+                "format": fmt,
+                "command": "",
+                "returncode": -1,
+                "stdout": "",
+                "stderr": "",
+                "status": "failed",
+                "reason": "Unknown error"
+            }
+            
+            # Try local plantuml command
+            try:
+                res["command"] = " ".join(cmd_plantuml)
+                logger.info(f"Rendering diagram:\n{os.path.basename(puml_path)}\nCommand:\n{res['command']}")
+                proc = subprocess.run(cmd_plantuml, check=False, capture_output=True, text=True)
+                res["returncode"] = proc.returncode
+                res["stdout"] = proc.stdout
+                res["stderr"] = proc.stderr
+                if proc.returncode == 0:
+                    res["status"] = "success"
+                    res["reason"] = ""
+                else:
+                    err_lower = proc.stderr.lower()
+                    if "dot" in err_lower and ("not found" in err_lower or "executable" in err_lower):
+                        res["reason"] = "Graphviz missing"
+                    elif proc.stderr.strip() == "" and proc.stdout.strip() != "":
+                        # Sometimes plantuml writes errors to stdout
+                        res["reason"] = "PlantUML syntax error or execution failure"
+                        res["stderr"] = proc.stdout
+                    else:
+                        res["reason"] = "PlantUML syntax error"
+                results.append(res)
+                continue
+            except FileNotFoundError:
+                pass
+            except Exception as e:
+                res["reason"] = f"Unexpected exception: {str(e)}"
+                results.append(res)
+                continue
 
-        # Try plantuml.jar
-        try:
-            subprocess.run(["java", "-jar", "plantuml.jar", "-tsvg", puml_path], check=True, capture_output=True)
-            subprocess.run(["java", "-jar", "plantuml.jar", "-tpng", puml_path], check=True, capture_output=True)
-            return True
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            pass
-
-        return False
+            # Try java -jar plantuml.jar
+            try:
+                res["command"] = " ".join(cmd_java)
+                logger.info(f"Rendering diagram:\n{os.path.basename(puml_path)}\nCommand:\n{res['command']}")
+                proc = subprocess.run(cmd_java, check=False, capture_output=True, text=True)
+                res["returncode"] = proc.returncode
+                res["stdout"] = proc.stdout
+                res["stderr"] = proc.stderr
+                if proc.returncode == 0:
+                    res["status"] = "success"
+                    res["reason"] = ""
+                else:
+                    err_lower = proc.stderr.lower()
+                    if "dot" in err_lower and ("not found" in err_lower or "executable" in err_lower):
+                        res["reason"] = "Graphviz missing"
+                    else:
+                        res["reason"] = "PlantUML syntax error"
+                results.append(res)
+                continue
+            except FileNotFoundError:
+                res["reason"] = "Renderer not installed"
+                results.append(res)
+            except Exception as e:
+                res["reason"] = f"Unexpected exception: {str(e)}"
+                results.append(res)
+                
+        return results
 
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the Renderer Agent."""
@@ -80,8 +134,10 @@ class RendererAgent(BaseAgent):
         selected_diagrams = {d.get("diagram", "").lower() for d in (state.get("selected_uml_diagrams") or [])}
         
         render_success = True
-        renderer_error = None
         start_time = time.time()
+        
+        successful_files = []
+        failed_files = []
         
         for diagram_name, puml_content in plantuml_diagrams.items():
             safe_name = diagram_name.lower().replace(" ", "_").replace("/", "_")
@@ -100,6 +156,7 @@ class RendererAgent(BaseAgent):
                     "ready_for_react_ui": True
                 })
                 artifacts_paths.extend([svg_path, png_path, puml_path])
+                successful_files.append(diagram_name)
                 continue
 
             # 1. Write the .puml file
@@ -111,24 +168,58 @@ class RendererAgent(BaseAgent):
             )
             artifacts_paths.append(puml_path)
             
-            # Ensure the artifact manager wrote to disk
             if not os.path.exists(puml_path):
                 render_success = False
-                renderer_error = f"Failed to save {puml_path} to disk."
+                failed_files.append({
+                    "diagram": diagram_name,
+                    "status": "failed",
+                    "reason": "File not found (Failed to save .puml to disk)",
+                    "stderr": "",
+                    "return_code": -1,
+                    "command": ""
+                })
                 continue
 
             # 2. Invoke rendering engine
-            success = self._invoke_plantuml(puml_path)
+            invoke_results = self._invoke_plantuml(puml_path)
             
             # The PlantUML engine places the outputs in the same directory as the .puml file
             expected_svg = puml_path.replace(".puml", ".svg")
             expected_png = puml_path.replace(".puml", ".png")
             
-            # 3. Validation
-            svg_generated = os.path.exists(expected_svg) and os.path.getsize(expected_svg) > 0
-            png_generated = os.path.exists(expected_png) and os.path.getsize(expected_png) > 0
+            diagram_success = True
+            diagram_reason = ""
+            diagram_stderr = ""
+            diagram_stdout = ""
+            diagram_returncode = 0
+            diagram_command = ""
             
-            if success and svg_generated and png_generated:
+            for res in invoke_results:
+                if res["status"] != "success":
+                    diagram_success = False
+                    diagram_reason = res["reason"]
+                    diagram_stderr = res["stderr"]
+                    diagram_stdout = res["stdout"]
+                    diagram_returncode = res["returncode"]
+                    diagram_command = res["command"]
+                    break
+            
+            # 3. Validation
+            if diagram_success:
+                if not os.path.exists(expected_svg):
+                    diagram_success = False
+                    diagram_reason = "Output file missing (.svg)"
+                elif os.path.getsize(expected_svg) == 0:
+                    diagram_success = False
+                    diagram_reason = "Output file empty (.svg)"
+                elif not os.path.exists(expected_png):
+                    diagram_success = False
+                    diagram_reason = "Output file missing (.png)"
+                elif os.path.getsize(expected_png) == 0:
+                    diagram_success = False
+                    diagram_reason = "Output file empty (.png)"
+            
+            if diagram_success:
                 rendered_svg_references[diagram_name] = expected_svg
                 artifacts_paths.extend([expected_svg, expected_png])
                 
@@ -139,28 +230,66 @@ class RendererAgent(BaseAgent):
                     "puml_path": puml_path,
                     "ready_for_react_ui": True
                 })
+                successful_files.append(diagram_name)
             else:
                 render_success = False
-                renderer_error = "PlantUML rendering engine unavailable or failed to produce valid artifacts."
-                logger.error(f"Failed to render {diagram_name}. Engine unavailable.")
+                logger.error(f"Failed to render {diagram_name}. Reason: {diagram_reason}")
+                
+                # Fetch command info from the first attempt if it failed validation but passed invocation
+                if not diagram_command and invoke_results:
+                    diagram_command = invoke_results[0]["command"]
+                    diagram_returncode = invoke_results[0]["returncode"]
+                    
+                failed_files.append({
+                    "diagram": diagram_name,
+                    "status": "failed",
+                    "reason": diagram_reason,
+                    "stderr": diagram_stderr,
+                    "return_code": diagram_returncode,
+                    "command": diagram_command
+                })
 
         render_time_ms = int((time.time() - start_time) * 1000)
 
-        logger.info(f"Renderer Complete. Generated SVG metadata for {len(svg_metadata)} diagrams.")
+        # Build Summary
+        summary_lines = [
+            "Renderer Summary",
+            "Engine: PlantUML",
+            f"Successful: {len(successful_files)}",
+            f"Failed: {len(failed_files)}"
+        ]
+        
+        if failed_files:
+            summary_lines.append("\nFailure Reasons")
+            for f in failed_files:
+                summary_lines.append(f"\n{f['diagram']}")
+                summary_lines.append(f"{f['reason']}")
+
+        summary_text = "\n".join(summary_lines)
+        logger.info(f"\n{summary_text}")
         
         new_message = AIMessage(
-            content=f"Rendered {len(rendered_svg_references)} diagrams into SVGs.",
+            content=f"Renderer execution complete.\n\n{summary_text}",
             name="renderer"
         )
         
         current_metadata = state.get("metadata", {}) or {}
+        
+        execution_report = {
+            "render_engine": "PlantUML",
+            "render_time_ms": render_time_ms,
+            "render_success": render_success,
+            "rendered_files": successful_files,
+            "failed_files": failed_files
+        }
+        
         updated_metadata = {
             **current_metadata,
             "renderer_completed": True,
             "render_success": render_success,
             "render_engine": "PlantUML",
             "render_time_ms": render_time_ms,
-            "renderer_error": renderer_error,
+            "renderer_execution_report": execution_report,
             "last_updated": generate_timestamp()
         }
         

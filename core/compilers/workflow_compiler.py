@@ -61,9 +61,21 @@ class WorkflowCompiler:
         
     def _inject_retry_edges(self, graph: ExecutionGraph, execution_plan: List[str]) -> None:
         """Injects dynamic retry edges if Validator and Generator pairs exist."""
-        if "UML Validator" in graph.nodes and "UML Generator" in graph.nodes:
-            # The Validator can potentially retry the Generator
-            logger.info("Detected Validator-Generator pair. Injecting retry logic.")
+        if "UML Validator" in graph.nodes:
+            logger.info("Detected UML Validator. Injecting UML Repair Agent loop.")
+            
+            # Inject the Repair node dynamically since Planner may not include conditional failure nodes
+            if "UML Repair Agent" not in graph.nodes:
+                repair_node = ExecutionNode(
+                    agent_name="UML Repair Agent",
+                    requires=["plantuml_validation_report", "plantuml_diagrams"],
+                    produces=["plantuml_diagrams"],
+                    estimated_latency=2000,
+                    estimated_cost=0.01,
+                    retryable=False
+                )
+                graph.nodes["UML Repair Agent"] = repair_node
+                
             graph.nodes["UML Validator"].retryable = True
             
             # Find the forward edge leaving UML Validator to replace it with conditional edges
@@ -78,10 +90,10 @@ class WorkflowCompiler:
             if edge_to_remove and next_node is not None:
                 graph.edges.remove(edge_to_remove)
                 
-                # Conditional edges: retry back to generator, continue to next node
+                # Conditional edges: retry back to repair agent, continue to next node
                 graph.edges.append(ExecutionEdge(
                     source="UML Validator", 
-                    target="UML Generator", 
+                    target="UML Repair Agent", 
                     condition="retry"
                 ))
                 graph.edges.append(ExecutionEdge(
@@ -89,11 +101,18 @@ class WorkflowCompiler:
                     target=next_node, 
                     condition="continue"
                 ))
+                
+                # Close the loop from Repair Agent back to Validator
+                graph.edges.append(ExecutionEdge(
+                    source="UML Repair Agent",
+                    target="UML Validator"
+                ))
+                
             elif graph.exit_node == "UML Validator":
                 # It's the final node, add conditional exit
                 graph.edges.append(ExecutionEdge(
                     source="UML Validator", 
-                    target="UML Generator", 
+                    target="UML Repair Agent", 
                     condition="retry"
                 ))
                 graph.edges.append(ExecutionEdge(
@@ -101,7 +120,12 @@ class WorkflowCompiler:
                     target="EXIT", 
                     condition="continue"
                 ))
-                # LangGraph end mapping will handle EXIT
+                
+                # Close the loop
+                graph.edges.append(ExecutionEdge(
+                    source="UML Repair Agent",
+                    target="UML Validator"
+                ))
             
     def _validate_graph(self, graph: ExecutionGraph) -> None:
         """Runs validation passes to catch circular dependencies or disconnected nodes."""
