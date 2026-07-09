@@ -1,7 +1,7 @@
 """Data models for Feedback Manager."""
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from core.utils import generate_timestamp
 
 @dataclass
@@ -11,7 +11,10 @@ class UserFeedbackEntry:
     user_id: str
     project_id: str
     prompt: str
-    generated_uml: str
+    architecture: Dict[str, Any]
+    generated_uml: Dict[str, str]
     user_feedback: str  # The actual text feedback or correction provided
+    reasoning: List[Dict[str, Any]]
+    execution_metadata: Dict[str, Any]
     metadata: Dict[str, Any] = field(default_factory=dict)
     timestamp: str = field(default_factory=generate_timestamp)

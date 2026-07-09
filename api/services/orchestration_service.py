@@ -1,7 +1,8 @@
 """Orchestration service layer bridging FastAPI to the LangGraph workflow."""
 
+import asyncio
 import uuid
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, cast
 from app.state import ForgeState
 from app.dynamic_graph import DynamicWorkflowOrchestrator
 from core.constants import ApprovalStatuses
@@ -132,21 +133,21 @@ class OrchestrationService:
     def submit_feedback(self, execution_id: str, feedback: str, user_id: str = "api_user") -> Dict[str, Any]:
         """Submit feedback, skipping standard orchestration directly via FeedbackManager."""
         prev_state = _EXECUTION_STORE.get(execution_id, {})
-        prompt = prev_state.get("user_request", "")
-        architecture = prev_state.get("architecture_json", "")
-        plantuml = prev_state.get("plantuml_diagrams", {})
-        
-        import json
-        arch_str = json.dumps(architecture, indent=2) if isinstance(architecture, dict) else str(architecture)
-        uml_str = json.dumps(plantuml, indent=2) if isinstance(plantuml, dict) else str(plantuml)
+        prompt = prev_state.get("user_request") or ""
+        architecture = cast(Dict[str, Any], prev_state.get("architecture_json") or {})
+        plantuml = cast(Dict[str, str], prev_state.get("plantuml_diagrams") or {})
+        reasoning = cast(List[Dict[str, Any]], prev_state.get("reasoning_logs") or [])
+        execution_metadata = cast(Dict[str, Any], prev_state.get("execution_report") or {})
         
         self.feedback_manager.submit_feedback(
             user_id=user_id,
             project_id="forgeai_api",
             prompt=prompt,
-            generated_uml=uml_str,
+            architecture=architecture,
+            generated_uml=plantuml,
             user_feedback=feedback,
-            metadata={"architecture": arch_str}
+            reasoning=reasoning,
+            execution_metadata=execution_metadata
         )
         
         return {

@@ -1,7 +1,7 @@
 """Feedback Agent implementation."""
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, cast, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from agents.base import BaseAgent
@@ -57,27 +57,27 @@ class FeedbackAgent(BaseAgent):
         """Execute the Feedback Agent."""
         logger.info("Feedback Agent starting execution.")
         
-        user_request = state.get("user_request", "")
-        architecture = state.get("architecture_json") or state.get("architecture", "")
-        plantuml_diagrams = state.get("plantuml_diagrams", {})
-        user_feedback = state.get("user_feedback", "")
+        user_request = state.get("user_request") or ""
+        architecture = cast(Dict[str, Any], state.get("architecture_json") or {})
+        plantuml_diagrams = cast(Dict[str, str], state.get("plantuml_diagrams") or {})
+        user_feedback = state.get("user_feedback") or ""
+        reasoning = cast(List[Dict[str, Any]], state.get("reasoning_logs") or [])
+        execution_metadata = cast(Dict[str, Any], state.get("execution_report") or {})
         
         if not user_feedback:
             logger.info("No user feedback provided in state. Skipping feedback storage.")
             return {}
             
-        # Serialize structures for storage compatibility
-        arch_str = json.dumps(architecture, indent=2) if isinstance(architecture, dict) else str(architecture)
-        uml_str = json.dumps(plantuml_diagrams, indent=2)
-        
         # Submit feedback, which automatically forwards to the configured ART plugin
         entry = self.feedback_manager.submit_feedback(
             user_id="system_user",
             project_id="forgeai_project",
             prompt=user_request,
-            generated_uml=uml_str,
+            architecture=architecture,
+            generated_uml=plantuml_diagrams,
             user_feedback=user_feedback,
-            metadata={"architecture": arch_str}
+            reasoning=reasoning,
+            execution_metadata=execution_metadata
         )
         
         new_message = AIMessage(

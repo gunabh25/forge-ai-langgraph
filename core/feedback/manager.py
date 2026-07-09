@@ -27,13 +27,16 @@ class FeedbackManager:
         user_id: str,
         project_id: str,
         prompt: str,
-        generated_uml: str,
+        architecture: Dict[str, Any],
+        generated_uml: Dict[str, str],
         user_feedback: str,
+        reasoning: List[Dict[str, Any]],
+        execution_metadata: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None
     ) -> UserFeedbackEntry:
         """
         Record user feedback on a generated UML diagram.
-        Saves to storage and forwards to the ART Plugin if configured.
+        Saves to storage, forwards to the ART Plugin, and creates a training dataset.
         """
         entry_id = str(uuid.uuid4())
         entry = UserFeedbackEntry(
@@ -41,8 +44,11 @@ class FeedbackManager:
             user_id=user_id,
             project_id=project_id,
             prompt=prompt,
+            architecture=architecture,
             generated_uml=generated_uml,
             user_feedback=user_feedback,
+            reasoning=reasoning,
+            execution_metadata=execution_metadata,
             metadata=metadata or {}
         )
         
@@ -60,5 +66,33 @@ class FeedbackManager:
                 logger.info(f"Forwarded feedback {entry_id} to ART plugin.")
             except Exception as e:
                 logger.error(f"ART plugin failed to process feedback {entry_id}: {e}")
+                
+        # 3. Create structured training dataset
+        import os
+        import json
+        from app.settings import settings
+        from core.utils import ensure_directory
+        
+        dataset_dir = os.path.join(settings.ARTIFACT_ROOT, "training")
+        ensure_directory(dataset_dir)
+        dataset_path = os.path.join(dataset_dir, "feedback_dataset.jsonl")
+        
+        record = {
+            "feedback_id": entry_id,
+            "prompt": prompt,
+            "architecture": architecture,
+            "uml": generated_uml,
+            "feedback": user_feedback,
+            "reasoning": reasoning,
+            "execution_metadata": execution_metadata,
+            "timestamp": entry.timestamp
+        }
+        
+        try:
+            with open(dataset_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record) + "\\n")
+            logger.info(f"Appended feedback {entry_id} to training dataset.")
+        except Exception as e:
+            logger.error(f"Failed to append to training dataset: {e}")
                 
         return entry
