@@ -54,24 +54,45 @@ class UMLGeneratorAgent(BaseAgent):
         user_request = state.get("user_request", "").strip()
         architecture_json = state.get("architecture_json", {})
         selected_uml_diagrams = state.get("selected_uml_diagrams", [])
+        current_diagram_id = state.get("current_diagram_id")
         
         if not selected_uml_diagrams:
             logger.warning("No UML diagrams selected for generation.")
             return {}
             
-        logger.info(f"UML Generator starting iterative generation for {len(selected_uml_diagrams)} diagrams...")
+        if current_diagram_id:
+            diagrams_to_process = [d for d in selected_uml_diagrams if d.get("diagram_id", d.get("diagram", d.get("type", "unknown"))) == current_diagram_id]
+            logger.info(f"UML Generator starting parallel generation for diagram: {current_diagram_id}")
+        else:
+            diagrams_to_process = selected_uml_diagrams
+            logger.info(f"UML Generator starting sequential generation for {len(selected_uml_diagrams)} diagrams...")
         
-        # Initialize from existing state to preserve previously successful diagrams during retries
+        # Initialize from existing state
         diagrams = dict(state.get("plantuml_diagrams", {}) or {})
         saved_paths = list(state.get("artifacts", {}).get("uml", []) or [])
+        diagram_states = dict(state.get("diagram_execution_states", {}) or {})
         
-        for diagram_info in selected_uml_diagrams:
-            diagram_type = diagram_info.get("diagram")
-            if not diagram_type:
-                logger.warning(f"Missing diagram type in diagram_info: {diagram_info}")
-                continue
-            
+        import hashlib
+        import time
+        arch_str = json.dumps(architecture_json, sort_keys=True)
+        arch_hash = hashlib.md5(arch_str.encode("utf-8")).hexdigest()
+        
+        for diagram_info in diagrams_to_process:
+            diagram_type = diagram_info.get("diagram", diagram_info.get("type", "unknown"))
+            diag_id = diagram_info.get("diagram_id", diagram_type)
             reason = diagram_info.get("reason", "")
+            
+            cache_key = f"{arch_hash}_{diag_id}"
+            
+            # Simple in-memory cache check (could be expanded to persistent cache)
+            # For now we'll just track if it's already in diagram_states and successful
+            existing_state = diagram_states.get(diag_id, {})
+            if existing_state.get("status") == "success" and existing_state.get("generator_output"):
+                # Cache hit!
+                logger.info(f"Cache hit for {diag_id}. Skipping generation.")
+                continue
+                
+            start_time = time.time()
             
             system_prompt = f"""You are a specialized UML Generator Agent.
 Your task is to generate valid PlantUML syntax for a {diagram_type} based on the user's request and the provided architecture JSON.
@@ -92,22 +113,36 @@ CRITICAL RULES:
             logger.info(f"Generating {diagram_type}...")
             llm_response = self.llm.invoke(messages)
             
+            generation_time_ms = int((time.time() - start_time) * 1000)
+            
             clean_content = str(llm_response.content).replace("```plantuml", "").replace("```puml", "").replace("```", "").strip()
             
-            normalized_type = diagram_type.lower()
-            diagrams[normalized_type] = clean_content
+            diagrams[diag_id] = clean_content
             
-            base_name = diagram_type.lower().replace(" ", "_")
+            base_name = diag_id.lower().replace(" ", "_")
             saved_path = self.artifact_manager.save_artifact(
                 stage="uml",
                 base_name=base_name,
                 content=clean_content,
                 ext="puml"
             )
-            saved_paths.append(saved_path)
+            if saved_path not in saved_paths:
+                saved_paths.append(saved_path)
+                
+            # Update DiagramExecutionState
+            new_diag_state = {
+                "diagram_id": diag_id,
+                "diagram_type": diagram_type,
+                "status": "generated",
+                "attempt": existing_state.get("attempt", 0) + 1,
+                "generator_output": clean_content,
+                "execution_time_ms": existing_state.get("execution_time_ms", 0) + generation_time_ms,
+                "llm_calls": existing_state.get("llm_calls", 0) + 1
+            }
+            diagram_states[diag_id] = new_diag_state
             
         new_message = AIMessage(
-            content=json.dumps(diagrams, indent=2),
+            content=f"Generated {len(diagrams_to_process)} diagrams.",
             name="uml_generator"
         )
         
@@ -120,6 +155,7 @@ CRITICAL RULES:
         
         return {
             "plantuml_diagrams": diagrams,
+            "diagram_execution_states": diagram_states,
             "artifacts": {
                 "uml": saved_paths
             },

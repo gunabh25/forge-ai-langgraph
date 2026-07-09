@@ -56,9 +56,9 @@ class PlannerAgent(BaseAgent):
             logger.warning("No required_outputs found in intent. Falling back to default.")
             intent_name = intent_info.get("intent")
             if intent_name == "architecture_design":
-                required_outputs = ["architecture_json"]
+                required_outputs = ["architecture_json", "workflow_execution_summary"]
             else:
-                required_outputs = ["rendered_svg_references"]
+                required_outputs = ["rendered_svg_references", "workflow_execution_summary"]
                 
         # Gather available domain agents
         registry = AgentRegistry()
@@ -144,10 +144,25 @@ class PlannerAgent(BaseAgent):
             
         execution_plan = [a.name for a in sorted_plan]
         
+        # New Execution Strategy logic
+        # For UML generation, we parallelize diagram specific pipelines
+        parallelizable_agents = ["UML Generator", "UML Validator", "UML Repair Agent", "Renderer Agent"]
+        
+        sequential = []
+        for a in execution_plan:
+            if a not in parallelizable_agents:
+                sequential.append(a)
+                
+        execution_strategy = {
+            "parallelizable_agents": parallelizable_agents,
+            "sequential": sequential
+        }
+        
         logger.info(f"Capability-driven execution plan generated: {execution_plan}")
+        logger.info(f"Execution strategy: {execution_strategy}")
         
         new_message = AIMessage(
-            content=json.dumps(execution_plan, indent=2),
+            content=json.dumps({"execution_plan": execution_plan, "execution_strategy": execution_strategy}, indent=2),
             name="planner"
         )
         
@@ -160,6 +175,7 @@ class PlannerAgent(BaseAgent):
         
         return {
             "execution_plan": execution_plan,
+            "execution_strategy": execution_strategy,
             "messages": [new_message],
             "metadata": updated_metadata
         }

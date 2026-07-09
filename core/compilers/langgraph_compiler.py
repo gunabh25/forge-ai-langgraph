@@ -2,6 +2,7 @@
 
 from typing import cast, Any
 from langgraph.graph import StateGraph, END
+from langgraph.types import Send
 from app.state import ForgeState
 from core.models.execution_graph import ExecutionGraph
 from core.agent_registry import AgentRegistry
@@ -71,8 +72,37 @@ class LangGraphCompiler:
         workflow = StateGraph(ForgeState)
         
         # 1. Add Nodes
-        for node_name, _ in execution_graph.nodes.items():
-            workflow.add_node(node_name, self._create_dynamic_node(node_name))
+        for node_name, node_def in execution_graph.nodes.items():
+            if node_def.sub_graph:
+                # Compile subgraph and add it as a node
+                sub_app = self.compile(node_def.sub_graph)
+                
+                # Wrap the subgraph to only return fields that are safe to merge (annotated reducers or explicitly merged fields)
+                def make_subgraph_wrapper(app):
+                    def wrapper(state: ForgeState):
+                        full_result = app.invoke(state)
+                        # Filter to only return fields that were actually modified by the sub-graph agents
+                        # and are annotated with reducers in ForgeState.
+                        return {
+                            "plantuml_diagrams": full_result.get("plantuml_diagrams"),
+                            "plantuml_validation_report": full_result.get("plantuml_validation_report"),
+                            "rendered_svg_references": full_result.get("rendered_svg_references"),
+                            "diagram_execution_states": full_result.get("diagram_execution_states"),
+                            "artifacts": full_result.get("artifacts"),
+                            "messages": full_result.get("messages")[-1:] if full_result.get("messages") else [],
+                            "metadata": full_result.get("metadata"),
+                            "current_stage": full_result.get("current_stage")
+                        }
+                    return wrapper
+                    
+                workflow.add_node(f"{node_name}_subgraph", make_subgraph_wrapper(sub_app))
+                
+                # Add a dummy router node that will trigger the conditional edge
+                def dummy_router(state: ForgeState) -> dict:
+                    return {"current_stage": node_name}
+                workflow.add_node(node_name, dummy_router)
+            else:
+                workflow.add_node(node_name, self._create_dynamic_node(node_name))
             
         # 2. Set Entry Point
         if execution_graph.entry_node:
@@ -91,6 +121,36 @@ class LangGraphCompiler:
             else:
                 standard_edges.append((edge.source, target))
                 
+        # Handle Fan-Out Edges
+        for node_name, node_def in execution_graph.nodes.items():
+            if node_def.sub_graph:
+                # 1. Conditional Edge from dummy node to sub_graph via Send
+                def fan_out_router(state: ForgeState, subgraph_name=f"{node_name}_subgraph"):
+                    diagrams = state.get("selected_uml_diagrams") or []
+                    sends = []
+                    for diag in diagrams:
+                        diag_id = diag.get("diagram_id", diag.get("type", "unknown"))
+                        sends.append(Send(subgraph_name, {**state, "current_diagram_id": diag_id}))
+                    return sends if sends else "skip"
+                
+                # We need to map "skip" to whatever the next node is, or END
+                outward_edge = next((e for e in execution_graph.edges if e.source == node_name), None)
+                next_node = outward_edge.target if outward_edge else END
+                if next_node == "EXIT": next_node = END
+                
+                workflow.add_conditional_edges(
+                    node_name,
+                    fan_out_router,
+                    {"skip": next_node}  # The Send targets are dynamically inferred by LangGraph
+                )
+                
+                # 2. Edge from subgraph to next node
+                # The normal standard_edges list has an edge from node_name to next_node.
+                # We need to change that to be from subgraph to next_node.
+                for i, (src, tgt) in enumerate(standard_edges):
+                    if src == node_name:
+                        standard_edges[i] = (f"{node_name}_subgraph", tgt)
+        
         # Add standard edges
         for source, target in standard_edges:
             workflow.add_edge(source, target)

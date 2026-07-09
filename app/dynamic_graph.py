@@ -48,6 +48,7 @@ class DynamicWorkflowOrchestrator:
             current_state.update(planner_result)
             
         execution_plan = current_state.get("execution_plan", [])
+        execution_strategy = current_state.get("execution_strategy", {})
         if not execution_plan:
             logger.warning("Execution plan is empty! Nothing to execute.")
             return cast(ForgeState, current_state)
@@ -57,7 +58,7 @@ class DynamicWorkflowOrchestrator:
         # 3. Dynamic Compilation Pipeline
         logger.info("Executing Workflow Compiler passes...")
         workflow_compiler = WorkflowCompiler()
-        execution_graph, compilation_metadata = workflow_compiler.compile(execution_plan)
+        execution_graph, compilation_metadata = workflow_compiler.compile(execution_plan, execution_strategy)
         
         logger.info(f"Compilation Metadata: {compilation_metadata}")
         if "metadata" not in current_state:

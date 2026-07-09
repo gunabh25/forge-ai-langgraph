@@ -1,6 +1,6 @@
 """State definitions for the LangGraph multi-agent workflow."""
 
-from typing import List, Dict, Any, Optional, Annotated
+from typing import List, Dict, Any, Optional, Annotated, cast
 from typing_extensions import TypedDict
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -93,13 +93,47 @@ def merge_execution_report(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[
                 
     return merged
 
+class DiagramExecutionState(TypedDict, total=False):
+    """Execution state tracked for a single UML diagram branch."""
+    diagram_id: str
+    diagram_type: str
+    status: str
+    attempt: int
+    generator_output: Optional[str]
+    compiler_output: Optional[str]
+    compiler_error: Optional[str]
+    rendered_svg: Optional[str]
+    rendered_png: Optional[str]
+    execution_time_ms: int
+    llm_calls: int
+
+def merge_diagram_states(left: Dict[str, DiagramExecutionState], right: Dict[str, DiagramExecutionState]) -> Dict[str, DiagramExecutionState]:
+    """Reducer function to merge DiagramExecutionState maps in LangGraph."""
+    merged = (left or {}).copy()
+    for key, value in (right or {}).items():
+        if key in merged:
+            # Shallow update of the individual dict
+            merged[key] = cast(DiagramExecutionState, {**merged[key], **value})
+        else:
+            merged[key] = value
+    return merged
+
+def merge_dict(left: Optional[Dict[str, Any]], right: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Reducer function to merge dictionaries."""
+    merged = (left or {}).copy()
+    merged.update(right or {})
+    return merged
+
+def merge_string(left: Optional[str], right: Optional[str]) -> str:
+    """Reducer function for strings, takes the rightmost."""
+    return right if right is not None else (left or "")
 
 class ForgeState(TypedDict):
     """Central shared state dictionary for the ForgeAI LangGraph workflow."""
     
     # Primary request and stage details
     user_request: str
-    current_stage: str
+    current_stage: Annotated[str, merge_string]
     
     # Gating and status flags
     approval_status: str  # e.g., "pending", "approved", "rejected", "changes_requested"
@@ -174,14 +208,20 @@ class ForgeState(TypedDict):
     requirements_json: Optional[Dict[str, Any]]
     architecture_json: Optional[Dict[str, Any]]
     selected_uml_diagrams: Optional[List[Dict[str, str]]]
-    plantuml_diagrams: Optional[Dict[str, str]]
-    plantuml_validation_report: Optional[Dict[str, Any]]
-    rendered_svg_references: Optional[Dict[str, str]]
+    plantuml_diagrams: Annotated[Optional[Dict[str, str]], merge_dict]
+    plantuml_validation_report: Annotated[Optional[Dict[str, Any]], merge_dict]
+    rendered_svg_references: Annotated[Optional[Dict[str, str]], merge_dict]
     
     # Reducer-managed tracking collections
     artifacts: Annotated[Dict[str, List[str]], merge_artifacts]
     messages: Annotated[List[BaseMessage], add_messages]
     metadata: Annotated[Dict[str, Any], merge_metadata]
+    
+    # Parallel execution fields
+    diagram_execution_states: Annotated[Dict[str, DiagramExecutionState], merge_diagram_states]
+    current_diagram_id: Optional[str]
+    workflow_execution_summary: Optional[Dict[str, Any]]
+    execution_strategy: Optional[Dict[str, Any]]
 
 def validate_forge_state(state: Dict[str, Any], is_before_execution: bool = True) -> None:
     """Validates the structure and content of ForgeState.

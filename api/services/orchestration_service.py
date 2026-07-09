@@ -127,7 +127,11 @@ class OrchestrationService:
             "rendered_svg_references": None,
             "conversation_history": None,
             "previous_architecture": None,
-            "previous_diagrams": None
+            "previous_diagrams": None,
+            "diagram_execution_states": {},
+            "current_diagram_id": None,
+            "workflow_execution_summary": None,
+            "execution_strategy": None
         }
         
     def generate_architecture(

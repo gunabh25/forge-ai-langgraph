@@ -1,6 +1,6 @@
 """Compiler for generating framework-independent ExecutionGraphs from Planner sequences."""
 
-from typing import List, Tuple, Dict, Any, Set
+from typing import List, Tuple, Dict, Any, Set, Optional
 from core.models.execution_graph import ExecutionGraph, ExecutionNode, ExecutionEdge, CompilationError
 from config.logging import get_logger
 
@@ -9,12 +9,13 @@ logger = get_logger("core.compilers.workflow_compiler")
 class WorkflowCompiler:
     """Compiles linear agent sequences into optimized ExecutionGraphs."""
     
-    def compile(self, execution_plan: List[str]) -> Tuple[ExecutionGraph, Dict[str, Any]]:
+    def compile(self, execution_plan: List[str], execution_strategy: Optional[Dict[str, Any]] = None) -> Tuple[ExecutionGraph, Dict[str, Any]]:
         """
         Compile an ordered list of agents into an ExecutionGraph.
         
         Args:
             execution_plan: List of agent names (e.g., from PlannerAgent).
+            execution_strategy: Dictionary with parallelization strategy.
             
         Returns:
             Tuple of (ExecutionGraph, metadata_dict).
@@ -24,30 +25,53 @@ class WorkflowCompiler:
         if not execution_plan:
             return ExecutionGraph(), {"graph_nodes": 0, "graph_edges": 0}
             
+        # Collapse parallel agents into a single Fan-Out node if strategy is provided
+        processed_plan = []
+        sub_plan = []
+        if execution_strategy and "parallelizable_agents" in execution_strategy:
+            parallelizable = set(execution_strategy["parallelizable_agents"])
+            for agent in execution_plan:
+                if agent in parallelizable:
+                    sub_plan.append(agent)
+                else:
+                    processed_plan.append(agent)
+                    
+            if sub_plan:
+                processed_plan.append("UML Parallel Pipeline")
+        else:
+            processed_plan = execution_plan.copy()
+            
         graph = ExecutionGraph()
         
         # 1. Dependency Resolution & Node Creation
-        for i, agent_name in enumerate(execution_plan):
+        for i, agent_name in enumerate(processed_plan):
             node = ExecutionNode(
                 agent_name=agent_name,
-                requires=[execution_plan[i-1]] if i > 0 else [],
+                requires=[processed_plan[i-1]] if i > 0 else [],
                 produces=[f"{agent_name}_output"],
                 estimated_latency=1000,  # default placeholder
                 estimated_cost=0.01      # default placeholder
             )
+            
+            if agent_name == "UML Parallel Pipeline" and sub_plan:
+                node.parallelizable = True
+                sub_graph, _ = self.compile(sub_plan)
+                node.sub_graph = sub_graph
+                
             graph.nodes[agent_name] = node
             
-        graph.entry_node = execution_plan[0]
-        graph.exit_node = execution_plan[-1]
+        graph.entry_node = processed_plan[0]
+        graph.exit_node = processed_plan[-1]
         
         # 2. Edge Construction (Linear Flow)
-        for i in range(len(execution_plan) - 1):
-            source = execution_plan[i]
-            target = execution_plan[i+1]
+        for i in range(len(processed_plan) - 1):
+            source = processed_plan[i]
+            target = processed_plan[i+1]
             graph.edges.append(ExecutionEdge(source=source, target=target))
             
         # 3. Retry Injection Pass (Domain Optimization)
-        self._inject_retry_edges(graph, execution_plan)
+        if "UML Validator" in graph.nodes:
+            self._inject_retry_edges(graph, processed_plan)
         
         # 4. Graph Validation
         self._validate_graph(graph)

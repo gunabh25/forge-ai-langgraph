@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from langchain_core.messages import AIMessage
 from agents.base import BaseAgent
 from core.agent_registry import AgentRegistry
-from app.state import ForgeState
+from app.state import ForgeState, DiagramExecutionState
 from config.logging import get_logger
 from core.utils import generate_timestamp
 
@@ -97,26 +97,32 @@ class UMLValidatorAgent(BaseAgent):
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Validator agent step."""
         diagrams_content = state.get("plantuml_diagrams", {})
+        current_diagram_id = state.get("current_diagram_id")
         
         if not diagrams_content:
             logger.warning("No PlantUML diagrams found in state to validate.")
             return {}
             
-        logger.info(f"UML Validator starting compiler execution for {len(diagrams_content)} diagrams...")
+        if current_diagram_id:
+            logger.info(f"UML Validator starting parallel compilation for diagram: {current_diagram_id}")
+            diagrams_to_process = {k: v for k, v in diagrams_content.items() if k == current_diagram_id}
+        else:
+            logger.info(f"UML Validator starting sequential compiler execution for {len(diagrams_content)} diagrams...")
+            diagrams_to_process = diagrams_content
         
         current_metadata = state.get("metadata", {}) or {}
-        repair_attempts = current_metadata.get("repair_attempts", 0)
+        diagram_states = dict(state.get("diagram_execution_states", {}) or {})
         
         diagram_results = []
         passed_count = 0
         failed_count = 0
         
-        # Only validate the ones that haven't been successfully validated yet? 
-        # For simplicity, we can validate all or rely on 'selected_uml_diagrams' for tracking active failures.
-        # But compiling is fast, so we compile all.
+        import time
         
-        for diagram_name, puml_content in diagrams_content.items():
+        for diagram_name, puml_content in diagrams_to_process.items():
+            start_time = time.time()
             check_res = self._check_syntax(puml_content)
+            exec_time = int((time.time() - start_time) * 1000)
             
             diagram_result = {
                 "diagram": diagram_name,
@@ -127,7 +133,6 @@ class UMLValidatorAgent(BaseAgent):
                 "error_type": check_res["error_type"]
             }
             
-            # Additional detail for the report
             errors = []
             if not check_res["valid"]:
                 failed_count += 1
@@ -137,28 +142,48 @@ class UMLValidatorAgent(BaseAgent):
                 
             diagram_result["errors"] = errors
             diagram_results.append(diagram_result)
+            
+            from typing import cast
+            
+            # Update DiagramExecutionState
+            existing_state = diagram_states.get(diagram_name, {})
+            new_diag_state = cast(DiagramExecutionState, {
+                **existing_state,
+                "compiler_output": check_res["stdout"],
+                "compiler_error": check_res["stderr"],
+                "status": "validated" if check_res["valid"] else "failed_validation",
+                "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time
+            })
+            diagram_states[diagram_name] = new_diag_state
 
         validation_result = {
-            "validated": len(diagrams_content),
+            "validated": len(diagrams_to_process),
             "passed": passed_count,
             "failed": failed_count,
-            "repair_attempts": repair_attempts,
             "compiler": "PlantUML",
             "diagram_results": diagram_results,
-            "report": f"Compiled {len(diagrams_content)} diagrams. Passed: {passed_count}, Failed: {failed_count}."
+            "report": f"Compiled {len(diagrams_to_process)} diagrams. Passed: {passed_count}, Failed: {failed_count}."
         }
         
         # Determine overall workflow routing
         max_retries = 3
-        is_permanently_failed = repair_attempts >= max_retries
+        # Use attempt from DiagramExecutionState
+        retry_requested = False
+        is_permanently_failed = False
         
-        # We request a retry if there are failed diagrams AND we haven't hit the limit.
-        retry_requested = (failed_count > 0) and not is_permanently_failed
+        if current_diagram_id:
+            attempt = diagram_states.get(current_diagram_id, {}).get("attempt", 0)
+            is_permanently_failed = attempt >= max_retries
+            retry_requested = (failed_count > 0) and not is_permanently_failed
+        else:
+            repair_attempts = current_metadata.get("repair_attempts", 0)
+            is_permanently_failed = repair_attempts >= max_retries
+            retry_requested = (failed_count > 0) and not is_permanently_failed
         
         if failed_count > 0 and is_permanently_failed:
             logger.warning(f"Max repair attempts ({max_retries}) reached. Marking diagrams as permanently failed and continuing.")
             
-        logger.info(f"UML Validation completed. Passed: {passed_count}/{len(diagrams_content)}. Retry Requested: {retry_requested}")
+        logger.info(f"UML Validation completed. Passed: {passed_count}/{len(diagrams_to_process)}. Retry Requested: {retry_requested}")
         
         new_message = AIMessage(
             content=json.dumps(validation_result, indent=2),
@@ -173,15 +198,16 @@ class UMLValidatorAgent(BaseAgent):
             "last_updated": generate_timestamp()
         }
         
-        state_updates = {
+        state_updates: Dict[str, Any] = {
             "plantuml_validation_report": validation_result,
+            "diagram_execution_states": diagram_states,
             "messages": [new_message],
             "metadata": updated_metadata,
             "current_stage": "uml_validator"
         }
         
-        # If we are retrying, set up the targeted list so the Repair Agent knows what to fix
-        if retry_requested:
+        # Legacy sequential mode repair targeting
+        if retry_requested and not current_diagram_id:
             failed_diagram_names = [
                 str(d.get("diagram", "")).lower() 
                 for d in diagram_results 
@@ -189,14 +215,13 @@ class UMLValidatorAgent(BaseAgent):
             ]
             
             if failed_diagram_names:
-                current_selected: List[Dict[str, Any]] = state.get("selected_uml_diagrams") or []
+                current_selected: List[Dict[str, str]] = state.get("selected_uml_diagrams") or []
                 new_selected = [
                     d for d in current_selected 
-                    if str(d.get("diagram", "")).lower() in failed_diagram_names
+                    if d.get("diagram", "").lower() in failed_diagram_names
                 ]
                 
                 logger.info(f"Targeting {len(new_selected)} failed diagrams for repair: {failed_diagram_names}")
-                # pyrefly: ignore [bad-assignment]
                 state_updates["selected_uml_diagrams"] = new_selected
         
         return state_updates

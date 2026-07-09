@@ -37,7 +37,7 @@ class RendererAgent(BaseAgent):
 
     @property
     def produces(self) -> List[str]:
-        return ["rendered_svg_references"]
+        return ["rendered_svg_references", "svg_metadata", "artifacts", "diagram_execution_states"]
 
     def __init__(self):
         self.artifact_manager = ArtifactManager()
@@ -123,13 +123,23 @@ class RendererAgent(BaseAgent):
         logger.info("Renderer Agent starting execution.")
         
         plantuml_diagrams = state.get("plantuml_diagrams", {})
+        current_diagram_id = state.get("current_diagram_id")
+        
         if not plantuml_diagrams:
             logger.warning("No PlantUML diagrams found to render.")
             return {}
 
+        if current_diagram_id:
+            diagrams_to_process = {k: v for k, v in plantuml_diagrams.items() if k == current_diagram_id}
+            logger.info(f"Renderer starting parallel execution for diagram: {current_diagram_id}")
+        else:
+            diagrams_to_process = plantuml_diagrams
+            logger.info(f"Renderer starting sequential execution for {len(diagrams_to_process)} diagrams")
+
         rendered_svg_references = dict(state.get("rendered_svg_references", {}) or {})
-        svg_metadata = []
-        artifacts_paths = []
+        svg_metadata = list(state.get("metadata", {}).get("rendered_svgs", []) or [])
+        artifacts_paths = list(state.get("artifacts", {}).get("uml_renders", []) or [])
+        diagram_states = dict(state.get("diagram_execution_states", {}) or {})
         
         selected_diagrams = {d.get("diagram", "").lower() for d in (state.get("selected_uml_diagrams") or [])}
         
@@ -139,8 +149,11 @@ class RendererAgent(BaseAgent):
         successful_files = []
         failed_files = []
         
-        for diagram_name, puml_content in plantuml_diagrams.items():
+        for diagram_name, puml_content in diagrams_to_process.items():
             safe_name = diagram_name.lower().replace(" ", "_").replace("/", "_")
+            diag_start_time = time.time()
+            
+            existing_state = diagram_states.get(diagram_name, {})
             
             if diagram_name.lower() not in selected_diagrams and diagram_name in rendered_svg_references:
                 logger.info(f"Reusing existing SVG for {diagram_name}...")
@@ -148,13 +161,15 @@ class RendererAgent(BaseAgent):
                 png_path = svg_path.replace(".svg", ".png")
                 puml_path = svg_path.replace(".svg", ".puml")
                 
-                svg_metadata.append({
-                    "diagram": diagram_name,
-                    "svg_path": svg_path,
-                    "png_path": png_path,
-                    "puml_path": puml_path,
-                    "ready_for_react_ui": True
-                })
+                # We check if it is already in svg_metadata to prevent duplicates
+                if not any(m.get("diagram") == diagram_name for m in svg_metadata):
+                    svg_metadata.append({
+                        "diagram": diagram_name,
+                        "svg_path": svg_path,
+                        "png_path": png_path,
+                        "puml_path": puml_path,
+                        "ready_for_react_ui": True
+                    })
                 artifacts_paths.extend([svg_path, png_path, puml_path])
                 successful_files.append(diagram_name)
                 continue
@@ -166,7 +181,8 @@ class RendererAgent(BaseAgent):
                 content=puml_content,
                 ext="puml"
             )
-            artifacts_paths.append(puml_path)
+            if puml_path not in artifacts_paths:
+                artifacts_paths.append(puml_path)
             
             if not os.path.exists(puml_path):
                 render_success = False
@@ -178,6 +194,12 @@ class RendererAgent(BaseAgent):
                     "return_code": -1,
                     "command": ""
                 })
+                
+                diagram_states[diagram_name] = {
+                    **existing_state,
+                    "status": "failed_render",
+                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
+                }
                 continue
 
             # 2. Invoke rendering engine
@@ -221,16 +243,25 @@ class RendererAgent(BaseAgent):
             
             if diagram_success:
                 rendered_svg_references[diagram_name] = expected_svg
-                artifacts_paths.extend([expected_svg, expected_png])
+                for p in [expected_svg, expected_png]:
+                    if p not in artifacts_paths:
+                        artifacts_paths.append(p)
                 
-                svg_metadata.append({
-                    "diagram": diagram_name,
-                    "svg_path": expected_svg,
-                    "png_path": expected_png,
-                    "puml_path": puml_path,
-                    "ready_for_react_ui": True
-                })
+                if not any(m.get("diagram") == diagram_name for m in svg_metadata):
+                    svg_metadata.append({
+                        "diagram": diagram_name,
+                        "svg_path": expected_svg,
+                        "png_path": expected_png,
+                        "puml_path": puml_path,
+                        "ready_for_react_ui": True
+                    })
                 successful_files.append(diagram_name)
+                
+                diagram_states[diagram_name] = {
+                    **existing_state,
+                    "status": "success",
+                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
+                }
             else:
                 render_success = False
                 logger.error(f"Failed to render {diagram_name}. Reason: {diagram_reason}")
@@ -248,6 +279,12 @@ class RendererAgent(BaseAgent):
                     "return_code": diagram_returncode,
                     "command": diagram_command
                 })
+                
+                diagram_states[diagram_name] = {
+                    **existing_state,
+                    "status": "failed_render",
+                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + int((time.time() - diag_start_time) * 1000)
+                }
 
         render_time_ms = int((time.time() - start_time) * 1000)
 
@@ -296,6 +333,7 @@ class RendererAgent(BaseAgent):
         return {
             "svg_metadata": svg_metadata,
             "rendered_svg_references": rendered_svg_references,
+            "diagram_execution_states": diagram_states,
             "artifacts": {
                 ArtifactFolders.DIAGRAMS: artifacts_paths
             },

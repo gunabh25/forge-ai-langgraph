@@ -13,6 +13,7 @@ class ExecutionNode(BaseModel):
     timeout: int = 300
     estimated_cost: float = 0.0
     estimated_latency: int = 0
+    sub_graph: Optional['ExecutionGraph'] = None
 
 class ExecutionEdge(BaseModel):
     """Represents a directed transition between two nodes."""

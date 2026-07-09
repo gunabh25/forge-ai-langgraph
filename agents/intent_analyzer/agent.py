@@ -103,7 +103,7 @@ Do NOT include any other text, markdown formatting, or explanation.
         response_content = llm_response.content
         if isinstance(response_content, list):
             response_content = "\n".join([str(item) for item in response_content])
-        else:
+        elif not isinstance(response_content, str):
             response_content = str(response_content)
             
         # Clean potential markdown JSON formatting

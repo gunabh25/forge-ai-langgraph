@@ -49,14 +49,19 @@ class UMLRepairAgent(BaseAgent):
         """Execute the UML Repair Agent step."""
         validation_report = state.get("plantuml_validation_report", {})
         diagrams_content = state.get("plantuml_diagrams", {})
+        current_diagram_id = state.get("current_diagram_id")
         
         if not validation_report or not diagrams_content:
             logger.warning("No validation report or diagrams found for repair.")
             return {}
             
         diagram_results = validation_report.get("diagram_results", [])
-        failed_diagrams = [d for d in diagram_results if not d.get("valid", True)]
         
+        if current_diagram_id:
+            failed_diagrams = [d for d in diagram_results if not d.get("valid", True) and d.get("diagram", "") == current_diagram_id]
+        else:
+            failed_diagrams = [d for d in diagram_results if not d.get("valid", True)]
+            
         if not failed_diagrams:
             logger.info("No failed diagrams found for repair. Exiting repair agent.")
             return {}
@@ -64,7 +69,7 @@ class UMLRepairAgent(BaseAgent):
         logger.info(f"UML Repair starting execution for {len(failed_diagrams)} failed diagrams...")
         
         current_metadata = state.get("metadata", {}) or {}
-        repair_attempts = current_metadata.get("repair_attempts", 0) + 1
+        diagram_states = dict(state.get("diagram_execution_states", {}) or {})
         
         system_prompt = """You are a highly specialized UML Repair Agent.
 Your task is to fix syntax errors in PlantUML code based on compiler output.
@@ -79,6 +84,8 @@ Rules:
 
         repaired_diagrams_count = 0
         updated_diagrams_content = dict(diagrams_content)
+        
+        import time
         
         for failed_diag in failed_diagrams:
             diag_name = failed_diag.get("diagram", "")
@@ -106,7 +113,9 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
             ]
             
             logger.info(f"Invoking LLM for repairing {diag_name}...")
+            start_time = time.time()
             llm_response = self.llm.invoke(messages)
+            exec_time = int((time.time() - start_time) * 1000)
             
             response_content = llm_response.content
             if isinstance(response_content, list):
@@ -120,13 +129,26 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
             repaired_diagrams_count += 1
             logger.info(f"Successfully applied repair patch for {diag_name}.")
             
-        logger.info(f"UML Repair completed {repaired_diagrams_count} repairs. Attempt count: {repair_attempts}")
+            existing_state = diagram_states.get(diag_name, {})
+            # We increment attempt in Validator, but Generator also sets attempt.
+            # Wait, the repair agent runs *after* validation. The attempt count is tracked logically per-generation.
+            diagram_states[diag_name] = {
+                **existing_state,
+                "status": "repaired",
+                "generator_output": clean_content,
+                "llm_calls": existing_state.get("llm_calls", 0) + 1,
+                "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time
+            }
+            
+        logger.info(f"UML Repair completed {repaired_diagrams_count} repairs.")
         
         new_message = AIMessage(
-            content=f"Attempted {repaired_diagrams_count} repairs (Repair Attempt {repair_attempts}).",
+            content=f"Attempted {repaired_diagrams_count} repairs.",
             name="uml_repair"
         )
         
+        # Legacy tracking
+        repair_attempts = current_metadata.get("repair_attempts", 0) + 1
         updated_metadata = {
             **current_metadata,
             "repair_attempts": repair_attempts,
@@ -136,6 +158,7 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
         
         return {
             "plantuml_diagrams": updated_diagrams_content,
+            "diagram_execution_states": diagram_states,
             "messages": [new_message],
             "metadata": updated_metadata,
             "current_stage": "uml_repair"
