@@ -237,5 +237,68 @@ class OrchestrationService:
             "llm_calls": report.get("llm_calls", 0),
             "execution_time_ms": report.get("execution_time_ms", 0),
             "validation_retries": report.get("validation_retries", 0),
-            "artifacts_generated": report.get("artifacts", {})
+            "artifacts_generated": report.get("artifacts", {}),
+            
+            # Observability fields
+            "execution_graph": state.get("metadata", {}).get("execution_plan"),
+            "execution_timeline": state.get("timeline_events"),
+            "reasoning": state.get("reasoning_logs"),
+            "generated_diagrams": {
+                "plantuml": state.get("plantuml_diagrams"),
+                "rendered_svgs": state.get("rendered_svg_references")
+            },
+            "validation_reports": {
+                "qa_report": state.get("qa_report"),
+                "security_report": state.get("security_report"),
+                "review_report": state.get("review_report"),
+                "validation_summary": state.get("validation_summary"),
+                "quality_report": state.get("quality_report")
+            },
+            "rendered_artifacts": state.get("artifacts")
         }
+
+    def replay_execution(self, execution_id: str, start_stage: Optional[str] = None) -> Dict[str, Any]:
+        """Replay a workflow execution from a previous state."""
+        if execution_id not in _EXECUTION_STORE:
+            raise ValueError(f"Execution ID {execution_id} not found.")
+            
+        old_state = _EXECUTION_STORE[execution_id].copy()
+        
+        # Reset properties that should be regenerated on replay
+        old_state["approval_status"] = ApprovalStatuses.PENDING
+        old_state["current_stage"] = start_stage if start_stage else ""
+        if "metadata" in old_state:
+            old_state["metadata"]["started_at"] = generate_timestamp()
+            
+        final_state = self.orchestrator.execute_workflow(old_state)
+        
+        new_execution_id = final_state.get("execution_report", {}).get("execution_id", str(uuid.uuid4()))
+        _EXECUTION_STORE[new_execution_id] = final_state
+        
+        return self.get_execution(new_execution_id) # type: ignore
+
+    def get_artifact_path(self, execution_id: str, artifact_path: str) -> Optional[str]:
+        """Resolve an artifact path securely for a given execution."""
+        if execution_id not in _EXECUTION_STORE:
+            return None
+            
+        state = _EXECUTION_STORE[execution_id]
+        
+        # We need to verify if the artifact exists in the state's artifacts or diagrams
+        all_artifacts = []
+        artifacts = state.get("artifacts") or {}
+        for artifact_list in artifacts.values():
+            all_artifacts.extend(artifact_list)
+            
+        svg_refs = state.get("rendered_svg_references") or {}
+        for svg_path in svg_refs.values():
+            all_artifacts.append(svg_path)
+            
+        # Match against absolute path or suffix
+        import os
+        for saved_path in all_artifacts:
+            if saved_path == artifact_path or saved_path.endswith(artifact_path):
+                if os.path.exists(saved_path):
+                    return saved_path
+                    
+        return None

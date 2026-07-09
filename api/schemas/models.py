@@ -73,3 +73,14 @@ class ExecutionResponse(BaseModel):
     execution_time_ms: int = 0
     validation_retries: int = 0
     artifacts_generated: Dict[str, Any] = Field(default_factory=dict)
+    
+    # New Observability Fields
+    execution_graph: Optional[List[str]] = Field(default=None, description="The dynamic execution plan graph.")
+    execution_timeline: Optional[List[Dict[str, Any]]] = Field(default=None, description="Timeline of execution events.")
+    reasoning: Optional[List[Dict[str, Any]]] = Field(default=None, description="Agent reasoning logs.")
+    generated_diagrams: Optional[Dict[str, Any]] = Field(default=None, description="PlantUML and rendered diagram paths.")
+    validation_reports: Optional[Dict[str, Any]] = Field(default=None, description="QA, Security, and Review reports.")
+    rendered_artifacts: Optional[Dict[str, Any]] = Field(default=None, description="Paths to rendered workspace artifacts.")
+
+class ReplayRequest(BaseModel):
+    start_stage: Optional[str] = Field(default=None, description="Optional stage to restart the replay from.")
