@@ -104,11 +104,16 @@ class PlannerAgent(BaseAgent):
                     
                     for req in agent.requires:
                         if req in all_produced and req not in provided_outputs:
-                            needed_outputs.add(req)
+                            # Only add to needed if not already produced by a selected agent
+                            if not any(req in a.produces for a in selected_agents):
+                                needed_outputs.add(req)
                     progress = True
                     
             if not progress:
-                logger.warning(f"Could not resolve dependencies for: {needed_outputs}")
+                # Double check in case of cyclical addition
+                unresolved = {req for req in needed_outputs if not any(req in a.produces for a in selected_agents)}
+                if unresolved:
+                    logger.warning(f"Could not resolve dependencies for: {unresolved}")
                 break
                 
         # Topological Sort
