@@ -73,6 +73,27 @@ def merge_generated_files(left: Dict[str, str], right: Dict[str, str]) -> Dict[s
     merged.update(right or {})
     return merged
 
+def merge_execution_report(left: Dict[str, Any], right: Dict[str, Any]) -> Dict[str, Any]:
+    """Reducer function to merge execution report metadata in LangGraph.
+    
+    Appends new agent executions to the executions list.
+    """
+    merged = (left or {}).copy()
+    
+    if right:
+        if "executions" in right:
+            merged["executions"] = merged.get("executions", []) + right["executions"]
+        if "execution_id" in right:
+            merged["execution_id"] = right["execution_id"]
+        
+        # Merge any other top level keys
+        for key, value in right.items():
+            if key not in ["executions", "execution_id"]:
+                merged[key] = value
+                
+    return merged
+
+
 class ForgeState(TypedDict):
     """Central shared state dictionary for the ForgeAI LangGraph workflow."""
     
@@ -133,7 +154,7 @@ class ForgeState(TypedDict):
     estimated_time_saved: Optional[str]
     
     # New execution metadata and observability
-    execution_report: Optional[Dict[str, Any]]
+    execution_report: Annotated[Dict[str, Any], merge_execution_report]
     
     # Incremental Update / Impact Analysis
     impact_analysis_report: Optional[Dict[str, Any]]

@@ -6,6 +6,7 @@ from app.state import ForgeState
 from core.models.execution_graph import ExecutionGraph
 from core.agent_registry import AgentRegistry
 from core.workflow_events import WorkflowEventManager, EventTypes
+from core.observability import ExecutionObserver
 from config.logging import get_logger
 
 logger = get_logger("core.compilers.langgraph_compiler")
@@ -37,19 +38,22 @@ class LangGraphCompiler:
             self.event_manager.subscribe(EventTypes.LLM_COMPLETED, on_llm_completed)
             
             try:
-                # pyrefly: ignore [unnecessary-type-conversion]
-                result = agent.run(state) # type: ignore
+                with ExecutionObserver(agent_name, state) as observer:
+                    # pyrefly: ignore [unnecessary-type-conversion]
+                    result = agent.run(state) # type: ignore
+                    
+                    if result is None:
+                        result = {}
+                        
+                    if reasoning_logs:
+                        result["reasoning_logs"] = reasoning_logs
+                        
+                    result = observer.finalize(result)
             except Exception as e:
                 logger.error(f"[LangGraph Engine] Error executing {agent_name}: {e}")
                 raise
             finally:
                 self.event_manager.unsubscribe(EventTypes.LLM_COMPLETED, on_llm_completed)
-                
-            if result is None:
-                result = {}
-                
-            if reasoning_logs:
-                result["reasoning_logs"] = reasoning_logs
                 
             self.event_manager.publish(EventTypes.AGENT_COMPLETED, {"stage": agent_name, "result": result})
             result["current_stage"] = agent_name

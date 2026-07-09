@@ -40,7 +40,7 @@ class StructuredFormatter(logging.Formatter):
             log_data["metadata"] = extra_fields
             
         # Format as string with key-values for cleaner CLI reading
-        metadata_str = f" | metadata={json.dumps(extra_fields)}" if extra_fields else ""
+        metadata_str = f" | metadata={json.dumps(extra_fields, default=str)}" if extra_fields else ""
         return f"{log_data['timestamp']} - {log_data['level']} - {log_data['logger']} - {log_data['message']}{metadata_str}"
 
 def get_logger(name: str) -> logging.Logger:

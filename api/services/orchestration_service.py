@@ -115,7 +115,7 @@ class OrchestrationService:
             "parallel_executions": None,
             "approval_gates_completed": None,
             "estimated_time_saved": None,
-            "execution_report": None,
+            "execution_report": {},
             "impact_analysis_report": None,
             "user_feedback": None,
             "uml_recommendation_report": None,

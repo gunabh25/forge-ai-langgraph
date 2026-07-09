@@ -32,22 +32,8 @@ class SolutionArchitectAgent(BaseAgent):
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
-        
-    @property
-    def llm(self) -> BaseChatModel:
-        if self._llm is None:
-            self._llm = get_llm()
-        return self._llm
-        
-    def run(self, state: ForgeState) -> Dict[str, Any]:
-        """Execute the Solution Architect Agent."""
-        logger.info("Solution Architect Agent starting execution.")
-        
-        requirements_json = state.get("requirements_json", {})
-        if not requirements_json:
-            logger.warning("No requirements_json found in state.")
-        
-        system_prompt = """You are a Senior Software Architect.
+        self.artifact_manager = ArtifactManager()
+        self.system_prompt = """You are a Principal Software Architect.
 Read the structured requirements JSON and reason about the system architecture.
 Output ONLY valid JSON matching this exact structure:
 {
@@ -67,9 +53,23 @@ Output ONLY valid JSON matching this exact structure:
 
 DO NOT generate UML syntax. DO NOT output paragraphs. Output ONLY the JSON.
 """
-
+        
+    @property
+    def llm(self) -> BaseChatModel:
+        if self._llm is None:
+            self._llm = get_llm()
+        return self._llm
+        
+    def run(self, state: ForgeState) -> Dict[str, Any]:
+        """Execute the Solution Architect Agent."""
+        logger.info("Solution Architect Agent starting execution.")
+        
+        requirements_json = state.get("requirements_json", {})
+        if not requirements_json:
+            logger.warning("No requirements_json found in state.")
+        
         messages = [
-            SystemMessage(content=system_prompt),
+            SystemMessage(content=self.system_prompt),
             HumanMessage(content=f"Requirements:\n{json.dumps(requirements_json, indent=2)}")
         ]
         
@@ -80,22 +80,42 @@ DO NOT generate UML syntax. DO NOT output paragraphs. Output ONLY the JSON.
         
         try:
             architecture_json = json.loads(response_content)
+            architecture = json.dumps(architecture_json, indent=2)
         except json.JSONDecodeError:
-            logger.error(f"Failed to parse JSON from response: {response_content}")
+            logger.warning(f"Failed to parse JSON from response, falling back to raw content")
             architecture_json = {}
+            architecture = response_content
             
         logger.info("Architecture Reasoning Complete.")
         
         new_message = AIMessage(
-            content=json.dumps(architecture_json, indent=2),
+            content=architecture,
             name="solution_architect"
         )
         
+        saved_path = self.artifact_manager.save_artifact(
+            stage=ArtifactFolders.ARCHITECTURE,
+            base_name=ArtifactNames.ARCHITECTURE,
+            content=architecture,
+            ext="md"
+        )
+
+        current_metadata = state.get("metadata", {}) or {}
+        updated_metadata = {
+            **current_metadata,
+            "solution_architecture_completed": True,
+            "last_updated": generate_timestamp()
+        }
+        
         return {
             "architecture_json": architecture_json,
-            "architecture": json.dumps(architecture_json, indent=2),
+            "architecture": architecture,
+            "artifacts": {
+                ArtifactFolders.ARCHITECTURE: [saved_path]
+            },
             "messages": [new_message],
-            "current_stage": "solution_architect"
+            "current_stage": "solution_architecture",
+            "metadata": updated_metadata
         }
 
 

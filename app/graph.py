@@ -15,6 +15,7 @@ from app.router import WorkflowRouter
 from config.logging import get_logger
 from core.utils import generate_timestamp
 from core.workflow_events import WorkflowEventManager, EventTypes
+from core.observability import ExecutionObserver
 from core.constants import WorkflowStages, ArtifactNames, ArtifactFolders
 from core.artifact_manager import ArtifactManager
 from core.report_generator import ReportGenerator
@@ -39,15 +40,18 @@ def _wrap_agent_node(agent_run_fn, stage_name: str):
         event_manager.subscribe(EventTypes.LLM_COMPLETED, on_llm_completed)
         
         try:
-            result = agent_run_fn(state)
+            with ExecutionObserver(stage_name, state) as observer:
+                result = agent_run_fn(state)
+                
+                if result is None:
+                    result = {}
+                    
+                if reasoning_logs:
+                    result["reasoning_logs"] = reasoning_logs
+                    
+                result = observer.finalize(result)
         finally:
             event_manager.unsubscribe(EventTypes.LLM_COMPLETED, on_llm_completed)
-            
-        if result is None:
-            result = {}
-            
-        if reasoning_logs:
-            result["reasoning_logs"] = reasoning_logs
             
         event_manager.publish(EventTypes.AGENT_COMPLETED, {"stage": stage_name, "result": result})
         return result

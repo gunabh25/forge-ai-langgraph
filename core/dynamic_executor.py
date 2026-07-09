@@ -8,9 +8,12 @@ from app.state import (
     merge_approval_history,
     merge_reasoning_logs,
     merge_timeline_events,
-    merge_generated_files
+    merge_generated_files,
+    merge_execution_report
+
 )
 from core.agent_registry import AgentRegistry
+from core.observability import ExecutionObserver
 from config.logging import get_logger
 from langgraph.graph.message import add_messages
 
@@ -36,7 +39,7 @@ class DynamicExecutor:
         logger.info(f"Starting dynamic execution with plan: {execution_plan}")
         
         # Shallow copy is standard for TypedDict state updates
-        current_state = dict(state)
+        current_state: Dict[str, Any] = dict(state)
         
         for agent_name in execution_plan:
             logger.info(f"Fetching agent: {agent_name}")
@@ -48,8 +51,10 @@ class DynamicExecutor:
                 
             try:
                 logger.info(f"Executing agent: {agent_name}")
-                # Provide type coercion to ForgeState
-                state_updates = agent.run(current_state) # type: ignore
+                with ExecutionObserver(agent_name, cast(ForgeState, current_state)) as observer:
+                    # Provide type coercion to ForgeState
+                    state_updates = agent.run(current_state) # type: ignore
+                    state_updates = observer.finalize(state_updates)
                 
                 # Apply updates according to ForgeState reducers
                 if isinstance(state_updates, dict):
@@ -81,6 +86,10 @@ class DynamicExecutor:
                         elif key == "messages":
                             current_messages = cast(list, current_state.get("messages", []))
                             current_state["messages"] = add_messages(current_messages, value)
+                        elif key == "execution_report":
+                            current_state["execution_report"] = merge_execution_report(
+                                cast(Dict[str, Any], current_state.get("execution_report", {})), value
+                            )
                         else:
                             current_state[key] = value
                 
@@ -90,4 +99,4 @@ class DynamicExecutor:
                 break
                 
         logger.info("Dynamic execution completed.")
-        return current_state  # type: ignore
+        return cast(ForgeState, current_state)
