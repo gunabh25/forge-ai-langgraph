@@ -16,6 +16,7 @@ class HealthResponse(BaseModel):
 
 class GenerateRequest(BaseModel):
     user_id: Optional[str] = Field(None, json_schema_extra={'example': "user_123"})
+    session_id: Optional[str] = Field(None, json_schema_extra={'example': "session_456"})
     prompt: str = Field(..., json_schema_extra={'example': "Create a microservices e-commerce system."})
     diagram_types: Optional[List[str]] = Field(
         default=None, 
@@ -39,6 +40,7 @@ class GenerateResponse(BaseModel):
 
 class UpdateRequest(BaseModel):
     user_id: Optional[str] = Field(None, json_schema_extra={'example': "user_123"})
+    session_id: Optional[str] = Field(None, json_schema_extra={'example': "session_456"})
     prompt: str = Field(..., json_schema_extra={'example': "Add Redis caching."})
     execution_id: Optional[str] = Field(None, description="The ID of the previous execution to update")
 

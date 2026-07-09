@@ -14,7 +14,9 @@ async def update_architecture(
     try:
         result = service.update_architecture(
             prompt=request.prompt,
-            execution_id=request.execution_id
+            execution_id=request.execution_id,
+            user_id=request.user_id,
+            session_id=request.session_id
         )
         return UpdateResponse(**result)
     except Exception as e:

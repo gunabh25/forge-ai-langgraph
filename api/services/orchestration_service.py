@@ -10,6 +10,7 @@ from core.utils import generate_timestamp
 from core.feedback.manager import FeedbackManager
 from core.feedback.art_plugin import ARTPluginInterface
 from agents.feedback_agent.agent import StubARTPlugin
+from memory.manager import ConversationMemoryManager
 
 # In-memory execution store for API backward compatibility/state retrieval
 _EXECUTION_STORE: Dict[str, ForgeState] = {}
@@ -20,6 +21,52 @@ class OrchestrationService:
     def __init__(self):
         self.orchestrator = DynamicWorkflowOrchestrator()
         self.feedback_manager = FeedbackManager(art_plugin=StubARTPlugin())
+        self.memory_manager = ConversationMemoryManager()
+        
+    def _prepare_memory_context(self, state: ForgeState, user_id: Optional[str], session_id: Optional[str]) -> ForgeState:
+        if not user_id or not session_id:
+            return state
+            
+        user = self.memory_manager.get_user(user_id)
+        if not user:
+            self.memory_manager.create_user(name=f"User {user_id}", user_id=user_id)
+            
+        session = self.memory_manager.get_session(session_id)
+        if not session:
+            self.memory_manager.create_session(user_id=user_id, session_id=session_id)
+            
+        history = self.memory_manager.get_conversation_history(session_id)
+        if history:
+            state["conversation_history"] = [
+                {
+                    "turn_id": turn.turn_id,
+                    "prompt": turn.prompt,
+                    "intent": turn.intent,
+                    "timestamp": turn.timestamp
+                } for turn in history
+            ]
+            
+            last_turn = history[-1]
+            if last_turn.architecture_version:
+                state["previous_architecture"] = last_turn.architecture_version
+            if last_turn.diagram_versions:
+                state["previous_diagrams"] = last_turn.diagram_versions
+                
+        return state
+        
+    def _save_memory_turn(self, session_id: Optional[str], prompt: str, final_state: ForgeState) -> None:
+        if not session_id:
+            return
+            
+        self.memory_manager.add_turn_to_session(
+            session_id=session_id,
+            prompt=prompt,
+            intent=final_state.get("metadata", {}).get("intent"),
+            execution_plan=final_state.get("metadata", {}).get("execution_plan"),
+            architecture_version=final_state.get("architecture_json"),
+            diagram_versions=final_state.get("plantuml_diagrams"),
+            artifacts=final_state.get("artifacts")
+        )
         
     def _create_base_state(self, prompt: str) -> ForgeState:
         """Create a foundational state dict without CLI assumptions."""
@@ -77,18 +124,29 @@ class OrchestrationService:
             "selected_uml_diagrams": None,
             "plantuml_diagrams": None,
             "plantuml_validation_report": None,
-            "rendered_svg_references": None
+            "rendered_svg_references": None,
+            "conversation_history": None,
+            "previous_architecture": None,
+            "previous_diagrams": None
         }
         
-    def generate_architecture(self, prompt: str, diagram_types: Optional[List[str]] = None) -> Dict[str, Any]:
+    def generate_architecture(
+        self, 
+        prompt: str, 
+        diagram_types: Optional[List[str]] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Execute a full Generation workflow."""
         state = self._create_base_state(prompt)
+        state = self._prepare_memory_context(state, user_id, session_id)
         
         # Inject optional constraints
         if diagram_types:
             state["metadata"]["requested_diagrams"] = diagram_types
             
         final_state = self.orchestrator.execute_workflow(state)
+        self._save_memory_turn(session_id, prompt, final_state)
         
         # Save to memory store
         report = final_state.get("execution_report") or {}
@@ -106,9 +164,16 @@ class OrchestrationService:
             "execution_metadata": report
         }
         
-    def update_architecture(self, prompt: str, execution_id: Optional[str] = None) -> Dict[str, Any]:
+    def update_architecture(
+        self, 
+        prompt: str, 
+        execution_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Execute an Update workflow with Impact Analysis."""
         state = self._create_base_state(prompt)
+        state = self._prepare_memory_context(state, user_id, session_id)
         
         # If execution_id is provided and found, carry over previous architecture context
         if execution_id and execution_id in _EXECUTION_STORE:
@@ -117,6 +182,7 @@ class OrchestrationService:
             state["selected_uml_diagrams"] = prev_state.get("selected_uml_diagrams", [])
             
         final_state = self.orchestrator.execute_workflow(state)
+        self._save_memory_turn(session_id, prompt, final_state)
         
         report = final_state.get("execution_report") or {}
         new_execution_id = report.get("execution_id", str(uuid.uuid4()))

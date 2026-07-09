@@ -49,6 +49,8 @@ class ConversationMemoryManager:
         prompt: str,
         intent: Optional[Dict[str, Any]] = None,
         execution_plan: Optional[List[str]] = None,
+        architecture_version: Optional[Dict[str, Any]] = None,
+        diagram_versions: Optional[Dict[str, str]] = None,
         artifacts: Optional[Dict[str, List[str]]] = None,
         final_state_summary: Optional[Dict[str, Any]] = None
     ) -> ConversationTurn:
@@ -63,6 +65,8 @@ class ConversationMemoryManager:
             prompt=prompt,
             intent=intent,
             execution_plan=execution_plan,
+            architecture_version=architecture_version,
+            diagram_versions=diagram_versions,
             artifacts=artifacts or {},
             final_state_summary=final_state_summary or {}
         )

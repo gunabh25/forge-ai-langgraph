@@ -17,7 +17,9 @@ async def generate_architecture(
     try:
         result = service.generate_architecture(
             prompt=request.prompt,
-            diagram_types=request.diagram_types
+            diagram_types=request.diagram_types,
+            user_id=request.user_id,
+            session_id=request.session_id
         )
         return GenerateResponse(**result)
     except Exception as e:

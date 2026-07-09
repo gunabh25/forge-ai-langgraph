@@ -83,9 +83,17 @@ Example:
 Do NOT include any other text, markdown formatting, or explanation.
 """
 
+        history_context = ""
+        conversation_history = state.get("conversation_history")
+        if conversation_history:
+            history_context = "Previous Conversation Context:\n"
+            for turn in conversation_history:
+                history_context += f"- Past Request: {turn.get('prompt')}\n"
+            history_context += "\n"
+
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"User request: {user_request}")
+            HumanMessage(content=f"{history_context}Current User request: {user_request}")
         ]
         
         logger.info("Invoking LLM for Intent Analyzer...")

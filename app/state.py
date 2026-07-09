@@ -138,6 +138,11 @@ class ForgeState(TypedDict):
     # Incremental Update / Impact Analysis
     impact_analysis_report: Optional[Dict[str, Any]]
     
+    # Conversation Memory / Context
+    conversation_history: Optional[List[Dict[str, Any]]]
+    previous_architecture: Optional[Dict[str, Any]]
+    previous_diagrams: Optional[Dict[str, str]]
+    
     # Feedback Collection
     user_feedback: Optional[str]
     
