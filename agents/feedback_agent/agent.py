@@ -40,6 +40,14 @@ class FeedbackAgent(BaseAgent):
     @property
     def capabilities(self) -> List[str]:
         return ["feedback_collection", "art_integration"]
+        
+    @property
+    def requires(self) -> List[str]:
+        return ["architecture_json", "rendered_svg_references"]
+        
+    @property
+    def produces(self) -> List[str]:
+        return ["feedback_forwarded"]
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm

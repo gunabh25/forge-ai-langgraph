@@ -65,7 +65,7 @@ Respond ONLY with a valid JSON object containing:
 1. "intent": a string from the allowed intents list.
 2. "workflow": a category of the workflow (e.g., "software_design").
 3. "goal": a human-readable description of the goal.
-4. "required_outputs": an array of the final required output keys. For UML generation this is ["rendered_svg_references"]. For an update request, it is ["rendered_svg_references", "impact_analysis_report"]. For architecture design only, it is ["architecture_json"].
+4. "required_outputs": an array of the final required output keys. For ANY software or architecture design, it MUST BE exactly ["rendered_svg_references", "feedback_forwarded"].
 5. "constraints": an object with "allow_parallelism" (boolean) and "reuse_existing" (boolean).
 
 Example:
@@ -109,11 +109,16 @@ Do NOT include any other text, markdown formatting, or explanation.
         # Clean potential markdown JSON formatting
         clean_content = response_content.replace("```json", "").replace("```", "").strip()
         
+        parsed_result: Dict[str, Any] = {}
         try:
             parsed_result = json.loads(clean_content)
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON from response: {clean_content}")
             parsed_result = {"intent": "unknown", "confidence": 0.0}
+            
+        # FORCE FULL PIPELINE for design workflows
+        if parsed_result.get("intent") in ["architecture_design", "software_design", "uml_generation"]:
+            parsed_result["required_outputs"] = ["rendered_svg_references", "feedback_forwarded", "execution_report"]
             
         logger.info(f"Intent classified: {parsed_result}")
         
