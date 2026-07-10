@@ -16,6 +16,14 @@ class EventTypes:
     # Workflow
     WORKFLOW_STARTED = "WorkflowStarted"
     WORKFLOW_COMPLETED = "WorkflowCompleted"
+    WORKFLOW_FAILED = "WorkflowFailed"
+    
+    # Artifacts
+    ARTIFACT_GENERATED = "ArtifactGenerated"
+    
+    # Approvals
+    APPROVAL_REQUESTED = "ApprovalRequested"
+    APPROVAL_COMPLETED = "ApprovalCompleted"
     
     # Agent
     AGENT_STARTED = "AgentStarted"
