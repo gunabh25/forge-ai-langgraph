@@ -10,7 +10,7 @@ from app.settings import settings
 @pytest.fixture
 def mock_all_agent_llms():
     """Mocks all LLM instances for the agents."""
-    with patch("core.llm.LLMFactory.create_llm") as mock_create_llm:
+    with patch("core.llm.get_llm") as mock_get_llm:
         mock_llm = MagicMock()
         def side_effect(messages, **kwargs):
             import json
@@ -18,8 +18,8 @@ def mock_all_agent_llms():
                 return MagicMock(content=json.dumps({"project_name": "Test", "files": ["src/main.py"]}))
             return MagicMock(content='{"src/main.py": "print(\'hello\')"}')
         mock_llm.invoke.side_effect = side_effect
-        mock_create_llm.return_value = mock_llm
-        yield mock_create_llm
+        mock_get_llm.return_value = mock_llm
+        yield mock_get_llm
 
 def test_full_workflow_execution(mock_all_agent_llms):
     """Verify entire workflow from Engineering Manager to Final Report."""

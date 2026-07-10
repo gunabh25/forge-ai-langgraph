@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from agents.base import BaseAgent
-from core.providers.factory import LLMFactory
+from core.llm import get_llm
 from core.agent_registry import AgentRegistry
 from app.state import ForgeState
 from config.logging import get_logger
@@ -42,7 +42,7 @@ class UMLRepairAgent(BaseAgent):
     @property
     def llm(self) -> BaseChatModel:
         if self._llm is None:
-            self._llm = LLMFactory.create_llm()
+            self._llm = get_llm()
         return self._llm
 
     def run(self, state: ForgeState) -> Dict[str, Any]:
