@@ -18,7 +18,7 @@ router = APIRouter()
     }
 )
 async def get_execution(
-    execution_id: str = Path(..., description="The unique ID of the execution", example="exec_abc123"),
+    execution_id: str = Path(..., description="The unique ID of the execution", examples=["exec_abc123"]),
     service: OrchestrationService = Depends(get_orchestration_service)
 ):
     """Retrieve metadata about a specific workflow execution."""
@@ -42,7 +42,7 @@ async def get_execution(
 )
 async def replay_execution(
     request: ReplayRequest,
-    execution_id: str = Path(..., description="The unique ID of the execution to replay", example="exec_abc123"),
+    execution_id: str = Path(..., description="The unique ID of the execution to replay", examples=["exec_abc123"]),
     service: OrchestrationService = Depends(get_orchestration_service)
 ):
     """Replay an execution, optionally from a specific stage."""
@@ -65,8 +65,8 @@ async def replay_execution(
     }
 )
 async def get_artifact(
-    artifact_path: str = Path(..., description="The relative path to the artifact file", example="diagrams/component_diagram_v1.svg"),
-    execution_id: str = Path(..., description="The unique ID of the execution", example="exec_abc123"),
+    artifact_path: str = Path(..., description="The relative path to the artifact file", examples=["diagrams/component_diagram_v1.svg"]),
+    execution_id: str = Path(..., description="The unique ID of the execution", examples=["exec_abc123"]),
     service: OrchestrationService = Depends(get_orchestration_service)
 ):
     """Download a generated artifact from the execution."""
