@@ -1,0 +1,5 @@
+graph LR
+    Intent[IntentAnalyzer] -->|JSON Execution Plan| Compiler[WorkflowCompiler]
+    Compiler -->|Add Nodes| Graph[LangGraph StateGraph]
+    Compiler -->|Add Conditional Edges| Graph
+    Compiler -->|Compile| Graph

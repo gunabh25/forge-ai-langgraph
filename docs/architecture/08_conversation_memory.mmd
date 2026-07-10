@@ -1,0 +1,5 @@
+graph TD
+    Req[User Request] --> Manager[Memory Manager]
+    Manager -->|Load History| Session[(Memory Store / Session)]
+    Session --> Context[Context Injection]
+    Context --> LLM

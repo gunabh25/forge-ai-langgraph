@@ -1,0 +1,14 @@
+@startuml
+!theme plain
+
+node "Dynamic Graph Compilation" {
+    [IntentAnalyzer] as intent
+    [WorkflowCompiler] as compiler
+    [LangGraph StateGraph] as graph
+}
+
+intent -> compiler : JSON Execution Plan
+compiler -> graph : Add Nodes (from AgentRegistry)
+compiler -> graph : Add Conditional Edges
+compiler -> graph : Compile StateGraph
+@enduml

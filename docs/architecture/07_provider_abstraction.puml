@@ -1,0 +1,14 @@
+@startuml
+!theme plain
+
+interface "BaseChatModel" as base
+class "OpenAIProvider" as openai
+class "AnthropicProvider" as anthropic
+class "GoogleProvider" as google
+
+base <|-- openai
+base <|-- anthropic
+base <|-- google
+
+[LLM Factory] -> base : get_llm(provider)
+@enduml

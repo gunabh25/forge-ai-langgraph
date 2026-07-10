@@ -1,0 +1,21 @@
+@startuml
+!theme plain
+
+actor User
+participant "API / Orchestrator" as orch
+participant "IntentAnalyzerAgent" as intent
+participant "BackendEngineerAgent" as backend
+participant "UmlGeneratorAgent" as uml
+participant "RendererAgent" as renderer
+participant "ValidationAgent" as validator
+
+User -> orch : Prompt
+orch -> intent : Analyze Intent & Graph
+intent -> backend : (Parallel) Build Architecture
+intent -> backend : (Parallel) Extract Requirements
+backend -> uml : Build PlantUML
+uml -> validator : Validate Syntax
+validator -> renderer : Render SVG/PNG
+renderer -> orch : Return Artifacts
+orch -> User : Complete
+@enduml

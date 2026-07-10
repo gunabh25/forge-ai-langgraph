@@ -1,0 +1,9 @@
+classDiagram
+    class BaseChatModel
+    class OpenAIProvider
+    class AnthropicProvider
+    class GoogleProvider
+
+    BaseChatModel <|-- OpenAIProvider
+    BaseChatModel <|-- AnthropicProvider
+    BaseChatModel <|-- GoogleProvider

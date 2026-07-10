@@ -1,0 +1,13 @@
+@startuml
+!theme plain
+
+database "Memory Store" {
+    [Session 1]
+    [Session 2]
+}
+
+[User Request] -> [Memory Manager]
+[Memory Manager] -> [Session 1] : Load History
+[Session 1] -> [Context Injection]
+[Context Injection] -> [LLM]
+@enduml

@@ -1,0 +1,18 @@
+sequenceDiagram
+    actor User
+    participant Orch as API / Orchestrator
+    participant Intent as IntentAnalyzerAgent
+    participant Backend as BackendEngineerAgent
+    participant UML as UmlGeneratorAgent
+    participant Validator as ValidationAgent
+    participant Renderer as RendererAgent
+
+    User->>Orch: Prompt
+    Orch->>Intent: Analyze Intent & Plan Graph
+    Intent->>Backend: Build Architecture (Parallel)
+    Intent->>Backend: Extract Requirements (Parallel)
+    Backend->>UML: Build PlantUML
+    UML->>Validator: Validate Syntax
+    Validator->>Renderer: Render SVG/PNG
+    Renderer->>Orch: Return Artifacts
+    Orch->>User: Complete

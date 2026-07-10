@@ -1,0 +1,22 @@
+@startuml
+!theme plain
+skinparam componentStyle uml2
+
+package "ForgeAI Platform" {
+    [FastAPI REST Layer] as api
+    [Orchestration Service] as orch
+    [Agent Registry] as agents
+    [Dynamic Executor] as executor
+    [Execution Store] as store
+    [Telemetry & Monitoring] as monitoring
+    [Memory Context] as memory
+}
+
+api -> orch : REST Requests (Generate/Update)
+orch -> memory : Load Context
+orch -> agents : Resolve Agent Graph
+orch -> executor : Compile & Execute Graph
+executor -> store : Save Execution State
+executor -> monitoring : Publish Telemetry Events
+
+@enduml

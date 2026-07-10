@@ -1,0 +1,9 @@
+flowchart TD
+    Start --> Gen[Generate PlantUML]
+    Gen --> Val[Validate Syntax]
+    Val --> Cond{Syntax Error?}
+    Cond -->|Yes| Repair[Send to Repair Agent]
+    Repair --> Fix[Fix Syntax]
+    Fix --> Val
+    Cond -->|No| Render[Render Artifact]
+    Render --> Stop

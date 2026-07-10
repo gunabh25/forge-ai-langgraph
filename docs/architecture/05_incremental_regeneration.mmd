@@ -1,0 +1,6 @@
+graph TD
+    Req[Update Request] --> Change[Change Analysis Agent]
+    Change -->|Affected| Exec[Execution Pipeline]
+    Change -->|Unchanged| Cache[Cache Manager]
+    Cache -->|Inject Cached SVGs| Exec
+    Exec --> Out[New Artifacts]

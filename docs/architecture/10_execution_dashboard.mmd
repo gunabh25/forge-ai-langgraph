@@ -1,0 +1,4 @@
+graph TD
+    Observer[ExecutionObserver] -->|Publish Event| PubSub[WorkflowEventManager]
+    PubSub --> Events[Telemetry Events]
+    Events --> CLI[CLI Dashboard]

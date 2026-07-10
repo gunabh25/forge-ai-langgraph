@@ -1,0 +1,9 @@
+@startuml
+!theme plain
+
+actor Human
+Human -> [Feedback API] : Suggest Fix
+[Feedback API] -> [Feedback Manager]
+[Feedback Manager] -> [ART Plugin] : Fine-tune context
+[ART Plugin] -> [Memory Store] : Save preferences
+@enduml

@@ -1,0 +1,6 @@
+stateDiagram-v2
+    state "Parallel Execution" as parallel {
+        [*] --> RendererComponent
+        [*] --> RendererSequence
+        [*] --> RendererClass
+    }

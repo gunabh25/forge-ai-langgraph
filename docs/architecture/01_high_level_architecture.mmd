@@ -1,0 +1,7 @@
+graph TD
+    API[FastAPI REST Layer] --> ORCH[Orchestration Service]
+    ORCH --> MEM[Memory Context]
+    ORCH --> REG[Agent Registry]
+    ORCH --> EXEC[Dynamic Executor]
+    EXEC --> STORE[(Execution Store)]
+    EXEC --> MON[Telemetry & Monitoring]

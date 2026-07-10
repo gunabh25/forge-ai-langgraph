@@ -1,0 +1,17 @@
+@startuml
+!theme plain
+
+start
+:Generate PlantUML;
+repeat
+  :Validate Syntax (ValidationAgent);
+  if (Syntax Error?) then (yes)
+    :Send to Repair Agent;
+    :Fix Syntax;
+  else (no)
+    break
+  endif
+repeat while (Max Retries Reached?) is (no)
+:Render Artifact;
+stop
+@enduml

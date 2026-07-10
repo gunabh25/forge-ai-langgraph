@@ -1,0 +1,14 @@
+@startuml
+!theme plain
+
+state "Parallel Execution" as parallel {
+    state "Renderer (Component Diagram)" as comp
+    state "Renderer (Sequence Diagram)" as seq
+    state "Renderer (Class Diagram)" as cls
+}
+
+[*] -> parallel
+comp -> [*]
+seq -> [*]
+cls -> [*]
+@enduml

@@ -1,0 +1,12 @@
+@startuml
+!theme plain
+
+[CLI Dashboard] as cli
+[Telemetry Events] as events
+[WorkflowEventManager] as pubsub
+[ExecutionObserver] as observer
+
+observer -> pubsub : Publish Event (LLM_CALL, etc)
+pubsub -> events
+events -> cli : Render Rich UI
+@enduml

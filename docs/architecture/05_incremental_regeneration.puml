@@ -1,0 +1,14 @@
+@startuml
+!theme plain
+
+[Update Request] as req
+[Change Analysis Agent] as change
+[Cache Manager] as cache
+[Execution Pipeline] as exec
+
+req -> change : prompt + old_state
+change -> exec : affected components
+change -> cache : unchanged components
+cache -> exec : inject cached SVGs
+exec -> [New Artifacts]
+@enduml
