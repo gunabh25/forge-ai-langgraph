@@ -221,23 +221,11 @@ When a user requests multiple diagrams (e.g., Component, Sequence, and Class), t
 
 ---
 
-## 🤝 Contribution Guide
-
-We welcome contributions from the community! 
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Ensure your code passes all type checks (`mypy`) and tests (`pytest`).
-4. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-5. Push to the branch (`git push origin feature/AmazingFeature`).
-6. Open a Pull Request.
-
----
-
 ## 📄 License
 
 Distributed under the Apache 2.0 License. See `LICENSE` for more information.
 
 ---
 <div align="center">
-  <b>Built with ❤️ by the ForgeAI Core Team.</b>
+  <b>Built with ❤️ by Gunabh Sharan.</b>
 </div>
