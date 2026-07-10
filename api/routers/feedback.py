@@ -5,7 +5,20 @@ from api.services.orchestration_service import OrchestrationService
 
 router = APIRouter()
 
-@router.post("/feedback", response_model=FeedbackResponse)
+@router.post(
+    "/feedback", 
+    response_model=FeedbackResponse,
+    summary="Submit Agent Feedback",
+    description=(
+        "Submits human-in-the-loop feedback to the Active Reinforcement Tuning (ART) plugin, "
+        "allowing the model to improve future workflow runs based on the provided corrections."
+    ),
+    response_description="Confirmation of feedback submission.",
+    responses={
+        200: {"description": "Feedback stored and processed successfully."},
+        500: {"description": "Internal Server Error."}
+    }
+)
 async def submit_feedback(
     request: FeedbackRequest,
     service: OrchestrationService = Depends(get_orchestration_service)

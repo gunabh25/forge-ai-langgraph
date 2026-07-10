@@ -202,13 +202,16 @@ class OrchestrationService:
         
         return {
             "execution_id": execution_id,
-            "requirements": final_state.get("requirements_json"),
-            "architecture": final_state.get("architecture_json"),
+            "user_id": user_id,
+            "requirements": final_state.get("requirements_json") or {},
+            "architecture": final_state.get("architecture_json") or {},
             "selected_diagrams": final_state.get("selected_uml_diagrams", []),
             "plantuml": final_state.get("plantuml_diagrams", {}),
-            "validation": final_state.get("plantuml_validation_report", {}),
+            "validation_reports": final_state.get("plantuml_validation_report", {}),
             "rendered_artifacts": final_state.get("rendered_svg_references", {}),
-            "execution_metadata": report
+            "execution_metadata": report,
+            "execution_metrics": report.get("metrics", {}),
+            "artifacts": final_state.get("artifacts", {})
         }
         
     def update_architecture(
@@ -263,9 +266,14 @@ class OrchestrationService:
         })
         
         return {
+            "execution_id": new_execution_id,
             "affected_diagrams": impact.get("affected_diagrams", []),
             "reused_diagrams": impact.get("reuse_diagrams", []),
-            "updated_artifacts": final_state.get("rendered_svg_references", {})
+            "updated_artifacts": final_state.get("rendered_svg_references", {}),
+            "execution_metadata": report,
+            "artifacts": final_state.get("artifacts", {}),
+            "validation_reports": final_state.get("plantuml_validation_report", {}),
+            "execution_metrics": report.get("metrics", {})
         }
         
     def submit_feedback(self, execution_id: str, feedback: str, user_id: str = "api_user") -> Dict[str, Any]:
@@ -290,7 +298,11 @@ class OrchestrationService:
         
         return {
             "status": "stored",
-            "art_plugin": "processed"
+            "art_plugin": "processed",
+            "execution_metadata": execution_metadata,
+            "artifacts": {},
+            "validation_reports": {},
+            "execution_metrics": {}
         }
         
     def get_execution(self, execution_id: str) -> Optional[Dict[str, Any]]:
@@ -324,7 +336,10 @@ class OrchestrationService:
                 "validation_summary": state.get("validation_summary"),
                 "quality_report": state.get("quality_report")
             },
-            "rendered_artifacts": state.get("artifacts")
+            "rendered_artifacts": state.get("rendered_svg_references", {}),
+            "execution_metadata": report,
+            "artifacts": state.get("artifacts", {}),
+            "execution_metrics": report.get("metrics", {})
         }
 
     def replay_execution(self, execution_id: str, start_stage: Optional[str] = None) -> Dict[str, Any]:
@@ -372,3 +387,38 @@ class OrchestrationService:
                     return saved_path
                     
         return None
+        
+    def get_metrics(self) -> Dict[str, Any]:
+        """Calculate global metrics across all executions."""
+        total = len(_EXECUTION_STORE)
+        successful = 0
+        failed = 0
+        total_latency = 0
+        total_llm_calls = 0
+        diagrams_rendered = 0
+        
+        for state in _EXECUTION_STORE.values():
+            report = state.get("execution_report") or {}
+            
+            # Count success/failure
+            if report.get("workflow_status") == "failed":
+                failed += 1
+            else:
+                successful += 1
+                
+            total_latency += report.get("execution_time_ms", 0)
+            total_llm_calls += report.get("llm_calls", 0)
+            
+            rendered = state.get("rendered_svg_references") or {}
+            diagrams_rendered += len(rendered)
+            
+        avg_latency = total_latency / total if total > 0 else 0.0
+        
+        return {
+            "total_executions": total,
+            "successful_executions": successful,
+            "failed_executions": failed,
+            "average_latency_ms": avg_latency,
+            "total_llm_calls": total_llm_calls,
+            "diagrams_rendered": diagrams_rendered
+        }

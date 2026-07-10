@@ -6,9 +6,19 @@ from api.services.orchestration_service import OrchestrationService
 
 router = APIRouter()
 
-@router.get("/execution/{execution_id}", response_model=ExecutionResponse)
+@router.get(
+    "/execution/{execution_id}", 
+    response_model=ExecutionResponse,
+    summary="Get Execution State",
+    description="Retrieve the complete execution state, telemetry, metrics, and generated artifacts for a specific workflow execution.",
+    response_description="Detailed execution payload.",
+    responses={
+        200: {"description": "Execution state retrieved successfully."},
+        404: {"description": "Execution ID not found."}
+    }
+)
 async def get_execution(
-    execution_id: str = Path(..., description="The unique ID of the execution"),
+    execution_id: str = Path(..., description="The unique ID of the execution", example="exec_abc123"),
     service: OrchestrationService = Depends(get_orchestration_service)
 ):
     """Retrieve metadata about a specific workflow execution."""
@@ -18,10 +28,21 @@ async def get_execution(
         
     return ExecutionResponse(**result)
 
-@router.post("/execution/{execution_id}/replay", response_model=ExecutionResponse)
+@router.post(
+    "/execution/{execution_id}/replay", 
+    response_model=ExecutionResponse,
+    summary="Replay Execution",
+    description="Replays a previously run workflow from a specific stage (or from the beginning).",
+    response_description="The new execution state resulting from the replay.",
+    responses={
+        200: {"description": "Execution replayed successfully."},
+        404: {"description": "Execution ID or stage not found."},
+        500: {"description": "Internal Server Error."}
+    }
+)
 async def replay_execution(
     request: ReplayRequest,
-    execution_id: str = Path(..., description="The unique ID of the execution to replay"),
+    execution_id: str = Path(..., description="The unique ID of the execution to replay", example="exec_abc123"),
     service: OrchestrationService = Depends(get_orchestration_service)
 ):
     """Replay an execution, optionally from a specific stage."""
@@ -33,10 +54,19 @@ async def replay_execution(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to replay execution: {e}")
 
-@router.get("/execution/{execution_id}/artifacts/{artifact_path:path}")
+@router.get(
+    "/artifacts/{execution_id}/{artifact_path:path}",
+    summary="Download Generated Artifact",
+    description="Downloads a specific generated artifact (SVG, PNG, PUML, JSON) from a given execution.",
+    response_description="The binary or text content of the artifact file.",
+    responses={
+        200: {"description": "Artifact downloaded successfully."},
+        404: {"description": "Artifact or Execution not found."}
+    }
+)
 async def get_artifact(
-    artifact_path: str,
-    execution_id: str = Path(..., description="The unique ID of the execution"),
+    artifact_path: str = Path(..., description="The relative path to the artifact file", example="diagrams/component_diagram_v1.svg"),
+    execution_id: str = Path(..., description="The unique ID of the execution", example="exec_abc123"),
     service: OrchestrationService = Depends(get_orchestration_service)
 ):
     """Download a generated artifact from the execution."""

@@ -8,7 +8,20 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/generate", response_model=GenerateResponse)
+@router.post(
+    "/generate", 
+    response_model=GenerateResponse,
+    summary="Generate Architecture",
+    description=(
+        "Executes a multi-agent workflow to generate software architecture from a given prompt. "
+        "Outputs requirements, architecture components, and optionally renders specified UML diagrams."
+    ),
+    response_description="A complete architectural blueprint with references to generated artifacts.",
+    responses={
+        200: {"description": "Architecture generated successfully."},
+        500: {"description": "Internal Server Error or Generation Failure."}
+    }
+)
 async def generate_architecture(
     request: GenerateRequest,
     service: OrchestrationService = Depends(get_orchestration_service)

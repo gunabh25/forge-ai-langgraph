@@ -5,7 +5,20 @@ from api.services.orchestration_service import OrchestrationService
 
 router = APIRouter()
 
-@router.post("/update", response_model=UpdateResponse)
+@router.post(
+    "/update", 
+    response_model=UpdateResponse,
+    summary="Update Architecture",
+    description=(
+        "Executes an incremental generation workflow to update existing architecture. "
+        "It performs a change analysis and strategically regenerates only the affected artifacts."
+    ),
+    response_description="A summary of the affected components and updated diagrams.",
+    responses={
+        200: {"description": "Architecture updated successfully."},
+        500: {"description": "Internal Server Error or Update Failure."}
+    }
+)
 async def update_architecture(
     request: UpdateRequest,
     service: OrchestrationService = Depends(get_orchestration_service)
