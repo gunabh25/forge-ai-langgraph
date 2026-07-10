@@ -172,17 +172,25 @@ class UMLValidatorAgent(BaseAgent):
         is_permanently_failed = False
         
         if current_diagram_id:
-            attempt = diagram_states.get(current_diagram_id, {}).get("attempt", 0)
+            attempt = diagram_states.get(current_diagram_id, {}).get("attempt", 1)
             is_permanently_failed = attempt >= max_retries
             retry_requested = (failed_count > 0) and not is_permanently_failed
+            
+            # Extensive logging per diagram as requested
+            logger.info(f"{current_diagram_id}")
+            if failed_count > 0:
+                logger.info(f"Attempt {min(attempt, max_retries)}/{max_retries}")
+                
+            if is_permanently_failed and failed_count > 0:
+                logger.warning(f"Maximum repair attempts reached.")
+                logger.warning(f"Marking diagram as permanently failed.")
+                logger.warning(f"Skipping further repairs.")
         else:
             repair_attempts = current_metadata.get("repair_attempts", 0)
             is_permanently_failed = repair_attempts >= max_retries
             retry_requested = (failed_count > 0) and not is_permanently_failed
-        
-        if failed_count > 0 and is_permanently_failed:
-            logger.warning(f"Max repair attempts ({max_retries}) reached. Marking diagrams as permanently failed and continuing.")
-            
+            if failed_count > 0 and is_permanently_failed:
+                logger.warning(f"Max repair attempts ({max_retries}) reached. Marking diagrams as permanently failed and continuing.")
         logger.info(f"UML Validation completed. Passed: {passed_count}/{len(diagrams_to_process)}. Retry Requested: {retry_requested}")
         
         new_message = AIMessage(

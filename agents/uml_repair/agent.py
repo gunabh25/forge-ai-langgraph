@@ -130,14 +130,14 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
             logger.info(f"Successfully applied repair patch for {diag_name}.")
             
             existing_state = diagram_states.get(diag_name, {})
-            # We increment attempt in Validator, but Generator also sets attempt.
-            # Wait, the repair agent runs *after* validation. The attempt count is tracked logically per-generation.
+            # The attempt count is tracked logically per-generation.
             diagram_states[diag_name] = {
                 **existing_state,
                 "status": "repaired",
                 "generator_output": clean_content,
                 "llm_calls": existing_state.get("llm_calls", 0) + 1,
-                "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time
+                "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
+                "attempt": existing_state.get("attempt", 0) + 1
             }
             
         logger.info(f"UML Repair completed {repaired_diagrams_count} repairs.")
@@ -147,11 +147,9 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
             name="uml_repair"
         )
         
-        # Legacy tracking
-        repair_attempts = current_metadata.get("repair_attempts", 0) + 1
+        # Ensure metadata is updated without global retry state pollution
         updated_metadata = {
             **current_metadata,
-            "repair_attempts": repair_attempts,
             "uml_repair_completed": True,
             "last_updated": generate_timestamp()
         }

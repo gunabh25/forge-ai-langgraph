@@ -56,8 +56,22 @@ class ExecutionDashboardAgent(BaseAgent):
         saved_llm_calls = 0
         saved_latency_ms = 0
         
+        repaired_successfully = 0
+        permanently_failed = 0
+        total_repair_attempts = 0
+        
         for diag_id, s in diagram_states.items():
-            if s.get("status") == "UNCHANGED":
+            attempt = s.get("attempt", 1)
+            status = s.get("status")
+            
+            if attempt > 1:
+                total_repair_attempts += (attempt - 1)
+                if status == "rendered":
+                    repaired_successfully += 1
+            if status == "failed_validation":
+                permanently_failed += 1
+                
+            if status == "UNCHANGED":
                 reused_artifacts += 1
                 saved_llm_calls += s.get("llm_calls", 0)
                 saved_latency_ms += s.get("execution_time_ms", 0)
@@ -82,6 +96,9 @@ class ExecutionDashboardAgent(BaseAgent):
                 "llm_calls": s.get("llm_calls", 0)
             })
             
+        total_failed_needing_repair = repaired_successfully + permanently_failed
+        repair_success_rate = f"{(repaired_successfully / total_failed_needing_repair * 100):.1f}%" if total_failed_needing_repair > 0 else "N/A"
+        
         summary = {
             "total_diagrams": total_diagrams,
             "successful_diagrams": success_count,
@@ -95,6 +112,10 @@ class ExecutionDashboardAgent(BaseAgent):
             "removed_artifacts": removed_artifacts,
             "saved_llm_calls": saved_llm_calls,
             "saved_latency_ms": saved_latency_ms,
+            "repaired_successfully": repaired_successfully,
+            "permanently_failed": permanently_failed,
+            "total_repair_attempts": total_repair_attempts,
+            "repair_success_rate": repair_success_rate,
             "diagram_details": details
         }
         
