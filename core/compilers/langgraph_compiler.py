@@ -133,7 +133,7 @@ class LangGraphCompiler:
                     
                     sends = []
                     for diag in diagrams:
-                        diag_id = diag.get("diagram_id", diag.get("type", "unknown"))
+                        diag_id = diag.get("diagram_id", diag.get("diagram", diag.get("type", "unknown")))
                         # Skip Send if the diagram is explicitly marked as unaffected by incremental logic
                         if is_incremental and diag_id.lower() not in affected_diagrams:
                             continue
