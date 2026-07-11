@@ -11,6 +11,8 @@ from app.state import ForgeState
 from config.logging import get_logger
 from core.utils import generate_timestamp
 from core.artifact_manager import ArtifactManager
+from agents.uml_generator.context_builder import ContextBuilder
+from agents.uml_generator.prompt_builder import PromptBuilder
 
 logger = get_logger("agents.uml_generator")
 
@@ -42,6 +44,8 @@ class UMLGeneratorAgent(BaseAgent):
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
         self.artifact_manager = ArtifactManager()
+        self.context_builder = ContextBuilder()
+        self.prompt_builder = PromptBuilder()
         
     @property
     def llm(self) -> BaseChatModel:
@@ -52,7 +56,7 @@ class UMLGeneratorAgent(BaseAgent):
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Generator agent step."""
         user_request = state.get("user_request", "").strip()
-        architecture_json = state.get("architecture_json", {})
+        architecture_json = state.get("architecture_json") or {}
         selected_uml_diagrams = state.get("selected_uml_diagrams", [])
         current_diagram_id = state.get("current_diagram_id")
         
@@ -77,6 +81,11 @@ class UMLGeneratorAgent(BaseAgent):
         arch_str = json.dumps(architecture_json, sort_keys=True)
         arch_hash = hashlib.md5(arch_str.encode("utf-8")).hexdigest()
         
+        # --- NEW PIPELINE: ContextBuilder → PromptBuilder → LLM ---
+        # Build the architecture summary once (shared across all diagrams).
+        architecture_summary = self.context_builder.build_summary(architecture_json)
+        logger.info("Architecture summary built by ContextBuilder.")
+
         for diagram_info in diagrams_to_process:
             diagram_type = diagram_info.get("diagram", diagram_info.get("type", "unknown"))
             diag_id = diagram_info.get("diagram_id", diagram_type)
@@ -94,20 +103,19 @@ class UMLGeneratorAgent(BaseAgent):
                 
             start_time = time.time()
             
-            system_prompt = f"""You are a specialized UML Generator Agent.
-Your task is to generate valid PlantUML syntax for a {diagram_type} based on the user's request and the provided architecture JSON.
-Reason for this diagram: {reason}
+            # Build prompts via PromptBuilder (loads .md template when available).
+            system_prompt, user_prompt = self.prompt_builder.build_prompt(
+                diagram_type=diagram_type,
+                architecture_summary=architecture_summary,
+            )
 
-CRITICAL RULES:
-1. Generate EXACTLY ONE PlantUML diagram. Never combine multiple diagrams.
-2. You must ONLY generate valid PlantUML code. Do NOT render images.
-3. Respond ONLY with the raw PlantUML syntax string. The string must start with @startuml and end with @enduml.
-4. DO NOT include markdown formatting blocks (like ```plantuml). Just output the raw syntax.
-"""
+            # Append the user's original request and diagram reason for
+            # additional context, without leaking raw JSON.
+            full_user_prompt = f"User Request: {user_request}\n\nReason for this diagram: {reason}\n\n{user_prompt}"
 
             messages = [
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=f"User Request: {user_request}\n\nArchitecture JSON:\n{json.dumps(architecture_json, indent=2)}")
+                HumanMessage(content=full_user_prompt),
             ]
             
             logger.info(f"Generating {diagram_type}...")

@@ -3,10 +3,16 @@
 This module is intentionally decoupled from LangGraph, ForgeState, and LLM
 invocation.  Its single responsibility is assembling the final prompt string
 from a diagram type, an architecture summary, and a set of templates.
+
+Templates are loaded from Markdown files in the ``prompts/`` directory next to
+this module.  If no file exists for a given diagram type, a built-in inline
+fallback is used.
 """
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Callable
 
 
@@ -19,7 +25,31 @@ the fully-rendered prompt body for a specific diagram type."""
 
 
 # ---------------------------------------------------------------------------
-# Built-in templates
+# Paths
+# ---------------------------------------------------------------------------
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+# ---------------------------------------------------------------------------
+# File-based template loader
+# ---------------------------------------------------------------------------
+
+def _load_template_from_file(diagram_type: str, architecture_summary: str) -> str | None:
+    """Try to load a ``.md`` template for *diagram_type* from the prompts dir.
+
+    Returns the rendered template string with ``{architecture_summary}``
+    replaced, or ``None`` if no file exists for the given type.
+    """
+    filename = diagram_type.lower().replace(" ", "_") + ".md"
+    filepath = _PROMPTS_DIR / filename
+    if not filepath.is_file():
+        return None
+    raw = filepath.read_text(encoding="utf-8")
+    return raw.replace("{architecture_summary}", architecture_summary)
+
+
+# ---------------------------------------------------------------------------
+# Built-in inline fallback templates
 # ---------------------------------------------------------------------------
 
 def _component_template(architecture_summary: str) -> str:
@@ -99,10 +129,10 @@ def _use_case_template(architecture_summary: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Default template registry
+# Default inline-template registry (used as fallback)
 # ---------------------------------------------------------------------------
 
-_DEFAULT_TEMPLATES: dict[str, TemplateFunction] = {
+_INLINE_TEMPLATES: dict[str, TemplateFunction] = {
     "component": _component_template,
     "sequence": _sequence_template,
     "activity": _activity_template,
@@ -134,8 +164,15 @@ _SYSTEM_RULES = (
 class PromptBuilder:
     """Builds the final LLM prompt from a diagram type and an architecture summary.
 
-    New diagram types can be registered at runtime via ``register_template``
-    without modifying any existing code.
+    **Template resolution order** (per diagram type):
+
+    1. Markdown file in ``prompts/<type>.md``  — production-grade templates.
+    2. Runtime-registered callable via ``register_template()``.
+    3. Built-in inline fallback (``_INLINE_TEMPLATES``).
+    4. Generic catch-all for completely unknown types.
+
+    New diagram types can be supported by simply dropping a ``.md`` file into
+    the ``prompts/`` directory — no code changes required.
 
     Usage::
 
@@ -144,8 +181,9 @@ class PromptBuilder:
     """
 
     def __init__(self) -> None:
-        # Copy defaults so mutations don't leak across instances.
-        self._templates: dict[str, TemplateFunction] = dict(_DEFAULT_TEMPLATES)
+        # Runtime overrides / additions. Starts empty — inline defaults are
+        # consulted directly from the module-level dict as a fallback.
+        self._custom_templates: dict[str, TemplateFunction] = {}
 
     # -- public API ---------------------------------------------------------
 
@@ -160,7 +198,7 @@ class PromptBuilder:
             template_fn:  A callable ``(architecture_summary: str) -> str``
                           that returns the user-facing prompt body.
         """
-        self._templates[diagram_type.lower()] = template_fn
+        self._custom_templates[diagram_type.lower()] = template_fn
 
     def build_prompt(self, diagram_type: str, architecture_summary: str) -> tuple[str, str]:
         """Build the system and user prompt for the given diagram type.
@@ -178,13 +216,24 @@ class PromptBuilder:
             architecture summary.
         """
         key = diagram_type.lower()
-        template_fn = self._templates.get(key)
 
-        if template_fn is not None:
-            user_prompt = template_fn(architecture_summary)
-        else:
-            # Graceful fallback for unregistered types – still produces a
-            # usable prompt rather than raising.
+        # 1. Try file-based template first (highest priority).
+        user_prompt = _load_template_from_file(key, architecture_summary)
+
+        # 2. Try runtime-registered custom template.
+        if user_prompt is None:
+            custom_fn = self._custom_templates.get(key)
+            if custom_fn is not None:
+                user_prompt = custom_fn(architecture_summary)
+
+        # 3. Try built-in inline template.
+        if user_prompt is None:
+            inline_fn = _INLINE_TEMPLATES.get(key)
+            if inline_fn is not None:
+                user_prompt = inline_fn(architecture_summary)
+
+        # 4. Generic catch-all for completely unknown types.
+        if user_prompt is None:
             user_prompt = (
                 f"Generate a PlantUML **{diagram_type}** diagram based on the "
                 f"architecture summary below.\n\n"
@@ -202,5 +251,17 @@ class PromptBuilder:
 
     @property
     def supported_diagram_types(self) -> list[str]:
-        """Return the currently registered diagram type keys."""
-        return list(self._templates.keys())
+        """Return the currently registered diagram type keys.
+
+        Includes types available from files, custom registrations, and
+        inline defaults.
+        """
+        file_types: set[str] = set()
+        if _PROMPTS_DIR.is_dir():
+            for f in _PROMPTS_DIR.iterdir():
+                if f.suffix == ".md":
+                    file_types.add(f.stem.replace("_", " "))
+
+        return sorted(
+            file_types | set(self._custom_templates.keys()) | set(_INLINE_TEMPLATES.keys())
+        )
