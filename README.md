@@ -27,8 +27,8 @@ ForgeAI is a massively parallel, multi-agent AI orchestration platform built on 
 ### 🚀 Quick Links
 - [Getting Started](#installation)
 - [API Documentation](#api-documentation)
-- [Architecture Deep-Dive](#high-level-architecture)
-- [Extending the Graph](#agents)
+- [Architecture Deep-Dive](#architecture--execution-pipeline)
+- [Extending the Graph](#folder-mapping)
 
 ---
 
@@ -64,207 +64,342 @@ ForgeAI was built to simulate an **entire engineering organization** inside an e
 
 ---
 
-## 🏛️ High Level Architecture
+## 🏛️ Architecture & Execution Pipeline
 
-ForgeAI adopts a **Compiler-Driven Graph Architecture**. Instead of statically defining a pipeline, ForgeAI receives a request, analyzes it, and *compiles* a custom LangGraph state machine tailored specifically to the problem.
+ForgeAI operates on a highly deterministic, multi-stage compilation and execution pipeline. This section documents the exact flow of data and control from the moment an HTTP request is received to the final payload delivery.
+
+### Complete Execution Flow
 
 ```mermaid
 flowchart TD
-    User([User Request]) --> FastAPI[FastAPI Gateway]
+    User([User]) --> FastAPI[FastAPI API]
     FastAPI --> OS[Orchestration Service]
     
-    subgraph Orchestration Layer
+    subgraph Orchestration & Planning
         OS --> DWO[Dynamic Workflow Orchestrator]
         DWO --> IA[Intent Analyzer]
-        IA --> Planner[Planner]
+        IA --> Planner[Planner Agent]
         Planner --> WC[Workflow Compiler]
     end
 
     subgraph LangGraph Execution Engine
-        WC --> EG[Execution Graph Definition]
+        WC --> EG[Execution Graph]
         EG --> LGC[LangGraph Compiler]
         LGC --> LGR[LangGraph Runtime]
         
-        LGR --> ParallelAgents{Parallel Agents}
-        ParallelAgents --> |State Update| Renderer[Renderer / Aggregator]
+        LGR --> REA[Requirement Extraction Agent]
+        REA --> ARA[Architecture Reasoning Agent]
+        ARA --> URA[UML Recommendation Agent]
+        URA --> UGA[UML Generator Agent]
+        
+        subgraph Self-Healing Loop
+            UGA --> UVA[UML Validator Agent]
+            UVA -->|Valid| Ren
+            UVA -->|Invalid| URepA[UML Repair Agent]
+            URepA --> UVA
+        end
+        
+        Ren[Renderer Agent] --> FA[Feedback Agent]
+        FA --> EDA[Execution Dashboard Agent]
     end
 
-    Renderer --> Dashboard[Execution Dashboard]
-    Dashboard --> Response([Final Response / Artifacts])
+    EDA --> Response([Response])
+    Response --> User
 
     classDef core fill:#2d3436,stroke:#74b9ff,stroke-width:2px,color:#fff;
     classDef agent fill:#0984e3,stroke:#74b9ff,stroke-width:2px,color:#fff;
     classDef engine fill:#d63031,stroke:#ff7675,stroke-width:2px,color:#fff;
+    classDef user fill:#00b894,stroke:#55efc4,stroke-width:2px,color:#fff;
 
-    class OS,DWO,WC,LGC,LGR core;
-    class IA,Planner,ParallelAgents,Renderer agent;
-    class FastAPI,Dashboard engine;
+    class OS,DWO,WC,EG,LGC,LGR core;
+    class IA,Planner,REA,ARA,URA,UGA,UVA,URepA,Ren,FA,EDA agent;
+    class FastAPI engine;
+    class User,Response user;
 ```
 
----
+### Component Details
 
-## ⚙️ End-to-End Execution Flow
+#### 1. FastAPI API
+- **Purpose**: Acts as the primary HTTP entry point for external clients.
+- **Responsibility**: Handles HTTP protocol semantics, authenticates requests, deserializes JSON payloads using Pydantic schemas, and manages rate limiting.
+- **Input**: Raw HTTP POST requests containing user prompts and session metadata.
+- **Output**: Validated internal data transfer objects (DTOs).
+- **Why it exists**: To abstract HTTP transport details away from the core AI engine.
+- **Why separated**: The core engine must remain transport-agnostic (runnable via CLI or gRPC). Coupling HTTP logic to the engine would prevent code reuse.
+- **Interaction**: Passes the validated DTO to the `Orchestration Service`.
 
-Every request traversing ForgeAI follows a rigorous, multi-stage lifecycle.
+#### 2. Orchestration Service
+- **Purpose**: Serves as the domain service layer that bridges the API and the internal AI workflow.
+- **Responsibility**: Manages session state initialization, establishes correlation IDs, and handles high-level error catching and metric tracking for the API.
+- **Input**: Validated request DTOs.
+- **Output**: Triggers the execution of the dynamic orchestrator and awaits results.
+- **Why it exists**: Provides a clean boundary where transactional context (like database session lifecycles) can be managed before heavy AI execution begins.
+- **Why separated**: Keeps business logic out of the FastAPI routers, ensuring routers remain thin.
+- **Interaction**: Invokes the `Dynamic Workflow Orchestrator`.
 
-### 1. Ingestion (FastAPI & Orchestration Service)
-- **Purpose**: Exposes the system to the outside world, validates payload structures, and assigns unique correlation IDs.
-- **Input**: REST HTTP POST payload containing user prompt, session ID, and configuration parameters.
-- **Output**: Validated Pydantic models routed to the Orchestration Service.
-- **Interaction**: Hands off the sanitized request to the `Dynamic Workflow Orchestrator`.
+#### 3. Dynamic Workflow Orchestrator
+- **Purpose**: The master controller for the planning phase.
+- **Responsibility**: Determines whether a request requires a brand new graph or an incremental update to an existing session.
+- **Input**: User intent and historical session data.
+- **Output**: Control flow to the Planning agents.
+- **Why it exists**: Prevents the system from blindly executing a fixed DAG. It injects intelligence *before* the LangGraph pipeline is even constructed.
+- **Why separated**: It manages the *lifecycle* of the graph, which cannot be managed by the graph itself.
+- **Interaction**: Calls the `Intent Analyzer`.
 
-### 2. Analysis & Planning (Intent Analyzer & Planner)
-- **Purpose**: Understands *what* the user wants and *who* is needed to build it.
+#### 4. Intent Analyzer
+- **Purpose**: Determines the semantic intent of the user's prompt.
+- **Responsibility**: Classifies the prompt (e.g., "Create new system", "Modify existing system", "Clarify requirements").
 - **Input**: Natural language prompt.
-- **Output**: A JSON array of required agents and their dependency constraints.
-- **Interaction**: The `Planner` does not execute the agents. It acts as an architect, passing the blueprint to the `Workflow Compiler`.
+- **Output**: A structured Enum representing the intent type.
+- **Why it exists**: We need to know *what* we are building before we know *who* needs to build it.
+- **Why separated**: NLP classification is a distinct domain from workflow generation. Merging it with the Planner would dilute the prompt focus and reduce LLM fidelity.
+- **Interaction**: Passes the intent classification to the `Planner Agent`.
 
-### 3. Compilation (Workflow Compiler & LangGraph Compiler)
-- **Purpose**: Translates the Planner's JSON output into a runnable `StateGraph`.
-- **Input**: Agent dependencies and required deliverables.
-- **Output**: A compiled LangGraph `CompiledGraph` object.
-- **Interaction**: Uses `add_node` and `add_edge` dynamically. Implements LangGraph's `Send` API to map parallel execution branches based on dependency resolution.
+#### 5. Planner Agent
+- **Purpose**: Acts as the Lead Architect / Engineering Manager.
+- **Responsibility**: Maps the user's intent to a specific set of required downstream agents and defines their execution dependencies.
+- **Input**: Intent classification and user prompt.
+- **Output**: A JSON array defining the required nodes (agents) and edges (dependencies).
+- **Why it exists**: Enables purely dynamic DAGs. If a request doesn't need DevOps, the DevOps agent is never scheduled, saving tokens and time.
+- **Why separated**: The Planner decides *what* the graph should look like, but it does not compile it. Separation of concerns between decision-making and graph compilation.
+- **Interaction**: Hands the blueprint to the `Workflow Compiler`.
 
-### 4. Execution (LangGraph Runtime & Parallel Agents)
-- **Purpose**: The actual heavy lifting. Models are invoked, code is written, and diagrams are generated.
-- **Input**: Global shared State (containing history, requirements, and intermediate outputs).
-- **Output**: Mutated state with generated artifacts.
-- **Interaction**: Agents run in parallel. A reducer merges their outputs into the global state securely to prevent race conditions.
+#### 6. Workflow Compiler
+- **Purpose**: Translates the AI's declarative JSON blueprint into imperative Python data structures.
+- **Responsibility**: Resolves agent dependencies into concrete LangGraph edge definitions.
+- **Input**: JSON blueprint from the Planner.
+- **Output**: An intermediate `Execution Graph` representation.
+- **Why it exists**: AI cannot directly write Python LangGraph code reliably at runtime. It must generate an intermediate representation that is safely compiled.
+- **Why separated**: It is purely deterministic Python logic; no LLMs are involved here.
+- **Interaction**: Produces the `Execution Graph`.
 
-### 5. Finalization (Renderer & Dashboard)
-- **Purpose**: Aggregates the unstructured/structured state data into beautiful, human-readable formats (Markdown, SVG).
-- **Input**: Completed graph state.
-- **Output**: Final artifacts written to disk and API response payload.
-- **Interaction**: Streams execution telemetry to the observability dashboard while returning the HTTP response to the user.
+#### 7. Execution Graph
+- **Purpose**: An in-memory intermediate representation (IR) of the workflow.
+- **Responsibility**: Holds the nodes, conditional edges, and parallel execution instructions before they are committed to LangGraph.
+- **Input**: Data structures from the Workflow Compiler.
+- **Output**: IR ready for LangGraph compilation.
+- **Why it exists**: Allows us to validate the DAG (detect cycles, missing nodes) before handing it off to the external LangGraph library.
+- **Why separated**: Acts as an abstraction layer over LangGraph. If we migrate away from LangGraph in the future, the IR remains unchanged.
+- **Interaction**: Read by the `LangGraph Compiler`.
+
+#### 8. LangGraph Compiler
+- **Purpose**: Instantiates the actual LangGraph `StateGraph` object.
+- **Responsibility**: Binds Python functions (agents) to graph nodes, registers custom state reducers, and compiles the executable graph with a persistent checkpointer.
+- **Input**: The Execution Graph IR.
+- **Output**: A compiled, runnable `CompiledGraph`.
+- **Why it exists**: It isolates the LangGraph-specific API calls (`.add_node()`, `.add_edge()`, `.compile()`) into a single deterministic module.
+- **Why separated**: Isolates external library coupling.
+- **Interaction**: Returns the graph to be executed by the `LangGraph Runtime`.
+
+#### 9. LangGraph Runtime
+- **Purpose**: The execution engine that traverses the compiled DAG.
+- **Responsibility**: Manages state passing, parallel thread execution, reducer invocation, and checkpointer persistence.
+- **Input**: The compiled graph and the initial `ForgeState`.
+- **Output**: The final mutated `ForgeState` after all nodes execute.
+- **Why it exists**: It handles the complexities of distributed execution and state merging across parallel agents.
+- **Why separated**: It is the engine itself, completely decoupled from the domain logic of the agents it executes.
+- **Interaction**: Triggers the `Requirement Extraction Agent`.
+
+#### 10. Requirement Extraction Agent
+- **Purpose**: Parses unstructured prompts into structured engineering requirements.
+- **Responsibility**: Identifies functional vs. non-functional requirements, constraints, and assumptions.
+- **Input**: `ForgeState` containing the raw user prompt.
+- **Output**: Mutates `ForgeState` by appending a structured `requirements` list.
+- **Why it exists**: Downstream agents (like Architecture) need bullet-pointed, atomic requirements, not conversational text.
+- **Why separated**: Splitting extraction from reasoning prevents LLM hallucinations by enforcing a strict single-responsibility prompt.
+- **Interaction**: State flows to the `Architecture Reasoning Agent`.
+
+#### 11. Architecture Reasoning Agent
+- **Purpose**: Performs critical system design thinking.
+- **Responsibility**: Evaluates trade-offs (e.g., SQL vs NoSQL, Monolith vs Microservices) based on extracted requirements and writes Architecture Decision Records (ADRs).
+- **Input**: Structured requirements.
+- **Output**: Mutated `ForgeState` containing ADRs and high-level component definitions.
+- **Why it exists**: Before writing code or drawing diagrams, a system must be conceptually architected.
+- **Why separated**: If merged with diagram generation, the LLM often rushes to output syntax without thinking through the distributed systems implications.
+- **Interaction**: State flows to the `UML Recommendation Agent`.
+
+#### 12. UML Recommendation Agent
+- **Purpose**: Decides *which* diagrams are necessary.
+- **Responsibility**: Evaluates the architecture to determine if Sequence, ERD, Component, or Deployment diagrams are needed.
+- **Input**: Architecture components and ADRs.
+- **Output**: A list of diagram types appended to the state.
+- **Why it exists**: Not every prompt requires a database ERD. This saves tokens and generation time.
+- **Why separated**: Deciding *what* to draw is semantically different from writing PlantUML syntax.
+- **Interaction**: State flows to the `UML Generator Agent`.
+
+#### 13. UML Generator Agent
+- **Purpose**: Writes PlantUML syntax.
+- **Responsibility**: Translates architecture components into strict PlantUML code blocks for the recommended diagram types.
+- **Input**: Recommended diagram types and architectural components.
+- **Output**: Raw PlantUML strings in the state.
+- **Why it exists**: To create visual, render-able artifacts of the architecture.
+- **Why separated**: LLMs struggle with syntax generation; it requires a highly specialized prompt focused purely on PlantUML rules, completely separate from architecture reasoning.
+- **Interaction**: State flows to the `UML Validator Agent`.
+
+#### 14. UML Validator Agent
+- **Purpose**: Detects syntax errors in generated PlantUML.
+- **Responsibility**: Sends the generated PlantUML to a local compiler/server to verify it renders without errors.
+- **Input**: Raw PlantUML strings.
+- **Output**: A boolean validation flag and an error trace (if any).
+- **Why it exists**: LLMs frequently hallucinate PlantUML syntax. We must verify correctness deterministically before rendering.
+- **Why separated**: Validation requires external system calls (to a compiler), which is an imperative software operation, not an LLM generation task.
+- **Interaction**: If invalid, routes to the `UML Repair Agent`. If valid, routes to the `Renderer Agent`.
+
+#### 15. UML Repair Agent
+- **Purpose**: Auto-corrects broken PlantUML syntax.
+- **Responsibility**: Ingests the compiler error trace alongside the broken PlantUML and instructs the LLM to fix the specific line number that failed.
+- **Input**: Broken PlantUML and compiler error stack trace.
+- **Output**: Repaired PlantUML string.
+- **Why it exists**: Creates a self-healing pipeline, drastically improving the success rate of complex diagrams.
+- **Why separated**: A repair prompt is entirely different from a generation prompt. It focuses strictly on diff-resolution.
+- **Interaction**: Loops back to the `UML Validator Agent`.
+
+#### 16. Renderer Agent
+- **Purpose**: Converts internal state strings into tangible assets.
+- **Responsibility**: Takes valid PlantUML strings and architecture JSON and writes them to the local filesystem as `.svg`, `.png`, and `.md` files.
+- **Input**: Finalized, validated state.
+- **Output**: Physical files on disk and updated state with file URIs.
+- **Why it exists**: The graph must produce consumable artifacts, not just in-memory strings.
+- **Why separated**: I/O operations (writing to disk) should be consolidated into a single terminal node to prevent race conditions from parallel agents writing simultaneously.
+- **Interaction**: State flows to the `Feedback Agent`.
+
+#### 17. Feedback Agent
+- **Purpose**: Prepares the state for future human-in-the-loop interactions.
+- **Responsibility**: Analyzes the generated output and highlights ambiguous requirements or trade-offs where human review is recommended.
+- **Input**: Rendered artifacts and architecture ADRs.
+- **Output**: A list of clarifying questions for the user.
+- **Why it exists**: AI cannot make final business decisions. It must proactively request alignment.
+- **Why separated**: Feedback generation requires analyzing the *entire* completed output, which can only happen after rendering.
+- **Interaction**: State flows to the `Execution Dashboard Agent`.
+
+#### 18. Execution Dashboard Agent
+- **Purpose**: Aggregates telemetry for observability.
+- **Responsibility**: Summarizes token usage, latency per node, repair loop iterations, and total execution time.
+- **Input**: The complete execution trace embedded in the state.
+- **Output**: Formatted execution metrics.
+- **Why it exists**: Enterprise platforms require auditability and cost tracking.
+- **Why separated**: Telemetry aggregation is a distinct reporting concern that should not muddy the core engineering agents.
+- **Interaction**: Finalizes the state graph and hands control back to the Orchestration layer, which returns the `Response` to the user.
 
 ---
 
-## 📁 Complete Folder Structure
+## 🏗️ Why This Architecture?
 
-ForgeAI strictly adheres to Domain-Driven Design (DDD) principles. The architecture ensures separation of concerns, keeping the graph compilation logic entirely isolated from the agent definitions and API transport layer.
+Enterprise GenAI is not about "sending a prompt to an API." It requires deterministic state management, fault tolerance, and strict separation of concerns. 
 
-<details>
-<summary><b>Click to expand full directory tree</b></summary>
+- **Why is the project layered?** To isolate side-effects. The API layer handles HTTP, the Orchestration layer handles workflow lifecycles, and the Graph layer handles AI execution. This ensures that changes to the LLM logic do not break the web server, and vice versa.
+- **Why doesn't FastAPI directly invoke LangGraph?** Direct invocation couples the web framework to the AI engine. By using an Orchestration Service, we can invoke the same AI engine via a RabbitMQ consumer or a background Celery worker without rewriting the graph logic.
+- **Why does the Orchestration Service exist?** It acts as the transaction boundary. It ensures that session metadata, correlation IDs, and memory contexts are fully loaded before the AI ever sees the request.
+- **Why does the Dynamic Workflow Orchestrator exist?** Not all requests require the same graph. A simple question ("What is an ERD?") shouldn't trigger the entire UML pipeline. The DWO determines the macro-execution strategy (e.g., skip to Q&A vs. run full pipeline).
+- **Why does the Planner exist?** To dynamically map dependencies. Hardcoding a static DAG means wasting tokens on agents that aren't needed. The Planner creates a bespoke virtual engineering team for every unique request.
+- **Why does the Workflow Compiler exist?** LLMs output unstructured JSON. The compiler translates this JSON into imperative, strongly-typed Python objects that represent a directed acyclic graph.
+- **Why does the Execution Graph exist?** It provides an Intermediate Representation (IR). If we decide to move away from LangGraph to a custom execution engine, the compiler targets the IR, meaning no agent logic needs to change.
+- **Why does the LangGraph Compiler exist?** It wraps the LangGraph-specific SDK calls (`add_node`, `add_edge`). Isolating this means we can swap LangGraph versions seamlessly.
+- **Why are specialized agents better than one giant prompt?** Context dilution. An LLM cannot effectively act as a Security Engineer, UML Designer, and Code Reviewer simultaneously. Narrow, single-responsibility prompts yield vastly superior fidelity and allow for parallel execution.
+- **Why is validation separated from generation?** Generation is a non-deterministic LLM task. Validation is a deterministic software task (compiling syntax). Merging them introduces unreliability.
+- **Why is repair separated from validation?** The repair prompt requires the specific compiler stack trace and distinct instructions focused on line-by-line diffing, which would confuse a pure generation prompt.
+- **Why is rendering separated from generation?** Generation happens concurrently in parallel branches. Rendering requires disk I/O. Separating it into a terminal node prevents race conditions where multiple agents try to write to the same file simultaneously.
+- **Why is feedback separated from execution?** Feedback must be comprehensive. The Feedback Agent must see the *final* rendered architecture to know what questions to ask the user.
+- **Why is the dashboard a separate agent?** Telemetry is a cross-cutting concern. A dedicated agent ensures that token counting and latency tracking do not bleed into the business logic of the engineering agents.
+
+---
+
+## 🔄 Request Lifecycle
+
+The lifecycle of a single request through ForgeAI demonstrates how declarative HTTP inputs become rich, interconnected artifacts.
+
+1. **HTTP Ingestion**: `POST /api/v1/orchestrate` receives a JSON payload.
+2. **Deserialization**: FastAPI validates the payload via Pydantic and generates a `request_id`.
+3. **Session Hydration**: Orchestration Service queries the database for previous `thread_id` history.
+4. **Graph Compilation**: The Planner defines the necessary agents, and the Compilers build a bespoke LangGraph `StateGraph`.
+5. **Graph Execution**: LangGraph Runtime executes the nodes. Parallel paths are routed according to dependencies, with self-healing loops executing as needed.
+6. **Artifact Generation**: The Renderer saves SVGs and Markdown files to disk based on the final state.
+7. **HTTP Egress**: The Orchestration Service pulls the finalized `ForgeState`, formats a response DTO, and FastAPI returns HTTP 200 to the client.
+
+---
+
+## 🌊 Data Flow (ForgeState Evolution)
+
+The `ForgeState` is a strictly typed Python dictionary that mutates as it traverses the graph.
 
 ```text
-forge-ai-langgraph/
-├── agents/                       # Independent Agent definitions
-│   ├── ai_software_engineer/     # Code generation agent
-│   ├── architecture_reasoning/   # System design evaluation
-│   ├── backend_engineer/         # API and logic design
-│   ├── change_analysis/          # AST/Diff analysis for incremental updates
-│   ├── code_reviewer/            # Static analysis and best practices
-│   ├── devops_engineer/          # Infrastructure and CI/CD
-│   ├── engineering_manager/      # Task breakdown and timeline estimation
-│   ├── execution_dashboard/      # Telemetry aggregation agent
-│   ├── feedback_agent/           # User feedback incorporation
-│   ├── intent_analyzer/          # Request classification
-│   ├── planner/                  # Graph topology generator
-│   ├── qa_engineer/              # Test case generation
-│   ├── renderer/                 # Final artifact compiler
-│   ├── requirement_analyst/      # Requirement extraction & refinement
-│   ├── requirement_extraction/   # Initial data parsing
-│   ├── security_engineer/        # Threat modeling and compliance
-│   ├── solution_architect/       # High level system definitions
-│   ├── uml_generator/            # PlantUML syntax generator
-│   ├── uml_recommendation/       # Diagram type selection
-│   ├── uml_repair/               # Syntax error auto-correction loop
-│   └── uml_validator/            # Syntax validation against PlantUML server
-├── api/                          # HTTP Transport Layer (FastAPI)
-│   ├── dependencies/             # Dependency Injection (Auth, DB, Logging)
-│   ├── routers/                  # API Endpoints
-│   ├── schemas/                  # Pydantic validation models
-│   └── services/                 # Business logic gluing API to Core
-├── app/                          # Main application factory and entry points
-├── artifacts/                    # Generated outputs (ignored in git)
-│   ├── architecture/             
-│   ├── backend/                  
-│   ├── diagrams/                 
-│   ├── implementation/           
-│   ├── reasoning/                
-│   ├── reports/                  
-│   ├── requirements/             
-│   ├── timeline/                 
-│   ├── training/                 
-│   └── uml/                      
-├── config/                       # Environment configuration (Pydantic BaseSettings)
-├── core/                         # Core execution engine and utilities
-│   ├── compilers/                # Dynamic Graph compilers
-│   ├── feedback/                 # Human-in-the-loop logic
-│   ├── models/                   # Global state definitions (LangGraph TypedDict)
-│   ├── plugins/                  # Plugin registry
-│   └── providers/                # LLM Provider Factory (Gemini, OpenAI)
-├── demo/                         # UI/CLI demos
-├── docs/                         # Extended documentation
-├── examples/                     # Example payloads and outputs
-├── logs/                         # Structured JSON application logs
-├── mcp/                          # Model Context Protocol servers/definitions
-├── memory/                       # Checkpointing and session storage
-├── models/                       # Domain models (SQLAlchemy/Pydantic)
-├── plugins/                      # Extendable user-defined agents/tools
-│   └── example_plugin/           
-├── schemas/                      # Global system schemas
-└── tests/                        # Pytest suite
-    ├── integration/              # Database & Graph integration tests
-    └── smoke/                    # Health checks
+[Initial State]
+  ├── prompt: "Design a logging service"
+  └── history: []
+
+↓ (Intent Analyzer executes)
+
+[Intent Added]
+  └── intent: Intent.SYSTEM_DESIGN
+
+↓ (Requirement Extraction executes)
+
+[Requirements Added]
+  └── requirements: ["High throughput", "Low latency", "Persistent storage"]
+
+↓ (Architecture Reasoning executes)
+
+[Architecture Added]
+  └── adrs: ["Use Kafka for buffering", "Use Elasticsearch for querying"]
+
+↓ (UML Recommendation executes)
+
+[Recommended Diagrams Added]
+  └── diagram_types: ["Component", "Sequence"]
+
+↓ (UML Generator executes)
+
+[PlantUML Added]
+  └── raw_uml: ["@startuml ... @enduml"]
+
+↓ (UML Validator & Repair executes)
+
+[Validation Results Added]
+  ├── is_valid: True
+  └── error_trace: None
+
+↓ (Renderer executes)
+
+[Rendered Artifacts Added]
+  └── artifact_uris: ["/artifacts/logging_arch.svg"]
+
+↓ (Execution Dashboard executes)
+
+[Execution Metrics Added]
+  └── metrics: { tokens: 4500, latency_ms: 12500 }
+
+↓
+
+[Final Response Delivered to User]
 ```
-</details>
-
-### Directory Responsibilities
-- **`agents/`**: Contains the logic, system prompts, and tool access for every individual AI actor. Every agent is self-contained. It interacts with the `core/` to read/write state.
-- **`api/`**: The FastAPI application layer. It interacts *only* with `services/` and never directly invokes an LLM.
-- **`core/`**: The brain of ForgeAI. Contains the `LangGraph` compilation logic, global state reducers, and provider abstraction layer. It imports from `agents/` to build the graph.
-- **`memory/`**: Manages state persistence across conversational turns, enabling incremental regeneration. Interacts heavily with `core/compilers`.
-- **`artifacts/`**: The physical output directory where the `Renderer` saves SVGs, JSONs, and Markdown.
 
 ---
 
-## 🤖 Agents
+## 📂 Folder Mapping
 
-ForgeAI operates via a highly specialized swarm of AI agents. Each agent receives a subset of the global state, processes it using specific tools and system prompts, and returns a state mutation.
+Every conceptual component maps directly to an isolated boundary within the physical codebase:
 
-| Agent | Responsibility | Input | Output | Dependencies |
-|-------|----------------|-------|--------|--------------|
-| **Intent Analyzer** | Determines if request is new, a modification, or a query. | User Prompt | Intent Enum, Sub-tasks | None |
-| **Planner** | Generates the dynamic DAG of required agents. | Intent, Prompt | JSON List of Agents & Edges | Intent Analyzer |
-| **Requirement Extraction** | Parses prompt into structured functional requirements. | Prompt | Functional/Non-Functional Reqs | Planner |
-| **Requirement Analyst** | Refines raw requirements into technical specifications. | Extracted Reqs | Tech Specs, Edge Cases | Requirement Extraction |
-| **Architecture Reasoning** | Evaluates tradeoffs between different system designs. | Tech Specs | Architecture Decision Record | Requirement Analyst |
-| **Solution Architect** | Designs the high-level system components and microservices. | Architecture Decisions | Component JSON, ERDs | Architecture Reasoning |
-| **UML Recommendation** | Decides which UML diagrams are needed for the architecture. | Component JSON | List of diagram types | Solution Architect |
-| **UML Generator** | Writes Raw PlantUML syntax. | Components, Diagram Types | PlantUML Syntax Strings | UML Recommendation |
-| **UML Validator** | Compiles PlantUML to detect syntax errors. | PlantUML Syntax | Boolean Valid, Error Trace | UML Generator |
-| **UML Repair** | Auto-corrects invalid PlantUML syntax. | Syntax, Error Trace | Fixed PlantUML Syntax | UML Validator |
-| **Backend Engineer** | Designs API contracts (OpenAPI) and database schemas. | Components | OpenAPI JSON, SQL DDL | Solution Architect |
-| **Security Engineer** | Threat modeling and compliance verification (e.g., OWASP). | Components, APIs | Security Audit Report | Backend Engineer |
-| **DevOps Engineer** | Defines infrastructure (Terraform/Docker) and CI/CD. | Components, APIs | IaC Definitions | Backend Engineer |
-| **QA Engineer** | Generates test plans and integration test scenarios. | Tech Specs, APIs | Test Matrix | Backend Engineer |
-| **Engineering Manager** | Estimates story points, timeline, and resource allocation. | Tech Specs, Architecture | Project Timeline (Gantt) | Solution Architect |
-| **AI Software Engineer** | Generates actual boilerplate code for the designed backend. | APIs, DDL | Source Code files | Backend Engineer |
-| **Code Reviewer** | Static analysis of AI-generated code. | Source Code files | Code Review Comments | AI Software Engineer |
-| **Change Analysis** | Detects diffs in prompts for incremental runs. | Previous State, New Prompt | AST Diff, Invalidation List | Memory |
-| **Renderer** | Compiles all outputs into Markdown/SVG artifacts. | Global State | Files written to disk | All Agents |
-| **Feedback** | Integrates Human-in-the-Loop review feedback. | State, User Feedback | Updated Requirements | Renderer |
-| **Execution Dashboard** | Emits WebSocket/Log telemetry of execution. | Global State | Telemetry Events | All Agents |
+| Component | Physical Location | Responsibility |
+|-----------|------------------|----------------|
+| **FastAPI API** | `api/routers/` | HTTP request routing and Pydantic validation. |
+| **Orchestration Service** | `api/services/orchestration_service.py` | Business logic gluing API to Core execution. |
+| **Dynamic Workflow Orchestrator** | `core/orchestrator.py` | Decides high-level execution strategy. |
+| **Intent Analyzer** | `agents/intent_analyzer/` | Prompt classification agent. |
+| **Planner** | `agents/planner/` | Generates node/edge dependencies. |
+| **Workflow Compiler** | `core/compilers/workflow_compiler.py` | Converts JSON to Graph IR. |
+| **Execution Graph** | `core/models/execution_graph.py` | Pydantic representations of IR nodes/edges. |
+| **LangGraph Compiler** | `core/compilers/langgraph_compiler.py` | Binds IR to actual LangGraph SDK calls. |
+| **LangGraph Runtime** | `core/engine.py` | Manages `.invoke()` and `.stream()`. |
+| **Requirement Extraction Agent** | `agents/requirement_extraction/` | Generates functional requirements. |
+| **Architecture Reasoning Agent** | `agents/architecture_reasoning/` | Writes ADRs. |
+| **UML Agents (Rec, Gen, Val, Rep)** | `agents/uml_*/` | Self-healing PlantUML pipeline. |
+| **Renderer Agent** | `agents/renderer/` | File I/O and SVG generation. |
+| **Feedback Agent** | `agents/feedback_agent/` | HitL question generation. |
+| **Execution Dashboard Agent** | `agents/execution_dashboard/` | Telemetry formatting. |
 
 ---
 
-## 🧠 Orchestration Layer
-
-The Orchestration Layer is the bridge between the API transport and the LangGraph Engine.
-
-### Why is this layer separated?
-If FastAPI called LangGraph directly, the API would be tightly coupled to the state machine. By abstracting this into an `Orchestration Service` and a `Dynamic Workflow Orchestrator`, we achieve:
-1. **Transport Agnosticism**: The exact same orchestrator can be invoked via CLI, Message Queue (RabbitMQ), or gRPC, not just FastAPI.
-2. **Dynamic Compilation**: Standard LangGraph implementations define a static `StateGraph`. The `Workflow Compiler` builds the `StateGraph` *at runtime* based on the Planner's output.
-
-- **Workflow Compiler**: Translates abstract dependencies (e.g., `Backend Engineer` depends on `Solution Architect`) into strict LangGraph `Edges` and `Conditional Edges`.
-- **Execution Graph**: An intermediate representation (IR) of the workflow before it is handed to LangGraph.
-- **LangGraph Compiler**: Takes the IR and invokes `.compile()` with the designated `checkpointer` (Memory) for persistence.
-
----
-
-## 🔄 LangGraph Pipeline
+## 🔄 LangGraph Pipeline Advanced Features
 
 ForgeAI leverages advanced features of `langgraph`:
 
@@ -272,38 +407,6 @@ ForgeAI leverages advanced features of `langgraph`:
 - **Parallel Execution (`Send` API)**: When the `Planner` identifies agents with no inter-dependencies (e.g., `Security Engineer` and `QA Engineer`), the Workflow Compiler maps them using LangGraph's `Send` API to execute them in parallel, drastically reducing overall latency.
 - **Reducers**: Because nodes execute in parallel, state mutations must be deterministic. We use custom `Annotated` reducers in our `StateGraph` (e.g., `operator.add` for lists) to safely merge concurrent outputs.
 - **Conditional Edges**: Used heavily in the self-healing loops. (e.g., `UML Validator` -> If valid, go to `Renderer`. If invalid, go to `UML Repair`).
-
----
-
-## 🎨 UML Pipeline
-
-Generating valid PlantUML from LLMs is notoriously flaky. ForgeAI implements a deterministic **Self-Healing Compiler Loop** within the graph.
-
-```mermaid
-sequenceDiagram
-    participant Architect as Solution Architect
-    participant Rec as UML Recommendation
-    participant Gen as UML Generator
-    participant Val as UML Validator
-    participant Rep as UML Repair
-    participant Ren as Renderer
-
-    Architect->>Rec: Provide System Components
-    Rec->>Gen: Request Diagram Types (e.g., Sequence, Component)
-    Gen->>Val: Generate Raw PlantUML Syntax
-    
-    loop Validation & Repair Loop (Max Retries: 3)
-        Val->>Val: Local PlantUML Compilation Check
-        alt Syntax is Valid
-            Val->>Ren: Send Valid Syntax
-        else Syntax Error Detected
-            Val->>Rep: Send Syntax + Compiler Error Trace
-            Rep->>Val: Return Repaired Syntax
-        end
-    end
-    
-    Ren->>Ren: Render SVG / PNG
-```
 
 ---
 
@@ -522,16 +625,6 @@ Try these prompts to see the power of ForgeAI:
 
 *(Placeholder: Rendered SVG Architecture)*
 `![Architecture SVG](https://via.placeholder.com/800x500.png?text=High-Resolution+Architecture+SVG)`
-
----
-
-## 🧠 Design Decisions
-
-- **Why LangGraph?** Over LangChain/AutoGen, LangGraph provides first-class support for cyclical graphs, state reduction, and fine-grained checkpointing, essential for self-healing loops.
-- **Why PlantUML?** It is text-based and highly structured, making it much easier for LLMs to generate correctly compared to direct SVG or XML generation.
-- **Why Multiple Agents?** A single LLM prompt degrades in quality as output complexity increases. Narrowing context to specific persona roles (e.g., Security Engineer) yields dramatically higher fidelity.
-- **Why Compiler-Driven Validation?** We don't trust LLMs to write correct code on the first try. By running PlantUML syntax through a local compiler, we get deterministic error traces to feed back into the repair loop.
-- **Why Provider Abstraction?** To prevent vendor lock-in and allow fallback logic (e.g., if OpenAI rate limits, failover to Gemini).
 
 ---
 
