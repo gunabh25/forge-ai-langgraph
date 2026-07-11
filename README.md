@@ -3,12 +3,6 @@
   <h1>ForgeAI</h1>
   <p><strong>Enterprise-Grade Dynamic Workflow Orchestrator & Autonomous Software Engineering Platform</strong></p>
 
-  <p>
-    <a href="https://github.com/your-org/forge-ai-langgraph/releases"><img src="https://img.shields.io/github/v/release/your-org/forge-ai-langgraph" alt="Release" /></a>
-    <a href="https://github.com/your-org/forge-ai-langgraph/actions"><img src="https://img.shields.io/github/actions/workflow/status/your-org/forge-ai-langgraph/ci.yml" alt="Build Status" /></a>
-    <a href="https://codecov.io/gh/your-org/forge-ai-langgraph"><img src="https://img.shields.io/codecov/c/github/your-org/forge-ai-langgraph" alt="Coverage" /></a>
-    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" /></a>
-  </p>
 </div>
 
 ForgeAI is a massively parallel, multi-agent AI orchestration platform built on top of **LangGraph** and **FastAPI**. Designed for enterprise scale, ForgeAI autonomously breaks down complex engineering requirements into dynamic, localized execution graphs, compiling software architecture, UML diagrams, codebase structures, and security audits—all in real-time.
