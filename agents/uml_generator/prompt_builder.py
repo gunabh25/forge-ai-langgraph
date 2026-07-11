@@ -2,16 +2,27 @@
 
 This module is intentionally decoupled from LangGraph, ForgeState, and LLM
 invocation.  Its single responsibility is assembling the final prompt string
-from a diagram type, an architecture summary, and a set of templates.
+from a diagram type, an architecture summary, an optional diagram plan, and
+a set of per-type profiles / constraints.
 
-Templates are loaded from Markdown files in the ``prompts/`` directory next to
-this module.  If no file exists for a given diagram type, a built-in inline
-fallback is used.
+Template resolution order (per diagram type)
+--------------------------------------------
+1. Markdown file in ``prompts/<type>.md``  — highest-priority overrides.
+2. Runtime-registered callable via ``register_template()``.
+3. Profile-driven inline template from ``diagram_profile.DIAGRAM_PROFILES``.
+4. Generic catch-all for completely unknown types.
+
+Markdown files in ``prompts/`` are intentionally left as-is when they exist —
+they represent manually curated, production-quality prompts.
+
+New diagram types can be supported by either:
+- Dropping a ``.md`` file into ``prompts/``, or
+- Adding an entry to ``diagram_profile.DIAGRAM_PROFILES``.
+No code changes are required in either case.
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Callable
 
@@ -19,25 +30,29 @@ from agents.uml_generator.diagram_constraints import (
     format_constraints_block,
     get_constraints,
 )
+from agents.uml_generator.diagram_profile import DiagramProfile, get_profile
 
 
 # ---------------------------------------------------------------------------
-# Type alias for template functions
+# Type alias
 # ---------------------------------------------------------------------------
+
 TemplateFunction = Callable[[str], str]
-"""A template function receives the architecture summary and returns
-the fully-rendered prompt body for a specific diagram type."""
+"""A template function receives the architecture summary and returns the
+fully-rendered prompt body for a specific diagram type."""
 
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
+
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
 # ---------------------------------------------------------------------------
-# File-based template loader
+# File-based template loader (highest priority)
 # ---------------------------------------------------------------------------
+
 
 def _load_template_from_file(diagram_type: str, architecture_summary: str) -> str | None:
     """Try to load a ``.md`` template for *diagram_type* from the prompts dir.
@@ -54,101 +69,47 @@ def _load_template_from_file(diagram_type: str, architecture_summary: str) -> st
 
 
 # ---------------------------------------------------------------------------
-# Built-in inline fallback templates
+# Profile-driven inline template renderer
 # ---------------------------------------------------------------------------
 
-def _component_template(architecture_summary: str) -> str:
-    return (
-        "Generate a PlantUML **Component Diagram** that shows the major system "
-        "components, their interfaces, and dependencies.\n\n"
-        "Guidelines:\n"
-        "- Represent each service or module as a component.\n"
-        "- Use `[ComponentName]` notation.\n"
-        "- Show dependencies with `-->` arrows.\n"
-        "- Group related components inside packages where appropriate.\n\n"
-        f"Architecture Summary:\n{architecture_summary}"
-    )
 
+def _render_profile_template(
+    profile: DiagramProfile,
+    diagram_type: str,
+    architecture_summary: str,
+) -> str:
+    """Render a structured, architect-grade prompt from a ``DiagramProfile``.
 
-def _sequence_template(architecture_summary: str) -> str:
-    return (
-        "Generate a PlantUML **Sequence Diagram** that illustrates the primary "
-        "interactions between actors and system components.\n\n"
-        "Guidelines:\n"
-        "- Include all primary actors and the services they interact with.\n"
-        "- Model the main success scenario (happy path).\n"
-        "- Use `participant`, `actor`, and `->` message arrows.\n"
-        "- Keep the number of messages focused on the core flow.\n\n"
-        f"Architecture Summary:\n{architecture_summary}"
-    )
+    The output follows a fixed schema that explicitly tells the LLM:
+    - who the audience is
+    - what abstraction level to maintain
+    - what the diagram's objective is
+    - what to include
+    - what to avoid
+    - hard constraints (if any)
+    """
+    include_items = "\n".join(f"  - {item}" for item in profile.include)
+    avoid_items = "\n".join(f"  - {item}" for item in profile.avoid)
 
+    sections = [
+        f"Generate a PlantUML **{diagram_type.title()} Diagram**.\n",
+        f"**Audience**: {profile.audience}",
+        f"**Abstraction**: {profile.abstraction}",
+        f"**Objective**: {profile.objective}",
+        f"**Include**:\n{include_items}",
+        f"**Avoid**:\n{avoid_items}",
+    ]
 
-def _activity_template(architecture_summary: str) -> str:
-    return (
-        "Generate a PlantUML **Activity Diagram** that captures the main "
-        "business workflow from trigger to completion.\n\n"
-        "Guidelines:\n"
-        "- Start with `start` and end with `stop`.\n"
-        "- Use decision diamonds (`:condition;`) for branching logic.\n"
-        "- Use swim-lanes (`|LaneName|`) if multiple actors are involved.\n"
-        "- Focus on high-level business steps, not implementation details.\n\n"
-        f"Architecture Summary:\n{architecture_summary}"
-    )
+    if profile.max_note:
+        sections.append(f"**Hard constraint**: {profile.max_note}")
 
+    sections.append(f"\n## Architecture Summary\n\n{architecture_summary}")
 
-def _deployment_template(architecture_summary: str) -> str:
-    return (
-        "Generate a PlantUML **Deployment Diagram** that shows the physical "
-        "or cloud infrastructure and how artifacts are deployed.\n\n"
-        "Guidelines:\n"
-        "- Use `node`, `database`, and `cloud` stereotypes.\n"
-        "- Map services to their deployment targets.\n"
-        "- Show network boundaries and communication protocols.\n\n"
-        f"Architecture Summary:\n{architecture_summary}"
-    )
-
-
-def _class_template(architecture_summary: str) -> str:
-    return (
-        "Generate a PlantUML **Class Diagram** that models the key domain "
-        "entities and their relationships.\n\n"
-        "Guidelines:\n"
-        "- Focus on high-level domain objects, not utility classes.\n"
-        "- Show associations, inheritance, and composition.\n"
-        "- Include key attributes and methods only where they clarify design.\n\n"
-        f"Architecture Summary:\n{architecture_summary}"
-    )
-
-
-def _use_case_template(architecture_summary: str) -> str:
-    return (
-        "Generate a PlantUML **Use Case Diagram** that captures the primary "
-        "actors and the use cases they participate in.\n\n"
-        "Guidelines:\n"
-        "- Use `actor` for each primary actor.\n"
-        "- Use `usecase` for each high-level capability.\n"
-        "- Draw associations between actors and their use cases.\n"
-        "- Group use cases inside a `rectangle` representing the system boundary.\n\n"
-        f"Architecture Summary:\n{architecture_summary}"
-    )
+    return "\n\n".join(sections)
 
 
 # ---------------------------------------------------------------------------
-# Default inline-template registry (used as fallback)
-# ---------------------------------------------------------------------------
-
-_INLINE_TEMPLATES: dict[str, TemplateFunction] = {
-    "component": _component_template,
-    "sequence": _sequence_template,
-    "activity": _activity_template,
-    "deployment": _deployment_template,
-    "class": _class_template,
-    "use case": _use_case_template,
-}
-
-
-# ---------------------------------------------------------------------------
-# System prompt (shared across all diagram types)
+# Shared system prompt rules
 # ---------------------------------------------------------------------------
 
 _SYSTEM_RULES = (
@@ -158,7 +119,10 @@ _SYSTEM_RULES = (
     "3. Respond ONLY with the raw PlantUML syntax string. "
     "The string must start with @startuml and end with @enduml.\n"
     "4. DO NOT include markdown formatting blocks "
-    "(like ```plantuml or ```puml). Just output the raw syntax."
+    "(like ```plantuml or ```puml). Just output the raw syntax.\n"
+    "5. Use ONLY components, participants, and relationships that are "
+    "explicitly present in the Architecture Summary or Diagram Plan. "
+    "Do NOT invent services, gateways, or infrastructure not mentioned there."
 )
 
 
@@ -166,37 +130,36 @@ _SYSTEM_RULES = (
 # PromptBuilder
 # ---------------------------------------------------------------------------
 
+
 class PromptBuilder:
-    """Builds the final LLM prompt from a diagram type and an architecture summary.
+    """Builds the final LLM prompt from a diagram type, architecture summary,
+    optional diagram plan, and optional constraints.
 
     **Template resolution order** (per diagram type):
 
     1. Markdown file in ``prompts/<type>.md``  — production-grade templates.
     2. Runtime-registered callable via ``register_template()``.
-    3. Built-in inline fallback (``_INLINE_TEMPLATES``).
+    3. Profile-driven inline template from ``DIAGRAM_PROFILES``.
     4. Generic catch-all for completely unknown types.
-
-    New diagram types can be supported by simply dropping a ``.md`` file into
-    the ``prompts/`` directory — no code changes required.
 
     Usage::
 
         builder = PromptBuilder()
-        system, user = builder.build_prompt("component", summary_text)
+        system, user = builder.build_prompt(
+            diagram_type="component",
+            architecture_summary=summary_text,
+            diagram_plan=plan_text,     # optional — injected from planning step
+        )
     """
 
     def __init__(self) -> None:
-        # Runtime overrides / additions. Starts empty — inline defaults are
-        # consulted directly from the module-level dict as a fallback.
+        # Runtime overrides / additions.
         self._custom_templates: dict[str, TemplateFunction] = {}
 
     # -- public API ---------------------------------------------------------
 
     def register_template(self, diagram_type: str, template_fn: TemplateFunction) -> None:
         """Register (or override) a template for *diagram_type*.
-
-        This is the extension point: callers can add support for new diagram
-        types without touching existing logic.
 
         Args:
             diagram_type: A case-insensitive diagram type key (e.g. ``"erd"``).
@@ -209,6 +172,7 @@ class PromptBuilder:
         self,
         diagram_type: str,
         architecture_summary: str,
+        diagram_plan: str | None = None,
         constraints: dict[str, str | int | bool] | None = None,
     ) -> tuple[str, str]:
         """Build the system and user prompt for the given diagram type.
@@ -216,19 +180,20 @@ class PromptBuilder:
         Args:
             diagram_type: The kind of UML diagram to generate
                           (e.g. ``"component"``, ``"sequence"``).
-            architecture_summary: A pre-built textual summary of the
-                                  architecture (produced by ``ContextBuilder``).
+            architecture_summary: A pre-built Business Architecture Summary
+                                  produced by ``ContextBuilder``.
+            diagram_plan: Optional output of the planning step. When provided,
+                          it is appended as a ``## Diagram Plan`` section that
+                          scopes the LLM's generation strictly to planned
+                          elements.
             constraints: Optional per-diagram constraints.  When ``None``
                          (the default), constraints are auto-resolved from
                          ``diagram_constraints.DIAGRAM_CONSTRAINTS``.
-                         Pass an explicit dict to override, or ``{}`` to
-                         suppress constraints entirely.
+                         Pass ``{}`` to suppress constraints entirely.
 
         Returns:
             A ``(system_prompt, user_prompt)`` tuple ready to be passed to
-            an LLM.  The system prompt contains shared generation rules; the
-            user prompt contains diagram-specific instructions plus the
-            architecture summary.
+            an LLM.
         """
         key = diagram_type.lower()
 
@@ -236,6 +201,8 @@ class PromptBuilder:
         if constraints is None:
             constraints = get_constraints(key)
         constraints_block = format_constraints_block(constraints)
+
+        # -- resolve user prompt -----------------------------------------------
 
         # 1. Try file-based template first (highest priority).
         user_prompt = _load_template_from_file(key, architecture_summary)
@@ -246,28 +213,45 @@ class PromptBuilder:
             if custom_fn is not None:
                 user_prompt = custom_fn(architecture_summary)
 
-        # 3. Try built-in inline template.
+        # 3. Try profile-driven inline template.
         if user_prompt is None:
-            inline_fn = _INLINE_TEMPLATES.get(key)
-            if inline_fn is not None:
-                user_prompt = inline_fn(architecture_summary)
+            profile = get_profile(key)
+            if profile is not None:
+                user_prompt = _render_profile_template(
+                    profile, diagram_type, architecture_summary
+                )
 
         # 4. Generic catch-all for completely unknown types.
         if user_prompt is None:
             user_prompt = (
                 f"Generate a PlantUML **{diagram_type}** diagram based on the "
                 f"architecture summary below.\n\n"
-                f"Architecture Summary:\n{architecture_summary}"
+                f"Use ONLY elements explicitly present in the summary.\n\n"
+                f"## Architecture Summary\n\n{architecture_summary}"
             )
 
-        # -- inject constraints into the user prompt ---------------------------
+        # -- inject diagram plan -----------------------------------------------
+        if diagram_plan and diagram_plan.strip():
+            user_prompt = (
+                f"{user_prompt}\n\n"
+                f"## Diagram Plan\n\n"
+                f"The following plan has been produced by an architectural "
+                f"planning step. Scope your diagram strictly to the elements "
+                f"listed here — do not add anything beyond them.\n\n"
+                f"{diagram_plan.strip()}"
+            )
+
+        # -- inject constraints ------------------------------------------------
         if constraints_block:
             user_prompt = f"{user_prompt}\n\n{constraints_block}"
 
+        # -- system prompt -----------------------------------------------------
         system_prompt = (
-            f"You are a specialized UML Generator Agent.\n"
+            f"You are a specialized UML Generator Agent acting as a Senior "
+            f"Software Architect.\n"
             f"Your task is to generate valid PlantUML syntax for a "
-            f"{diagram_type} diagram.\n\n"
+            f"{diagram_type} diagram that would pass a rigorous architecture "
+            f"review.\n\n"
             f"{_SYSTEM_RULES}"
         )
 
@@ -275,11 +259,9 @@ class PromptBuilder:
 
     @property
     def supported_diagram_types(self) -> list[str]:
-        """Return the currently registered diagram type keys.
+        """Return the currently registered diagram type keys."""
+        from agents.uml_generator.diagram_profile import DIAGRAM_PROFILES
 
-        Includes types available from files, custom registrations, and
-        inline defaults.
-        """
         file_types: set[str] = set()
         if _PROMPTS_DIR.is_dir():
             for f in _PROMPTS_DIR.iterdir():
@@ -287,5 +269,7 @@ class PromptBuilder:
                     file_types.add(f.stem.replace("_", " "))
 
         return sorted(
-            file_types | set(self._custom_templates.keys()) | set(_INLINE_TEMPLATES.keys())
+            file_types
+            | set(self._custom_templates.keys())
+            | set(DIAGRAM_PROFILES.keys())
         )

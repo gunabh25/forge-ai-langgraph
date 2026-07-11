@@ -212,6 +212,9 @@ class ForgeState(TypedDict):
     # Solution Architect Reasoning Pipeline
     requirements_json: Optional[Dict[str, Any]]
     architecture_json: Optional[Dict[str, Any]]
+    # Pre-built Business Architecture Summary produced by ContextBuilder.
+    # Surfaced into state so downstream agents can reuse it without rebuilding.
+    architecture_summary: Optional[str]
     selected_uml_diagrams: Optional[List[Dict[str, str]]]
     plantuml_diagrams: Annotated[Optional[Dict[str, str]], merge_dict]
     plantuml_validation_report: Annotated[Optional[Dict[str, Any]], merge_dict]
