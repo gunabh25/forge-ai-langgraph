@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="https://via.placeholder.com/150x150.png?text=ForgeAI+Logo" alt="ForgeAI Logo" width="150" height="150" />
   <h1>ForgeAI</h1>
   <p><strong>Enterprise-Grade Dynamic Workflow Orchestrator & Autonomous Software Engineering Platform</strong></p>
 
