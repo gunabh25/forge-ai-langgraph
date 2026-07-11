@@ -15,6 +15,11 @@ import os
 from pathlib import Path
 from typing import Callable
 
+from agents.uml_generator.diagram_constraints import (
+    format_constraints_block,
+    get_constraints,
+)
+
 
 # ---------------------------------------------------------------------------
 # Type alias for template functions
@@ -200,7 +205,12 @@ class PromptBuilder:
         """
         self._custom_templates[diagram_type.lower()] = template_fn
 
-    def build_prompt(self, diagram_type: str, architecture_summary: str) -> tuple[str, str]:
+    def build_prompt(
+        self,
+        diagram_type: str,
+        architecture_summary: str,
+        constraints: dict[str, str | int | bool] | None = None,
+    ) -> tuple[str, str]:
         """Build the system and user prompt for the given diagram type.
 
         Args:
@@ -208,6 +218,11 @@ class PromptBuilder:
                           (e.g. ``"component"``, ``"sequence"``).
             architecture_summary: A pre-built textual summary of the
                                   architecture (produced by ``ContextBuilder``).
+            constraints: Optional per-diagram constraints.  When ``None``
+                         (the default), constraints are auto-resolved from
+                         ``diagram_constraints.DIAGRAM_CONSTRAINTS``.
+                         Pass an explicit dict to override, or ``{}`` to
+                         suppress constraints entirely.
 
         Returns:
             A ``(system_prompt, user_prompt)`` tuple ready to be passed to
@@ -216,6 +231,11 @@ class PromptBuilder:
             architecture summary.
         """
         key = diagram_type.lower()
+
+        # -- resolve constraints -----------------------------------------------
+        if constraints is None:
+            constraints = get_constraints(key)
+        constraints_block = format_constraints_block(constraints)
 
         # 1. Try file-based template first (highest priority).
         user_prompt = _load_template_from_file(key, architecture_summary)
@@ -239,6 +259,10 @@ class PromptBuilder:
                 f"architecture summary below.\n\n"
                 f"Architecture Summary:\n{architecture_summary}"
             )
+
+        # -- inject constraints into the user prompt ---------------------------
+        if constraints_block:
+            user_prompt = f"{user_prompt}\n\n{constraints_block}"
 
         system_prompt = (
             f"You are a specialized UML Generator Agent.\n"
