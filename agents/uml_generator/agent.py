@@ -118,7 +118,26 @@ class UMLGeneratorAgent(BaseAgent):
                 HumanMessage(content=full_user_prompt),
             ]
             
-            logger.info(f"Generating {diagram_type}...")
+            # --- Pre-LLM observability logging ---
+            prompt_length = len(system_prompt) + len(full_user_prompt)
+            estimated_token_count = prompt_length // 4  # rough approximation: ~4 chars per token
+
+            logger.info(
+                "LLM invocation starting | "
+                "diagram_type=%s | "
+                "architecture_summary_len=%d | "
+                "system_prompt=%s | "
+                "user_prompt=%s | "
+                "prompt_length=%d | "
+                "estimated_token_count=%d",
+                diagram_type,
+                len(architecture_summary),
+                system_prompt,
+                full_user_prompt,
+                prompt_length,
+                estimated_token_count,
+            )
+
             llm_response = self.llm.invoke(messages)
             
             generation_time_ms = int((time.time() - start_time) * 1000)
