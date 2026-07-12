@@ -340,18 +340,23 @@ class UMLGeneratorAgent(BaseAgent):
     ) -> str:
         """Produce a structured diagram plan (JSON) before PlantUML generation."""
         planning_prompt = (
-            f"You are preparing to generate a **{diagram_type} Diagram** for "
-            f"the following system.\n\n"
+            f"You are a Principal Software Architect preparing a **{diagram_type} Diagram**.\n\n"
             f"## Business Architecture Summary\n\n"
             f"{architecture_summary}\n\n"
             f"## User Request\n\n"
             f"{user_request}\n\n"
             f"## Task\n\n"
-            f"Before generating any PlantUML, produce a concise structured plan "
-            f"identifying ONLY the elements to include. Use ONLY what is "
-            f"explicitly present in the architecture summary — do NOT "
-            f"invent any services, gateways, or infrastructure.\n\n"
-            f"Respond with ONLY valid JSON in exactly this structure — no markdown fences, no commentary:\n"
+            f"Produce a concise, structured architectural plan for this diagram.\n"
+            f"Extract BUSINESS CAPABILITIES, not implementation services.\n\n"
+            f"## Rules\n"
+            f"1. **Business Capabilities Only**: `major_components` must be capabilities (e.g. 'Claim Submission', 'Inventory Management'). Do NOT use implementation suffixes (Service, Backend, API, Controller, Microservice, Manager, Provider).\n"
+            f"2. **Never Invent Infrastructure**: Do not invent API Gateways, Auth Services, Message Queues, Load Balancers, Caches, or Repositories unless explicitly required.\n"
+            f"3. **Maximum Components**: Max 8 `major_components`. Merge related capabilities if there are more (e.g. 'Document Upload' + 'Document Storage' -> 'Document Management').\n"
+            f"4. **Business Flow**: `business_flow` must be an array of short steps (3-6 words each, e.g. ['Submit Claim', 'Verify Documents', 'Process Payment']). NO paragraphs.\n"
+            f"5. **External Systems**: Only systems outside the product boundary.\n"
+            f"6. **Actors**: Only human actors or external initiating systems.\n"
+            f"7. **Generalization**: Make no domain-specific assumptions.\n\n"
+            f"Respond with ONLY valid JSON in exactly this structure — no markdown fences, no commentary. Target under 500 characters whenever possible:\n"
             f"{{\n"
             f'  "actors": [],\n'
             f'  "external_systems": [],\n'
@@ -378,8 +383,11 @@ class UMLGeneratorAgent(BaseAgent):
             response = self.llm.invoke(messages)
             raw = str(response.content).replace("```json", "").replace("```", "").strip()
             
+            # Normalize plan
+            normalized_raw = self._normalize_plan(diagram_type, raw, user_request)
+
             # Validate JSON
-            plan_data = json.loads(raw)
+            plan_data = json.loads(normalized_raw)
             # Re-serialize to guarantee clean formatting
             plan_formatted = json.dumps(plan_data, indent=2)
             
@@ -396,6 +404,44 @@ class UMLGeneratorAgent(BaseAgent):
                 exc,
             )
             return ""
+
+    def _normalize_plan(self, diagram_type: str, raw_plan: str, user_request: str) -> str:
+        """Normalize the extracted plan to strictly contain business capabilities."""
+        if not raw_plan:
+            return raw_plan
+
+        normalization_prompt = (
+            f"You are a Principal Software Architect refining a **{diagram_type} Diagram** plan.\n\n"
+            f"## User Request\n\n"
+            f"{user_request}\n\n"
+            f"## Raw Plan\n\n"
+            f"{raw_plan}\n\n"
+            f"## Normalization Task\n\n"
+            f"Review and normalize the JSON plan above according to these exact rules. "
+            f"You must return ONLY the normalized JSON with the exact same keys.\n\n"
+            f"**1. Business Capability Normalization**: Every component must map directly to an explicitly stated business capability or an unavoidable one. Never invent intermediate architectural layers (e.g., Workflow Orchestration, Portal Backend). Prefer the most business-oriented capability (e.g. Document Upload + Document Storage -> Document Management).\n"
+            f"**2. Duplicate Detection**: Detect and merge semantically equivalent capabilities (e.g. Claim Assessment + Claim Evaluation -> Claim Evaluation). Never allow duplicate concepts.\n"
+            f"**3. Business Capability Priority**: Prefer nouns representing business functions (e.g. Claim Submission, Fraud Detection). Avoid technical abstractions.\n"
+            f"**4. External System Priority**: If a capability already exists as an external system (e.g. Payment Gateway), do not create an internal abstraction (e.g. Payment Integration).\n"
+            f"**5. Component Count Optimization**: Target 5-7 business components. Absolute maximum 8.\n"
+            f"**6. Final Validation**: Verify that no orchestration layers or invented infrastructure exist. Ensure only business capability names remain.\n\n"
+            f"Respond with ONLY valid JSON — no markdown fences, no commentary.\n"
+        )
+
+        messages = [
+            SystemMessage(content=_ARCHITECT_SYSTEM),
+            HumanMessage(content=normalization_prompt),
+        ]
+
+        logger.info("LLM normalization starting | diagram_type=%s", diagram_type)
+        try:
+            response = self.llm.invoke(messages)
+            normalized_raw = str(response.content).replace("```json", "").replace("```", "").strip()
+            return normalized_raw
+        except Exception as exc:
+            logger.warning("Normalization step failed — proceeding with raw plan | error=%s", exc)
+            return raw_plan
+
 
     # -----------------------------------------------------------------------
     # Local syntax validation (no LLM cost)
@@ -549,13 +595,51 @@ class UMLGeneratorAgent(BaseAgent):
     # Shared generation helper
     # -----------------------------------------------------------------------
 
+    # def _generate(self, system_prompt: str, user_prompt: str) -> str:
+    #     """Invoke the LLM and return clean PlantUML content."""
+    #     messages = [
+    #         SystemMessage(content=system_prompt),
+    #         HumanMessage(content=user_prompt),
+    #     ]
+    #     response = self.llm.invoke(messages)
+    #     return (
+    #         str(response.content)
+    #         .replace("```plantuml", "")
+    #         .replace("```puml", "")
+    #         .replace("```", "")
+    #         .strip()
+    #     )
+
     def _generate(self, system_prompt: str, user_prompt: str) -> str:
         """Invoke the LLM and return clean PlantUML content."""
+
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ]
+
+        # ================= DEBUG =================
+        print("\n" + "=" * 100)
+        print("SYSTEM PROMPT")
+        print("=" * 100)
+        print(system_prompt)
+
+        print("\n" + "=" * 100)
+        print("USER PROMPT")
+        print("=" * 100)
+        print(user_prompt)
+        # =========================================
+
         response = self.llm.invoke(messages)
+
+        # ================= DEBUG =================
+        print("\n" + "=" * 100)
+        print("RAW LLM OUTPUT")
+        print("=" * 100)
+        print(response.content)
+        print("=" * 100 + "\n")
+        # =========================================
+
         return (
             str(response.content)
             .replace("```plantuml", "")
