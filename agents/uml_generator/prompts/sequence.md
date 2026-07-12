@@ -23,6 +23,13 @@ Generate a **Sequence Diagram** that captures the **primary business flow** of t
 - Synchronous calls (`->`) and responses (`-->`) with descriptive labels.
 - Asynchronous messages (`->>`) where the architecture explicitly uses event-driven communication.
 
+### Traceability (CRITICAL)
+
+- Every participant must be directly traceable to the approved Diagram Plan.
+- Allowed participants: planned business capabilities, approved aliases, actors, external systems, and planned data stores.
+- Do NOT invent: new services, business domains, middleware, orchestration layers, backend services, or generic processing components.
+- If a participant is not present in the planning output, do not generate it.
+
 ### Structural Constructs — Use Sparingly
 
 - **`loop`**: Use ONLY when the business flow genuinely iterates.

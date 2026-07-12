@@ -90,12 +90,12 @@ class UMLRepairAgent(BaseAgent):
         logger.info("UML Repair starting execution for %d failed diagrams...", len(failed_diagrams))
 
         system_prompt = """You are a highly specialized UML Repair Agent.
-Your task is to fix syntax errors in PlantUML code based on compiler output.
+Your task is to fix PlantUML code based on validation feedback. This feedback may be a syntax error from the compiler OR a semantic failure (e.g. Architecture or Business Flow failure).
 
 Rules:
-1. Fix ONLY the syntax errors identified by the compiler.
-2. Do NOT redesign the architecture or change the semantics.
-3. Do NOT rename components unless strictly necessary to fix a syntax error (e.g., escaping spaces).
+1. Address the specific errors identified in the validation feedback.
+2. If it is a compiler syntax error, fix ONLY the syntax and preserve semantics. Do not redesign the architecture.
+3. If it is a semantic error (e.g., non-traceable participants, broken flow), adjust the diagram to satisfy the feedback. Remove or replace hallucinated components to match the approved plan, but minimize other changes.
 4. Do NOT include markdown code fences (like ```plantuml) in your output, just return the raw PlantUML code.
 5. You must output exactly the corrected PlantUML file content and absolutely nothing else.
 """
@@ -112,17 +112,17 @@ Rules:
             compiler_stderr = failed_diag.get("stderr", "")
             existing_state = diagram_states.get(diag_name, {})
 
-            user_prompt = f"""The following PlantUML failed compilation.
+            user_prompt = f"""The following PlantUML failed validation.
 
 Diagram Name: {diag_name}
 
-Compiler error:
+Validation Feedback / Compiler Error:
 {compiler_stderr}
 
 Original PlantUML:
 {original_puml}
 
-Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code."""
+Fix the diagram to resolve the feedback. Return ONLY the corrected PlantUML code."""
 
             messages = [
                 SystemMessage(content=system_prompt),

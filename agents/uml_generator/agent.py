@@ -235,48 +235,86 @@ class UMLGeneratorAgent(BaseAgent):
             metrics.generation_calls += 1
             diagram_llm_calls += 1
 
-            # -- Step 3: Local syntax validation (no LLM) ------------------------
-            syntax_valid = self._validate_syntax_locally(clean_content, diagram_type)
+            # -- Multi-Layer Validation Pipeline (Phase 5) -----------------------
+            from agents.uml_generator.validators import (
+                GrammarValidator, ArchitectureValidator, BusinessFlowValidator, ReviewValidator
+            )
+            
+            grammar_val = GrammarValidator()
+            arch_val = ArchitectureValidator()
+            flow_val = BusinessFlowValidator(self.llm)
+            review_val = ReviewValidator(self.llm)
 
-            if syntax_valid:
-                # -- Step 4: Review (only when syntax is valid) ------------------
-                if settings.ENABLE_UML_REVIEW:
-                    constraints = get_constraints(diagram_type)
-                    review = self._review_diagram(diagram_type, clean_content, constraints)
-                    metrics.review_calls += 1
-                    diagram_llm_calls += 1
+            pipeline_feedback = None
+            uml_validation_metrics = {}
+            syntax_valid = False
 
-                    if not review.get("acceptable", True):
-                        issues_text = "; ".join(review.get("issues", []))
-                        logger.warning(
-                            "Diagram review failed (Score %s/%s) — regenerating once | "
-                            "diagram_type=%s | issues=%s",
-                            review.get("score", 0),
-                            settings.MIN_DIAGRAM_SCORE,
-                            diagram_type,
-                            issues_text,
-                        )
-                        retry_prompt = (
-                            f"{full_user_prompt}\n\n"
-                            f"## Quality Review Feedback\n\n"
-                            f"A previous attempt scored {review.get('score', 0)}/10 and was rejected. "
-                            f"Fix all of the following issues in this regeneration:\n"
-                            + "\n".join(f"- {issue}" for issue in review.get("issues", []))
-                        )
-                        clean_content = self._generate(system_prompt, retry_prompt)
-                        metrics.generation_calls += 1
-                        diagram_llm_calls += 1
-                        logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
-                    else:
-                        logger.info("Diagram review passed (Score %s) | diagram_type=%s", review.get("score", 10), diagram_type)
-                else:
-                    logger.info("Diagram review skipped (ENABLE_UML_REVIEW=false) | diagram_type=%s", diagram_type)
+            # Layer 1: Grammar Validator (Local, No LLM)
+            grammar_res = grammar_val.validate(diagram_type, clean_content)
+            uml_validation_metrics["grammar_score"] = grammar_res["score"]
+            logger.info("Grammar Validator | %s", "PASS" if grammar_res["passed"] else "FAIL")
+            
+            if not grammar_res["passed"]:
+                pipeline_feedback = grammar_res
+                syntax_valid = False
             else:
-                logger.warning(
-                    "Diagram has syntax errors — skipping review, sending to Repair Agent | "
-                    "diagram_type=%s",
-                    diagram_type,
-                )
+                syntax_valid = True
+                
+                # Layer 2: Architecture Validator
+                arch_res = arch_val.validate(diagram_type, diagram_plan, clean_content)
+                uml_validation_metrics["architecture_score"] = arch_res["score"]
+                logger.info("Architecture Validator | %s", "PASS" if arch_res["passed"] else "FAIL")
+                
+                if not arch_res["passed"]:
+                    pipeline_feedback = arch_res
+                else:
+                    # Layer 3: Business Flow Validator
+                    flow_res = flow_val.validate(diagram_type, diagram_plan, clean_content)
+                    metrics.review_calls += 1  # Using review_calls bucket for validation LLM
+                    diagram_llm_calls += 1
+                    uml_validation_metrics["business_flow_score"] = flow_res["score"]
+                    logger.info("Business Flow Validator | %s", "PASS" if flow_res["passed"] else "FAIL")
+                    
+                    if not flow_res["passed"]:
+                        pipeline_feedback = flow_res
+                    else:
+                        # Layer 4: Review Agent
+                        if settings.ENABLE_UML_REVIEW:
+                            constraints = get_constraints(diagram_type)
+                            review_res = review_val.validate(diagram_type, clean_content, constraints, settings.MIN_DIAGRAM_SCORE)
+                            metrics.review_calls += 1
+                            diagram_llm_calls += 1
+                            uml_validation_metrics["review_score"] = review_res["score"]
+                            logger.info("Review Agent | %s (Score %s)", "PASS" if review_res["passed"] else "FAIL", review_res["score"])
+                            
+                            if not review_res["passed"]:
+                                issues_text = "; ".join(review_res.get("errors", []))
+                                logger.warning(
+                                    "Diagram review failed (Score %s) — regenerating once | "
+                                    "diagram_type=%s | issues=%s",
+                                    review_res.get("score", 0),
+                                    diagram_type,
+                                    issues_text,
+                                )
+                                retry_prompt = (
+                                    f"{full_user_prompt}\n\n"
+                                    f"## Quality Review Feedback\n\n"
+                                    f"A previous attempt scored {review_res.get('score', 0)}/100 and was rejected. "
+                                    f"Fix all of the following issues in this regeneration:\n"
+                                    + "\n".join(f"- {issue}" for issue in review_res.get("errors", []))
+                                )
+                                clean_content = self._generate(system_prompt, retry_prompt)
+                                metrics.generation_calls += 1
+                                diagram_llm_calls += 1
+                                logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
+                                
+                                # Check grammar one last time so we don't pass fundamentally broken output
+                                grammar_res2 = grammar_val.validate(diagram_type, clean_content)
+                                if not grammar_res2["passed"]:
+                                    pipeline_feedback = grammar_res2
+                                    syntax_valid = False
+                        else:
+                            logger.info("Review Agent skipped (ENABLE_UML_REVIEW=false) | diagram_type=%s", diagram_type)
 
             generation_time_ms = int((time.time() - start_time) * 1000)
 
@@ -303,6 +341,10 @@ class UMLGeneratorAgent(BaseAgent):
                 "llm_calls": existing_state.get("llm_calls", 0) + diagram_llm_calls,
                 "syntax_valid_at_generation": syntax_valid,
             }
+            diagram_states[diag_id]["pipeline_feedback"] = pipeline_feedback
+            diagram_states[diag_id]["uml_validation_metrics"] = uml_validation_metrics
+            # Keep latest metrics for global metadata
+            state_uml_validation_metrics = uml_validation_metrics
 
         # -- Emit execution metrics -------------------------------------------
         self._log_metrics(metrics, len(diagrams_to_process))
@@ -319,6 +361,10 @@ class UMLGeneratorAgent(BaseAgent):
             "uml_llm_metrics": metrics.as_dict(),
             "last_updated": generate_timestamp(),
         }
+        
+        # Add uml validation metrics to global metadata
+        if 'state_uml_validation_metrics' in locals() and state_uml_validation_metrics:
+            updated_metadata["uml_validation_metrics"] = state_uml_validation_metrics
 
         return {
             "plantuml_diagrams": diagrams,

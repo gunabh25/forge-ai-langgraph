@@ -173,6 +173,31 @@ class UMLValidatorAgent(BaseAgent):
 
             start_time = time.time()
             check_res = self._check_syntax(puml_content)
+            
+            # -- Multi-Layer Pipeline Feedback Injection (Phase 5) --
+            pipeline_feedback = existing_state.get("pipeline_feedback")
+            if pipeline_feedback and not pipeline_feedback.get("passed", True):
+                validator_name = pipeline_feedback.get("validator", "Validation Pipeline")
+                feedback_errors = pipeline_feedback.get("errors", [])
+                logger.info("Overriding compiler result due to upstream %s failure", validator_name)
+                
+                check_res["valid"] = False
+                check_res["error_type"] = "semantic_error"
+                if check_res["return_code"] == 0:
+                    check_res["return_code"] = 1
+                
+                formatted_feedback = (
+                    f"[{validator_name} Failed]\n"
+                    f"Score: {pipeline_feedback.get('score', 0)}\n"
+                    f"Errors:\n" + "\n".join(f"- {e}" for e in feedback_errors)
+                )
+                
+                if not check_res["stderr"]:
+                    check_res["stderr"] = formatted_feedback
+                else:
+                    check_res["stderr"] = check_res["stderr"] + "\n\n" + formatted_feedback
+            # --------------------------------------------------------
+            
             exec_time = int((time.time() - start_time) * 1000)
 
             diagram_result: Dict[str, Any] = {
