@@ -56,20 +56,29 @@ class UMLRepairAgent(BaseAgent):
             return {}
             
         diagram_results = validation_report.get("diagram_results", [])
+        current_metadata = state.get("metadata", {}) or {}
+        diagram_states = dict(state.get("diagram_execution_states", {}) or {})
         
         if current_diagram_id:
             failed_diagrams = [d for d in diagram_results if not d.get("valid", True) and d.get("diagram", "") == current_diagram_id]
         else:
             failed_diagrams = [d for d in diagram_results if not d.get("valid", True)]
-            
+
+        # Exclude permanently-failed diagrams — they have already hit MAX_REPAIR_ATTEMPTS
+        # and must not consume additional LLM calls.
+        failed_diagrams = [
+            d for d in failed_diagrams
+            if not d.get("permanently_failed", False)
+            and diagram_states.get(d.get("diagram", ""), {}).get("status") != "VALIDATION_FAILED"
+        ]
+
         if not failed_diagrams:
-            logger.info("No failed diagrams found for repair. Exiting repair agent.")
+            logger.info("No repair-eligible diagrams found. Exiting repair agent.")
             return {}
             
         logger.info(f"UML Repair starting execution for {len(failed_diagrams)} failed diagrams...")
         
-        current_metadata = state.get("metadata", {}) or {}
-        diagram_states = dict(state.get("diagram_execution_states", {}) or {})
+        # current_metadata and diagram_states already initialized above
         
         system_prompt = """You are a highly specialized UML Repair Agent.
 Your task is to fix syntax errors in PlantUML code based on compiler output.
@@ -130,14 +139,16 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
             logger.info(f"Successfully applied repair patch for {diag_name}.")
             
             existing_state = diagram_states.get(diag_name, {})
-            # The attempt count is tracked logically per-generation.
+            # Increment repair_attempts so the validator can enforce MAX_REPAIR_ATTEMPTS
+            # on the next validation pass.  attempt tracks generation retries separately.
             diagram_states[diag_name] = {
                 **existing_state,
                 "status": "repaired",
                 "generator_output": clean_content,
                 "llm_calls": existing_state.get("llm_calls", 0) + 1,
                 "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
-                "attempt": existing_state.get("attempt", 0) + 1
+                "attempt": existing_state.get("attempt", 0) + 1,
+                "repair_attempts": existing_state.get("repair_attempts", 0) + 1,
             }
             
         logger.info(f"UML Repair completed {repaired_diagrams_count} repairs.")

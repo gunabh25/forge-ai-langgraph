@@ -158,7 +158,38 @@ class RendererAgent(BaseAgent):
                 diag_start_time = time.time()
                 
                 existing_state = diagram_states.get(diagram_name, {})
-                
+
+                # ----------------------------------------------------------
+                # Skip permanently-failed diagrams.  They were marked
+                # VALIDATION_FAILED by the validator after exhausting all
+                # repair attempts.  We add them to failed_files so the
+                # summary is accurate, but we never attempt to render their
+                # broken content.
+                # ----------------------------------------------------------
+                if existing_state.get("status") == "VALIDATION_FAILED":
+                    logger.warning(
+                        "Skipping render — diagram permanently failed validation | "
+                        "diagram_id=%s | repair_attempts=%d",
+                        diagram_name,
+                        existing_state.get("repair_attempts", 0),
+                    )
+                    render_success = False
+                    failed_files.append({
+                        "diagram": diagram_name,
+                        "status": "failed",
+                        "reason": "Diagram permanently failed PlantUML validation (repair attempts exhausted)",
+                        "stderr": existing_state.get("compiler_error", ""),
+                        "return_code": -1,
+                        "command": "",
+                    })
+                    WorkflowEventManager().publish(EventTypes.RENDERER_COMPLETED, {
+                        "diagram": diagram_name,
+                        "status": "failed",
+                        "reason": "VALIDATION_FAILED — skipped render",
+                    })
+                    continue
+
+
                 if diagram_name.lower() not in selected_diagrams and diagram_name in rendered_svg_references:
                     logger.info(f"Reusing existing SVG for {diagram_name}...")
                     svg_path = rendered_svg_references[diagram_name]

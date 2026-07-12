@@ -107,6 +107,7 @@ class DiagramExecutionState(TypedDict, total=False):
     execution_time_ms: int
     llm_calls: int
     syntax_valid_at_generation: Optional[bool]
+    repair_attempts: int  # number of post-generation repair cycles applied (ceiling: MAX_REPAIR_ATTEMPTS)
 
 def merge_diagram_states(left: Dict[str, DiagramExecutionState], right: Dict[str, DiagramExecutionState]) -> Dict[str, DiagramExecutionState]:
     """Reducer function to merge DiagramExecutionState maps in LangGraph."""

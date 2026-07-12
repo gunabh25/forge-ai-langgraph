@@ -14,6 +14,14 @@ from core.utils import generate_timestamp
 
 logger = get_logger("agents.uml_validator")
 
+# ---------------------------------------------------------------------------
+# Hard ceiling for repair cycles per diagram.
+# After MAX_REPAIR_ATTEMPTS the diagram is permanently marked VALIDATION_FAILED
+# and the workflow continues with all remaining successful diagrams.
+# ---------------------------------------------------------------------------
+MAX_REPAIR_ATTEMPTS = 2
+
+
 class UMLValidatorAgent(BaseAgent):
     """UML Validator agent responsible for checking PlantUML diagrams via compiler."""
     
@@ -116,10 +124,38 @@ class UMLValidatorAgent(BaseAgent):
         diagram_results = []
         passed_count = 0
         failed_count = 0
+        permanently_failed_count = 0
         
         import time
         
         for diagram_name, puml_content in diagrams_to_process.items():
+            existing_state = diagram_states.get(diagram_name, {})
+
+            # ------------------------------------------------------------------
+            # Guard: never re-validate a diagram already permanently failed.
+            # This can happen in sequential mode if the validator is re-entered.
+            # ------------------------------------------------------------------
+            if existing_state.get("status") == "VALIDATION_FAILED":
+                logger.warning(
+                    "Skipping validation — diagram already permanently failed | "
+                    "diagram_id=%s | repair_attempts=%d | final_status=VALIDATION_FAILED",
+                    diagram_name,
+                    existing_state.get("repair_attempts", 0),
+                )
+                permanently_failed_count += 1
+                failed_count += 1
+                diagram_results.append({
+                    "diagram": diagram_name,
+                    "valid": False,
+                    "return_code": -1,
+                    "stdout": "",
+                    "stderr": "Diagram permanently failed validation — repair attempts exhausted.",
+                    "error_type": "permanently_failed",
+                    "errors": ["Repair attempts exhausted. Diagram marked VALIDATION_FAILED."],
+                    "permanently_failed": True,
+                })
+                continue
+
             start_time = time.time()
             check_res = self._check_syntax(puml_content)
             exec_time = int((time.time() - start_time) * 1000)
@@ -130,68 +166,124 @@ class UMLValidatorAgent(BaseAgent):
                 "return_code": check_res["return_code"],
                 "stdout": check_res["stdout"],
                 "stderr": check_res["stderr"],
-                "error_type": check_res["error_type"]
+                "error_type": check_res["error_type"],
+                "permanently_failed": False,
             }
             
             errors = []
             if not check_res["valid"]:
                 failed_count += 1
                 errors.append(check_res["stderr"] or "Unknown syntax error.")
+
+                # Read per-diagram repair_attempts from DiagramExecutionState.
+                # This is reliable in both sequential and parallel (fan-out) modes
+                # because each diagram branch carries its own state slice.
+                repair_attempts = existing_state.get("repair_attempts", 0)
+
+                if repair_attempts >= MAX_REPAIR_ATTEMPTS:
+                    # --------------------------------------------------------
+                    # Permanently fail this diagram — ceiling reached.
+                    # --------------------------------------------------------
+                    permanently_failed_count += 1
+                    diagram_result["permanently_failed"] = True
+
+                    logger.warning(
+                        "Diagram permanently failed validation | "
+                        "diagram_id=%s | repair_attempts=%d/%d | final_status=VALIDATION_FAILED",
+                        diagram_name,
+                        repair_attempts,
+                        MAX_REPAIR_ATTEMPTS,
+                    )
+
+                    from typing import cast
+                    diagram_states[diagram_name] = cast(DiagramExecutionState, {
+                        **existing_state,
+                        "status": "VALIDATION_FAILED",
+                        "compiler_output": check_res["stdout"],
+                        "compiler_error": check_res["stderr"],
+                        "repair_attempts": repair_attempts,
+                        "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
+                    })
+                else:
+                    # --------------------------------------------------------
+                    # Under the ceiling — standard failed_validation status.
+                    # --------------------------------------------------------
+                    from typing import cast
+                    diagram_states[diagram_name] = cast(DiagramExecutionState, {
+                        **existing_state,
+                        "compiler_output": check_res["stdout"],
+                        "compiler_error": check_res["stderr"],
+                        "status": "failed_validation",
+                        "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
+                    })
+
+                    logger.info(
+                        "Diagram failed validation — repair eligible | "
+                        "diagram_id=%s | repair_attempts=%d/%d",
+                        diagram_name,
+                        repair_attempts,
+                        MAX_REPAIR_ATTEMPTS,
+                    )
             else:
                 passed_count += 1
+                from typing import cast
+                diagram_states[diagram_name] = cast(DiagramExecutionState, {
+                    **existing_state,
+                    "compiler_output": check_res["stdout"],
+                    "compiler_error": check_res["stderr"],
+                    "status": "validated",
+                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
+                })
                 
             diagram_result["errors"] = errors
             diagram_results.append(diagram_result)
-            
-            from typing import cast
-            
-            # Update DiagramExecutionState
-            existing_state = diagram_states.get(diagram_name, {})
-            new_diag_state = cast(DiagramExecutionState, {
-                **existing_state,
-                "compiler_output": check_res["stdout"],
-                "compiler_error": check_res["stderr"],
-                "status": "validated" if check_res["valid"] else "failed_validation",
-                "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time
-            })
-            diagram_states[diagram_name] = new_diag_state
 
+        # ------------------------------------------------------------------
+        # Determine routing outcome.
+        #
+        # retry_requested = True  →  route to UML Repair Agent
+        # retry_requested = False →  route to Renderer (continue)
+        #
+        # A diagram is repair-eligible only when:
+        #   - it failed validation, AND
+        #   - it has NOT yet hit the MAX_REPAIR_ATTEMPTS ceiling.
+        # ------------------------------------------------------------------
+        repairable_diagrams = [
+            d for d in diagram_results
+            if not d.get("valid", True) and not d.get("permanently_failed", False)
+        ]
+        retry_requested = len(repairable_diagrams) > 0
+
+        # Detect whether any diagram has been permanently failed in this or
+        # any prior validator invocation (covers sequential multi-pass).
+        has_permanent_failures = permanently_failed_count > 0 or any(
+            s.get("status") == "VALIDATION_FAILED"
+            for s in diagram_states.values()
+        )
+
+        logger.info(
+            "UML Validation completed | "
+            "passed=%d/%d | failed=%d | permanently_failed=%d | retry_requested=%s",
+            passed_count,
+            len(diagrams_to_process),
+            failed_count - permanently_failed_count,
+            permanently_failed_count,
+            retry_requested,
+        )
+        
         validation_result = {
             "validated": len(diagrams_to_process),
             "passed": passed_count,
             "failed": failed_count,
+            "permanently_failed": permanently_failed_count,
             "compiler": "PlantUML",
             "diagram_results": diagram_results,
-            "report": f"Compiled {len(diagrams_to_process)} diagrams. Passed: {passed_count}, Failed: {failed_count}."
+            "report": (
+                f"Compiled {len(diagrams_to_process)} diagrams. "
+                f"Passed: {passed_count}, Failed: {failed_count - permanently_failed_count}, "
+                f"Permanently Failed: {permanently_failed_count}."
+            ),
         }
-        
-        # Determine overall workflow routing
-        max_retries = 3
-        # Use attempt from DiagramExecutionState
-        retry_requested = False
-        is_permanently_failed = False
-        
-        if current_diagram_id:
-            attempt = diagram_states.get(current_diagram_id, {}).get("attempt", 1)
-            is_permanently_failed = attempt >= max_retries
-            retry_requested = (failed_count > 0) and not is_permanently_failed
-            
-            # Extensive logging per diagram as requested
-            logger.info(f"{current_diagram_id}")
-            if failed_count > 0:
-                logger.info(f"Attempt {min(attempt, max_retries)}/{max_retries}")
-                
-            if is_permanently_failed and failed_count > 0:
-                logger.warning(f"Maximum repair attempts reached.")
-                logger.warning(f"Marking diagram as permanently failed.")
-                logger.warning(f"Skipping further repairs.")
-        else:
-            repair_attempts = current_metadata.get("repair_attempts", 0)
-            is_permanently_failed = repair_attempts >= max_retries
-            retry_requested = (failed_count > 0) and not is_permanently_failed
-            if failed_count > 0 and is_permanently_failed:
-                logger.warning(f"Max repair attempts ({max_retries}) reached. Marking diagrams as permanently failed and continuing.")
-        logger.info(f"UML Validation completed. Passed: {passed_count}/{len(diagrams_to_process)}. Retry Requested: {retry_requested}")
         
         new_message = AIMessage(
             content=json.dumps(validation_result, indent=2),
@@ -203,7 +295,8 @@ class UMLValidatorAgent(BaseAgent):
             "uml_validation_completed": True,
             "uml_is_valid": (failed_count == 0),
             "retry_requested": retry_requested,
-            "last_updated": generate_timestamp()
+            "uml_has_permanent_failures": has_permanent_failures,
+            "last_updated": generate_timestamp(),
         }
         
         state_updates: Dict[str, Any] = {
@@ -211,28 +304,32 @@ class UMLValidatorAgent(BaseAgent):
             "diagram_execution_states": diagram_states,
             "messages": [new_message],
             "metadata": updated_metadata,
-            "current_stage": "uml_validator"
+            "current_stage": "uml_validator",
         }
         
-        # Legacy sequential mode repair targeting
+        # Legacy sequential mode: narrow selected_uml_diagrams to only those
+        # diagrams that are repair-eligible (failed but not permanently failed).
         if retry_requested and not current_diagram_id:
-            failed_diagram_names = [
-                str(d.get("diagram", "")).lower() 
-                for d in diagram_results 
-                if not d.get("valid", True)
-            ]
+            repairable_names = {
+                str(d.get("diagram", "")).lower()
+                for d in repairable_diagrams
+            }
             
-            if failed_diagram_names:
+            if repairable_names:
                 current_selected: List[Dict[str, str]] = state.get("selected_uml_diagrams") or []
                 new_selected = [
-                    d for d in current_selected 
-                    if d.get("diagram", "").lower() in failed_diagram_names
+                    d for d in current_selected
+                    if d.get("diagram", "").lower() in repairable_names
                 ]
-                
-                logger.info(f"Targeting {len(new_selected)} failed diagrams for repair: {failed_diagram_names}")
+                logger.info(
+                    "Targeting %d repair-eligible diagrams | diagrams=%s",
+                    len(new_selected),
+                    list(repairable_names),
+                )
                 state_updates["selected_uml_diagrams"] = new_selected
         
         return state_updates
+
 
 # Automatically register the agent
 AgentRegistry().register(UMLValidatorAgent())
