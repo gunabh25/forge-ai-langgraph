@@ -187,6 +187,7 @@ class UMLGeneratorAgent(BaseAgent):
 
         metrics = _Metrics()
         state_uml_validation_metrics = {}
+        state_traceability_metrics = {}
 
         for diagram_info in diagrams_to_process:
             diagram_type = diagram_info.get("diagram", diagram_info.get("type", "unknown"))
@@ -294,6 +295,8 @@ class UMLGeneratorAgent(BaseAgent):
                     # Layer 2: Architecture Validator
                     arch_res = arch_val.validate(diagram_type, diagram_plan, clean_content)
                     uml_validation_metrics["architecture_score"] = arch_res["score"]
+                    if "traceability_metrics" in arch_res:
+                        state_traceability_metrics = arch_res["traceability_metrics"]
                     logger.info("Architecture Validator | %s", "PASS" if arch_res["passed"] else "FAIL")
                     
                     if not arch_res["passed"]:
@@ -429,6 +432,8 @@ class UMLGeneratorAgent(BaseAgent):
         # Add uml validation metrics to global metadata
         if state_uml_validation_metrics:
             updated_metadata["uml_validation_metrics"] = state_uml_validation_metrics
+        if state_traceability_metrics:
+            updated_metadata["traceability_metrics"] = state_traceability_metrics
 
         return {
             "plantuml_diagrams": diagrams,

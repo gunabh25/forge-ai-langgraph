@@ -108,7 +108,8 @@ class ArchitectureValidator:
             "passed": val_result.is_traceable,
             "score": val_result.score,
             "errors": errors,
-            "warnings": []
+            "warnings": [],
+            "traceability_metrics": getattr(val_result, "traceability_metrics", {})
         }
 
 class BusinessFlowValidator:

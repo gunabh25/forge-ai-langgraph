@@ -1,0 +1,75 @@
+{
+  "validation": {
+    "a935feef4fd9431cfc755bbca6d5ea1a": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 18,
+        "errors": [
+          "Non-traceable (invented) participants found: PaymentRouting, CustomerSelfService, ClaimAdjudication, FraudDetection, ClaimManagement, DocumentManagement, ClaimsManager, PolicyValidation, PaymentGateway"
+        ],
+        "warnings": []
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 18
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\nactor \"Claims Manager\" as ClaimsManager\n\n[Customer Self-Service] as CustomerSelfService <<service>>\n[Claim Management] as ClaimManagement <<service>>\n[Document Management] as DocumentManagement <<service>>\n[Policy Validation] as PolicyValidation <<service>>\n[Fraud Detection] as FraudDetection <<service>>\n[Claim Adjudication] as ClaimAdjudication <<service>>\n[Payment Routing] as PaymentRouting <<service>>\n\n[Payment Gateway] as PaymentGateway <<external>>\n\nCustomer --> CustomerSelfService : \"Submit Claim, Track Status\"\nCustomerSelfService --> DocumentManagement : \"Upload Documents\"\nCustomerSelfService --> ClaimManagement : \"Submits Claim, Queries Status\"\n\nClaimsManager --> ClaimManagement : \"Reviews Flagged Claims\"\n\nClaimManagement --> PolicyValidation : \"Validates Policy Eligibility\"\nClaimManagement --> FraudDetection : \"Detects Potential Fraud\"\nClaimManagement --> ClaimAdjudication : \"Adjudicates Claim\"\nClaimManagement --> PaymentRouting : \"Initiates Payment\"\n\nPaymentRouting --> PaymentGateway : \"Routes Payment\"\n@enduml"
+    },
+    "4cbf317f9a720f10e0a635795c447a59": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 50,
+        "errors": [
+          "Non-traceable (invented) participants found: ClaimSubmission, ClaimProcessing, FraudDetection, DocumentManagement, PolicyValidation, PaymentGateway"
+        ],
+        "warnings": []
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 50
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\nparticipant \"Claim Submission\" as ClaimSubmission\nparticipant \"Document Management\" as DocumentManagement\nparticipant \"Policy Validation\" as PolicyValidation\nparticipant \"Fraud Detection\" as FraudDetection\nparticipant \"Claim Processing\" as ClaimProcessing\nexternal_system \"Payment Gateway\" as PaymentGateway\n\nCustomer -> ClaimSubmission : Submit Claim & Documents\nactivate ClaimSubmission\nClaimSubmission -> DocumentManagement : Store Claim Documents\nactivate DocumentManagement\nDocumentManagement --> ClaimSubmission : Documents Stored\ndeactivate DocumentManagement\nClaimSubmission -> PolicyValidation : Request Policy Validation\nactivate PolicyValidation\nPolicyValidation -> FraudDetection : Request Fraud Check\nactivate FraudDetection\nFraudDetection --> PolicyValidation : Fraud Check Result\ndeactivate FraudDetection\nPolicyValidation --> ClaimSubmission : Policy Validation Result\ndeactivate PolicyValidation\nClaimSubmission -> ClaimProcessing : Submit Validated Claim\ndeactivate ClaimSubmission\nactivate ClaimProcessing\nClaimProcessing -> ClaimProcessing : Evaluate & Calculate Settlement\nClaimProcessing -> PaymentGateway : Initiate Payment Transfer\nactivate PaymentGateway\nPaymentGateway --> ClaimProcessing : Payment Confirmation\ndeactivate PaymentGateway\nClaimProcessing --> Customer : Notify Claim Settlement\ndeactivate ClaimProcessing\n@enduml"
+    },
+    "b2dc9fd59476ad14526e840a45c95899": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\nactor \"Claims Manager\" as ClaimsManager\n\ncomponent \"Claims Submission\" as ClaimsSubmission\ncomponent \"Document Management\" as DocumentManagement\ncomponent \"Claim Adjudication\" as ClaimAdjudication\ncomponent \"Claims Management System\" as ClaimsManagementSystem\ncomponent \"Payment Routing\" as PaymentRouting\ncomponent \"Claim Status\" as ClaimStatus\ncomponent \"Reporting\" as Reporting\ncomponent \"Payment Gateway\" <<external>> as PaymentGateway\n\nCustomer --> ClaimsSubmission : \"Submits Claim\"\nClaimsSubmission --> DocumentManagement : \"Stores Documents\"\nClaimsSubmission --> ClaimAdjudication : \"Initiates Adjudication\"\n\nClaimAdjudication --> ClaimsManagementSystem : \"Flags for Review\"\nClaimsManager --> ClaimsManagementSystem : \"Manages Claims\"\nClaimsManagementSystem --> ClaimAdjudication : \"Approves/Rejects\"\n\nClaimAdjudication --> PaymentRouting : \"Initiates Payment\"\nPaymentRouting --> PaymentGateway : \"Processes Payment\"\n\nCustomer --> ClaimStatus : \"Checks Status\"\nCustomer --> Reporting : \"Accesses Reports\"\n\nClaimAdjudication --> ClaimStatus : \"Updates Status\"\nClaimAdjudication --> Reporting : \"Provides Data\"\n@enduml"
+    },
+    "49b2d61d388207c82304b2c3f3aea221": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 87,
+        "errors": [
+          "Non-traceable (invented) participants found: Gateway"
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 10,
+          "generated_components": 8,
+          "exact_matches": 7,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 1,
+          "traceability_score": 87
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 87
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\nparticipant \"Customer Portal\" as Portal\nparticipant \"Claims Submission\" as Submission\nparticipant \"Document Management\" as Docs\nparticipant \"Claim Evaluation\" as Evaluation\nparticipant \"Settlement Calculation\" as Settlement\nparticipant \"Payment Routing\" as PaymentRouter\nexternal_system \"Payment Gateway\" as Gateway\n\nCustomer -> Portal : Submit Claim Details\nactivate Portal\nPortal -> Submission : Initiate Claim Processing\nactivate Submission\nPortal -> Docs : Upload Supporting Documents\nactivate Docs\nDocs --> Portal : Documents Stored\ndeactivate Docs\nPortal --> Customer : Claim Submitted Confirmation\ndeactivate Portal\n\nSubmission -> Evaluation : Request Claim Evaluation\nactivate Evaluation\nEvaluation --> Submission : Evaluation Results (Approved)\ndeactivate Evaluation\nSubmission -> Settlement : Request Settlement Calculation\nactivate Settlement\nSettlement --> Submission : Calculated Amount\ndeactivate Settlement\nSubmission -> PaymentRouter : Route Approved Payment\nactivate PaymentRouter\nPaymentRouter -> Gateway : Authorize Payment\nactivate Gateway\nGateway --> PaymentRouter : Payment Confirmation\ndeactivate Gateway\nPaymentRouter --> Submission : Payment Routed\ndeactivate PaymentRouter\nSubmission --> Portal : Claim Processed & Settled\ndeactivate Submission\n@enduml"
+    }
+  },
+  "review": {}
+}
