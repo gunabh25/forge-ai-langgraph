@@ -13,7 +13,7 @@ def estimate_tokens(text: str) -> int:
     if not text:
         return 0
     # Average english word is ~4 chars, ~1.3 tokens per word -> len / 4 is a reasonable approximation
-    return max(1, len(str(text)) // 4)
+    return max(1, len(text) // 4)
 
 def calculate_cost(input_tokens: int, output_tokens: int) -> float:
     """Calculate the estimated cost based on standard token pricing."""

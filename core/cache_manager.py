@@ -32,7 +32,7 @@ class CacheManager:
         """Generates a stable MD5 hash from the concatenated string arguments."""
         hasher = hashlib.md5()
         for arg in args:
-            hasher.update(str(arg).encode('utf-8'))
+            hasher.update(arg.encode('utf-8'))
         return hasher.hexdigest()
 
     def get_validation(self, diagram_plan: str, plantuml_content: str) -> Optional[Dict[str, Any]]:

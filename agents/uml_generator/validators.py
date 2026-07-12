@@ -2,7 +2,7 @@ import os
 import json
 import subprocess
 import tempfile
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 from config.logging import get_logger
@@ -52,7 +52,7 @@ class GrammarValidator:
         
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".puml", delete=False, encoding="utf-8") as tmp:
-                tmp.write(content)
+                tmp.write(fixed_content)
                 tmp_path = tmp.name
                 
             result = subprocess.run(["plantuml", "-syntax", tmp_path], capture_output=True, text=True, timeout=15)
