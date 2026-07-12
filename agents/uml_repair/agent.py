@@ -12,6 +12,7 @@ from core.agent_registry import AgentRegistry
 from app.state import ForgeState
 from config.logging import get_logger
 from core.utils import generate_timestamp
+from core.cost_tracker import record_agent_cost
 
 logger = get_logger("agents.uml_repair")
 
@@ -133,8 +134,17 @@ Fix the diagram to resolve the feedback. Return ONLY the corrected PlantUML code
             start_time = time.time()
             llm_response = self.llm.invoke(messages)
             exec_time = int((time.time() - start_time) * 1000)
-
+            
             response_content = llm_response.content
+            
+            record_agent_cost(
+                state.setdefault("metadata", {}), 
+                self.name, 
+                input_text=system_prompt + user_prompt, 
+                output_text=str(response_content),
+                latency_ms=exec_time,
+                llm_calls=1
+            )
             if isinstance(response_content, list):
                 response_content = "\n".join([str(item) for item in response_content])
             elif not isinstance(response_content, str):

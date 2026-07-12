@@ -15,20 +15,40 @@ _ARCHITECT_SYSTEM = (
     "requested — never adding invented components or services."
 )
 
+import re
+
 class GrammarValidator:
-    """Validates PlantUML syntax only using local plantuml binary."""
+    """Validates PlantUML syntax only using local plantuml binary and auto-fixes deterministic issues."""
+    
+    def _auto_fix(self, content: str) -> str:
+        """Automatically repair trivial formatting and duplicate issues."""
+        content = content.strip()
+        
+        if not content.startswith("@startuml"):
+            content = "@startuml\n" + content
+        if not content.endswith("@enduml"):
+            content = content + "\n@enduml"
+            
+        # Remove empty notes
+        content = re.sub(r'note\s+(?:left|right|top|bottom)(?:.*?)\n\s*end note', '', content, flags=re.MULTILINE)
+        
+        # Remove duplicate participant declarations
+        lines = content.split('\n')
+        seen_participants = set()
+        cleaned_lines = []
+        for line in lines:
+            line_strip = line.strip()
+            if line_strip.startswith(("participant ", "actor ", "database ", "boundary ")):
+                if line_strip in seen_participants:
+                    continue
+                seen_participants.add(line_strip)
+            cleaned_lines.append(line)
+            
+        return "\n".join(cleaned_lines)
+
     def validate(self, diagram_type: str, plantuml_content: str) -> Dict[str, Any]:
-        content = plantuml_content.strip()
+        fixed_content = self._auto_fix(plantuml_content)
         errors = []
-        if not (content.startswith("@startuml") and content.endswith("@enduml")):
-            errors.append("Missing @startuml or @enduml")
-            return {
-                "validator": "Grammar Validator",
-                "passed": False,
-                "score": 0,
-                "errors": errors,
-                "warnings": []
-            }
         
         try:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".puml", delete=False, encoding="utf-8") as tmp:
@@ -59,7 +79,8 @@ class GrammarValidator:
             "passed": True,
             "score": 100,
             "errors": [],
-            "warnings": []
+            "warnings": [],
+            "fixed_content": fixed_content
         }
 
 class ArchitectureValidator:
@@ -95,6 +116,63 @@ class BusinessFlowValidator:
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
         
+    def _deterministic_validate(self, plantuml_content: str) -> Optional[Dict[str, Any]]:
+        lines = plantuml_content.split('\n')
+        actors = set()
+        declared_participants = set()
+        messages = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("@") or line.startswith("'"):
+                continue
+            if line.startswith("actor "):
+                actors.add(line.split(' ')[1].strip('"'))
+                declared_participants.add(line.split(' ')[1].strip('"'))
+            elif line.startswith(("participant ", "database ", "boundary ")):
+                declared_participants.add(line.split(' ')[1].strip('"'))
+            elif "->" in line or "-->" in line:
+                # Basic message parsing
+                parts = re.split(r'-(?:>|->)', line)
+                if len(parts) >= 2:
+                    sender = parts[0].strip().split(' ')[-1].strip('"')
+                    receiver = parts[1].split(':')[0].strip().strip('"')
+                    messages.append((sender, receiver, line))
+        
+        if not messages:
+            return None # Cannot confidently validate empty flow
+            
+        if not actors:
+            return {"passed": False, "score": 50, "errors": ["No actor exists to start the workflow."]}
+            
+        # Actor starts workflow?
+        first_sender = messages[0][0]
+        if first_sender not in actors and len(actors) > 0:
+            # This might be fine, but could be a warning. Let's just enforce it loosely.
+            pass
+            
+        # Self-loops
+        for sender, receiver, line in messages:
+            if sender == receiver and "loop" not in line.lower():
+                return {"passed": False, "score": 60, "errors": [f"Self-loop detected without explicit allowance: {line}"]}
+                
+        # Adjacent Duplicate messages
+        for i in range(1, len(messages)):
+            if messages[i] == messages[i-1]:
+                return {"passed": False, "score": 80, "errors": [f"Duplicate adjacent message detected: {messages[i][2]}"]}
+                
+        # Orphans
+        involved = set()
+        for s, r, _ in messages:
+            involved.add(s)
+            involved.add(r)
+            
+        orphans = declared_participants - involved
+        if orphans:
+            return {"passed": False, "score": 85, "errors": [f"Orphan participants detected (no messages): {', '.join(orphans)}"]}
+            
+        return {"passed": True, "score": 100, "errors": [], "warnings": []}
+
     def validate(self, diagram_type: str, diagram_plan: str, plantuml_content: str) -> Dict[str, Any]:
         if diagram_type.lower() not in ["sequence", "activity"]:
             return {
@@ -104,6 +182,12 @@ class BusinessFlowValidator:
                 "errors": [],
                 "warnings": []
             }
+            
+        # Try deterministic logic first to save LLM cost
+        det_result = self._deterministic_validate(plantuml_content)
+        if det_result is not None:
+            det_result["validator"] = "Business Flow Validator"
+            return det_result
             
         prompt = (
             f"You are validating the business flow of a **{diagram_type} Diagram**.\n\n"

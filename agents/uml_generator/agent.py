@@ -22,6 +22,9 @@ import tempfile
 import time
 from typing import Any, Dict, List, Optional
 
+from core.cache_manager import CacheManager
+from core.cost_tracker import record_agent_cost
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -183,6 +186,7 @@ class UMLGeneratorAgent(BaseAgent):
         )
 
         metrics = _Metrics()
+        state_uml_validation_metrics = {}
 
         for diagram_info in diagrams_to_process:
             diagram_type = diagram_info.get("diagram", diagram_info.get("type", "unknown"))
@@ -192,6 +196,7 @@ class UMLGeneratorAgent(BaseAgent):
             existing_state = diagram_states.get(diag_id, {})
             if existing_state.get("status") == "success" and existing_state.get("generator_output"):
                 logger.info("Cache hit | diagram_id=%s — skipping generation.", diag_id)
+                record_agent_cost(state.setdefault("metadata", {}), self.name, cache_hit=True)
                 continue
 
             start_time = time.time()
@@ -231,7 +236,18 @@ class UMLGeneratorAgent(BaseAgent):
                 prompt_length // 4,
             )
 
+            t0 = time.time()
             clean_content = self._generate(system_prompt, full_user_prompt)
+            gen_time_ms = int((time.time() - t0) * 1000)
+            record_agent_cost(
+                state.setdefault("metadata", {}), 
+                self.name, 
+                input_text=system_prompt + full_user_prompt, 
+                output_text=clean_content,
+                latency_ms=gen_time_ms,
+                llm_calls=1
+            )
+            
             metrics.generation_calls += 1
             diagram_llm_calls += 1
 
@@ -248,73 +264,121 @@ class UMLGeneratorAgent(BaseAgent):
             pipeline_feedback = None
             uml_validation_metrics = {}
             syntax_valid = False
-
-            # Layer 1: Grammar Validator (Local, No LLM)
-            grammar_res = grammar_val.validate(diagram_type, clean_content)
-            uml_validation_metrics["grammar_score"] = grammar_res["score"]
-            logger.info("Grammar Validator | %s", "PASS" if grammar_res["passed"] else "FAIL")
             
-            if not grammar_res["passed"]:
-                pipeline_feedback = grammar_res
-                syntax_valid = False
+            cache_manager = CacheManager()
+            cached_validation = cache_manager.get_validation(diagram_plan, clean_content)
+            
+            if cached_validation:
+                logger.info("Validation Cache Hit — skipping Grammar, Architecture, and Business Flow validators.")
+                pipeline_feedback = cached_validation.get("pipeline_feedback")
+                uml_validation_metrics = cached_validation.get("uml_validation_metrics", {})
+                syntax_valid = cached_validation.get("syntax_valid", False)
+                # Ensure the fixed content from grammar is propagated if it existed
+                if "fixed_content" in cached_validation:
+                    clean_content = cached_validation["fixed_content"]
             else:
-                syntax_valid = True
+                # Layer 1: Grammar Validator (Local, No LLM, auto-fixes)
+                grammar_res = grammar_val.validate(diagram_type, clean_content)
+                if "fixed_content" in grammar_res:
+                    clean_content = grammar_res["fixed_content"]
                 
-                # Layer 2: Architecture Validator
-                arch_res = arch_val.validate(diagram_type, diagram_plan, clean_content)
-                uml_validation_metrics["architecture_score"] = arch_res["score"]
-                logger.info("Architecture Validator | %s", "PASS" if arch_res["passed"] else "FAIL")
+                uml_validation_metrics["grammar_score"] = grammar_res["score"]
+                logger.info("Grammar Validator | %s", "PASS" if grammar_res["passed"] else "FAIL")
                 
-                if not arch_res["passed"]:
-                    pipeline_feedback = arch_res
+                if not grammar_res["passed"]:
+                    pipeline_feedback = grammar_res
+                    syntax_valid = False
                 else:
-                    # Layer 3: Business Flow Validator
-                    flow_res = flow_val.validate(diagram_type, diagram_plan, clean_content)
-                    metrics.review_calls += 1  # Using review_calls bucket for validation LLM
-                    diagram_llm_calls += 1
-                    uml_validation_metrics["business_flow_score"] = flow_res["score"]
-                    logger.info("Business Flow Validator | %s", "PASS" if flow_res["passed"] else "FAIL")
+                    syntax_valid = True
                     
-                    if not flow_res["passed"]:
-                        pipeline_feedback = flow_res
+                    # Layer 2: Architecture Validator
+                    arch_res = arch_val.validate(diagram_type, diagram_plan, clean_content)
+                    uml_validation_metrics["architecture_score"] = arch_res["score"]
+                    logger.info("Architecture Validator | %s", "PASS" if arch_res["passed"] else "FAIL")
+                    
+                    if not arch_res["passed"]:
+                        pipeline_feedback = arch_res
                     else:
-                        # Layer 4: Review Agent
-                        if settings.ENABLE_UML_REVIEW:
-                            constraints = get_constraints(diagram_type)
-                            review_res = review_val.validate(diagram_type, clean_content, constraints, settings.MIN_DIAGRAM_SCORE)
-                            metrics.review_calls += 1
+                        # Layer 3: Business Flow Validator
+                        flow_res = flow_val.validate(diagram_type, diagram_plan, clean_content)
+                        # Only LLM calls cost money, deterministic is free
+                        if flow_res.get("llm_invoked", False):
+                            metrics.review_calls += 1  
                             diagram_llm_calls += 1
-                            uml_validation_metrics["review_score"] = review_res["score"]
-                            logger.info("Review Agent | %s (Score %s)", "PASS" if review_res["passed"] else "FAIL", review_res["score"])
-                            
-                            if not review_res["passed"]:
-                                issues_text = "; ".join(review_res.get("errors", []))
-                                logger.warning(
-                                    "Diagram review failed (Score %s) — regenerating once | "
-                                    "diagram_type=%s | issues=%s",
-                                    review_res.get("score", 0),
-                                    diagram_type,
-                                    issues_text,
-                                )
-                                retry_prompt = (
-                                    f"{full_user_prompt}\n\n"
-                                    f"## Quality Review Feedback\n\n"
-                                    f"A previous attempt scored {review_res.get('score', 0)}/100 and was rejected. "
-                                    f"Fix all of the following issues in this regeneration:\n"
-                                    + "\n".join(f"- {issue}" for issue in review_res.get("errors", []))
-                                )
-                                clean_content = self._generate(system_prompt, retry_prompt)
-                                metrics.generation_calls += 1
-                                diagram_llm_calls += 1
-                                logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
-                                
-                                # Check grammar one last time so we don't pass fundamentally broken output
-                                grammar_res2 = grammar_val.validate(diagram_type, clean_content)
-                                if not grammar_res2["passed"]:
-                                    pipeline_feedback = grammar_res2
-                                    syntax_valid = False
-                        else:
-                            logger.info("Review Agent skipped (ENABLE_UML_REVIEW=false) | diagram_type=%s", diagram_type)
+                        
+                        uml_validation_metrics["business_flow_score"] = flow_res["score"]
+                        logger.info("Business Flow Validator | %s", "PASS" if flow_res["passed"] else "FAIL")
+                        
+                        if not flow_res["passed"]:
+                            pipeline_feedback = flow_res
+
+                # Save to cache
+                cache_manager.set_validation(diagram_plan, clean_content, {
+                    "pipeline_feedback": pipeline_feedback,
+                    "uml_validation_metrics": uml_validation_metrics,
+                    "syntax_valid": syntax_valid,
+                    "fixed_content": clean_content
+                })
+
+            # Layer 4: Adaptive Review Agent
+            if syntax_valid and not pipeline_feedback and settings.ENABLE_UML_REVIEW:
+                grammar_score = uml_validation_metrics.get("grammar_score", 100)
+                arch_score = uml_validation_metrics.get("architecture_score", 100)
+                flow_score = uml_validation_metrics.get("business_flow_score", 100)
+                
+                confidence = (grammar_score + arch_score + flow_score) / 3
+                # Default threshold 95
+                REVIEW_CONFIDENCE_THRESHOLD = int(os.environ.get("REVIEW_CONFIDENCE_THRESHOLD", 95))
+                
+                if confidence >= REVIEW_CONFIDENCE_THRESHOLD:
+                    logger.info("Adaptive Review Skipped (Confidence %.1f >= %d) | diagram_type=%s", confidence, REVIEW_CONFIDENCE_THRESHOLD, diagram_type)
+                    uml_validation_metrics["review_score"] = 100
+                else:
+                    cached_review = cache_manager.get_review(clean_content)
+                    if cached_review:
+                        logger.info("Review Cache Hit — skipping Review Validator.")
+                        review_res = cached_review
+                    else:
+                        constraints = get_constraints(diagram_type)
+                        review_res = review_val.validate(diagram_type, clean_content, constraints, settings.MIN_DIAGRAM_SCORE)
+                        metrics.review_calls += 1
+                        diagram_llm_calls += 1
+                        cache_manager.set_review(clean_content, review_res)
+                        
+                    uml_validation_metrics["review_score"] = review_res["score"]
+                    logger.info("Review Agent | %s (Score %s)", "PASS" if review_res["passed"] else "FAIL", review_res["score"])
+                    
+                    if not review_res["passed"]:
+                        issues_text = "; ".join(review_res.get("errors", []))
+                        logger.warning(
+                            "Diagram review failed (Score %s) — regenerating once | "
+                            "diagram_type=%s | issues=%s",
+                            review_res.get("score", 0),
+                            diagram_type,
+                            issues_text,
+                        )
+                        retry_prompt = (
+                            f"{full_user_prompt}\n\n"
+                            f"## Quality Review Feedback\n\n"
+                            f"A previous attempt scored {review_res.get('score', 0)}/100 and was rejected. "
+                            f"Fix all of the following issues in this regeneration:\n"
+                            + "\n".join(f"- {issue}" for issue in review_res.get("errors", []))
+                        )
+                        clean_content = self._generate(system_prompt, retry_prompt)
+                        metrics.generation_calls += 1
+                        diagram_llm_calls += 1
+                        logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
+                        
+                        # Check grammar one last time so we don't pass fundamentally broken output
+                        grammar_res2 = grammar_val.validate(diagram_type, clean_content)
+                        if "fixed_content" in grammar_res2:
+                            clean_content = grammar_res2["fixed_content"]
+                        
+                        if not grammar_res2["passed"]:
+                            pipeline_feedback = grammar_res2
+                            syntax_valid = False
+            elif not settings.ENABLE_UML_REVIEW:
+                logger.info("Review Agent disabled globally (ENABLE_UML_REVIEW=false) | diagram_type=%s", diagram_type)
 
             generation_time_ms = int((time.time() - start_time) * 1000)
 
@@ -341,8 +405,8 @@ class UMLGeneratorAgent(BaseAgent):
                 "llm_calls": existing_state.get("llm_calls", 0) + diagram_llm_calls,
                 "syntax_valid_at_generation": syntax_valid,
             }
-            diagram_states[diag_id]["pipeline_feedback"] = pipeline_feedback
-            diagram_states[diag_id]["uml_validation_metrics"] = uml_validation_metrics
+            diagram_states[diag_id]["pipeline_feedback"] = pipeline_feedback # type: ignore[typeddict-item]
+            diagram_states[diag_id]["uml_validation_metrics"] = uml_validation_metrics # type: ignore[typeddict-item]
             # Keep latest metrics for global metadata
             state_uml_validation_metrics = uml_validation_metrics
 
@@ -363,7 +427,7 @@ class UMLGeneratorAgent(BaseAgent):
         }
         
         # Add uml validation metrics to global metadata
-        if 'state_uml_validation_metrics' in locals() and state_uml_validation_metrics:
+        if state_uml_validation_metrics:
             updated_metadata["uml_validation_metrics"] = state_uml_validation_metrics
 
         return {

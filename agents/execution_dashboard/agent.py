@@ -132,38 +132,73 @@ class ExecutionDashboardAgent(BaseAgent):
             state.get("metadata", {}) or {}
         ).get("uml_repair_metrics", {})
 
+        # Task 7 & 8 — Execution Summary with Cost Optimization metrics
+        agent_cost_metrics = (state.get("metadata", {}) or {}).get("agent_cost_metrics", {})
+        
+        total_estimated_cost = 0.0
+        total_cache_hits = 0
+        total_llm_calls_new = 0
+        
+        # We need to estimate savings. If everything wasn't cached/skipped, what would it cost?
+        # A simple approximation: if we saved X calls, we assume average cost per call.
+        for agent_name, m in agent_cost_metrics.items():
+            total_estimated_cost += m.get("estimated_cost", 0.0)
+            total_cache_hits += m.get("cache_hits", 0)
+            total_llm_calls_new += m.get("calls", 0)
+            
+        avg_cost_per_call = (total_estimated_cost / total_llm_calls_new) if total_llm_calls_new > 0 else 0.0
+        
+        # Saved calls based on cache hits + saved_llm_calls (from unchanged diagrams)
+        total_saved_calls = total_cache_hits + saved_llm_calls
+        estimated_cost_saved = total_saved_calls * avg_cost_per_call
+        savings_pct = (estimated_cost_saved / (total_estimated_cost + estimated_cost_saved) * 100) if (total_estimated_cost + estimated_cost_saved) > 0 else 0.0
+
         summary: Dict[str, Any] = {
             "total_diagrams": total_diagrams,
             "successful_diagrams": success_count,
             "failed_diagrams": failed_count,
             "success_rate": f"{(success_count / total_diagrams * 100) if total_diagrams > 0 else 0:.1f}%",
             "total_execution_time_ms": total_execution_time_ms,
-            "total_llm_calls": total_llm_calls,
+            "total_llm_calls": total_llm_calls_new,
+            "total_llm_calls_saved": total_saved_calls,
+            "total_cache_hits": total_cache_hits,
+            "total_estimated_cost": total_estimated_cost,
+            "total_estimated_cost_saved": estimated_cost_saved,
+            "savings_pct": f"{savings_pct:.1f}%",
             # Incremental-update fields
             "reused_artifacts": reused_artifacts,
             "updated_artifacts": updated_artifacts,
             "new_artifacts": new_artifacts,
             "removed_artifacts": removed_artifacts,
-            "saved_llm_calls": saved_llm_calls,
-            "saved_latency_ms": saved_latency_ms,
             # Repair metrics
             "repaired_successfully": repaired_successfully,
             "permanently_failed": permanently_failed,
             "total_repair_attempts": total_repair_attempts,
             "repair_success_rate": repair_success_rate,
-            # Extended repair metrics from validator (Task 4)
             "repair_success_rate_pct": uml_repair_metrics.get("repair_success_rate", "N/A"),
             "validation_failures": uml_repair_metrics.get("validation_failures", permanently_failed),
             "repair_failures": uml_repair_metrics.get("repair_failures", permanently_failed),
             "average_repairs_per_diagram": uml_repair_metrics.get("average_repairs_per_diagram", 0.0),
-            # Task 6 — detailed per-diagram table
+            # Detailed metrics
+            "agent_cost_metrics": agent_cost_metrics,
             "diagram_details": details,
         }
 
-        logger.info("Dashboard Summary:\n%s", json.dumps(summary, indent=2))
+        dashboard_text = (
+            "----------------------------------------------------\n"
+            f"Total LLM Calls: {total_llm_calls_new}\n"
+            f"LLM Calls Saved: {total_saved_calls}\n"
+            f"Cache Hits: {total_cache_hits}\n"
+            f"Estimated Cost: ${total_estimated_cost:.4f}\n"
+            f"Estimated Savings: {savings_pct:.1f}%\n"
+            "----------------------------------------------------\n"
+            f"{json.dumps(summary, indent=2)}"
+        )
+
+        logger.info("Dashboard Summary:\n%s", dashboard_text)
 
         new_message = AIMessage(
-            content=f"Workflow Execution Summary:\n{json.dumps(summary, indent=2)}",
+            content=f"Workflow Execution Summary:\n{dashboard_text}",
             name="execution_dashboard",
         )
 
