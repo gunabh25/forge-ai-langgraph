@@ -95,17 +95,29 @@ class ArchitectureValidator:
                 "warnings": []
             }
             
-        from agents.uml_generator.sequence_validator import SequenceValidator
+        from agents.uml_generator.sequence_validator import SequenceValidator, RelationshipValidator
+        from agents.uml_generator.uml_parser import PlantUMLParser
+        
+        diagram = PlantUMLParser.parse(plantuml_content)
+        
         seq_validator = SequenceValidator()
         val_result = seq_validator.validate(diagram_plan, plantuml_content)
+        
+        rel_validator = RelationshipValidator()
+        rel_result = rel_validator.validate(diagram)
         
         errors = []
         if not val_result.is_traceable:
             errors.append(f"Non-traceable (invented) participants found: {', '.join(val_result.non_traceable_participants)}")
             
+        if not rel_result.is_valid:
+            errors.extend(rel_result.errors)
+            
+        passed = val_result.is_traceable and rel_result.is_valid
+            
         return {
             "validator": "Architecture Validator",
-            "passed": val_result.is_traceable,
+            "passed": passed,
             "score": val_result.score,
             "errors": errors,
             "warnings": [],

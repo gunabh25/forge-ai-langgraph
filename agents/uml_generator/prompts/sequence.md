@@ -13,14 +13,17 @@ Generate a **Sequence Diagram** that captures the **primary business flow** of t
 ### Scope & Focus
 
 - Model **only the primary business flow** (the main success scenario / happy path).
-- The diagram must contain a **maximum of 10 participants** and a **maximum of 20 messages**.
-- Consolidate internal services behind a single façade participant.
+- Prefer a clean left-to-right business flow: Actor → Entry Capability → Business Capability → External System → Customer Notification.
+- The diagram must contain a **maximum of 10 participants** and a **maximum of 15 meaningful messages**.
+- Every participant should actively contribute to the business flow. Avoid participants that only send or receive one trivial message. Merge responsibilities where appropriate.
+- Avoid participants talking back and forth unnecessarily.
+- Avoid unnecessary acknowledgement messages. Focus on fewer but more meaningful interactions.
 
 ### What to INCLUDE
 
 - All primary actors (users, external systems) that initiate or receive the flow.
 - Key domain services that participate in the core transaction.
-- Synchronous calls (`->`) and responses (`-->`) with descriptive labels.
+- Synchronous calls (`->`) and responses (`-->`) with **business-centric descriptive labels**. Labels must describe actions (e.g., "Submit Claim", "Validate Eligibility", "Process Payment" — NEVER generic terms like "Request", "Response", "Call API", "Data").
 - Asynchronous messages (`->>`) where the architecture explicitly uses event-driven communication.
 
 ### Traceability (CRITICAL)
@@ -41,7 +44,7 @@ Generate a **Sequence Diagram** that captures the **primary business flow** of t
 
 - Declare participants explicitly.
 - Order participants left-to-right following the natural flow.
-- Use short, descriptive labels on every message arrow.
-- Use `activate` / `deactivate` to show the lifeline of a service while it is processing.
+- Use short, descriptive business-action labels on every message arrow.
+- Use `activate` / `deactivate` only when they improve readability. Avoid excessive nesting so the diagram remains visually clean.
 
 {few_shot}

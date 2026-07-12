@@ -133,38 +133,28 @@ class SequenceValidator:
                 traceable.append(display_name)
                 metrics["exact_matches"] += 1
             else:
-                # 2. Approved Alias Dictionary (check if alias matches an approved name)
-                normalized_alias = self._normalize_name(node.alias)
-                if normalized_alias in normalized_approved:
+                # 2. Business Normalizer Match
+                normalized_business = normalize_components([display_name])
+                if normalized_business and self._normalize_name(normalized_business[0]) in normalized_approved:
+                    matched_val = normalized_approved[self._normalize_name(normalized_business[0])]
                     detail["traceable"] = True
-                    detail["planning_match"] = normalized_approved[normalized_alias]
-                    detail["match_type"] = "Alias"
+                    detail["planning_match"] = matched_val
+                    detail["match_type"] = "Business Normalizer"
                     traceable.append(display_name)
-                    metrics["alias_matches"] += 1
+                    metrics["normalizer_matches"] += 1
                 else:
-                    # 3. Business Normalizer Match
-                    normalized_business = normalize_components([display_name])
-                    if normalized_business and self._normalize_name(normalized_business[0]) in normalized_approved:
-                        matched_val = normalized_approved[self._normalize_name(normalized_business[0])]
+                    # 3. Synonym Match
+                    synonym_match = self._get_synonym_match(normalized, normalized_approved)
+                    if synonym_match:
                         detail["traceable"] = True
-                        detail["planning_match"] = matched_val
-                        detail["match_type"] = "Business Normalizer"
+                        detail["planning_match"] = synonym_match
+                        detail["match_type"] = "Synonym"
                         traceable.append(display_name)
-                        metrics["normalizer_matches"] += 1
+                        metrics["alias_matches"] += 1
                     else:
-                        # 4. Synonym Match
-                        synonym_match = self._get_synonym_match(normalized, normalized_approved)
-                        if synonym_match:
-                            detail["traceable"] = True
-                            detail["planning_match"] = synonym_match
-                            detail["match_type"] = "Synonym"
-                            traceable.append(display_name)
-                            # count as alias match for simplicity or keep separate
-                            metrics["alias_matches"] += 1
-                        else:
-                            detail["traceable"] = False
-                            non_traceable.append(display_name)
-                            metrics["failed_matches"] += 1
+                        detail["traceable"] = False
+                        non_traceable.append(display_name)
+                        metrics["failed_matches"] += 1
             
             logger.info("Traceability Result:\n------------------------------------------------\n"
                         f"Display Name: {detail['display_name']}\n"
@@ -192,4 +182,37 @@ class SequenceValidator:
             approved_registry=list(approved_registry),
             traceability_metrics=metrics,
             participant_details=participant_details
+        )
+
+@dataclass
+class RelationshipValidationResult:
+    is_valid: bool = True
+    errors: List[str] = field(default_factory=list)
+
+class RelationshipValidator:
+    """Validates structural correctness of UML relationships."""
+    
+    def validate(self, diagram) -> RelationshipValidationResult:
+        errors = []
+        declared_aliases = {node.alias for node in diagram.nodes}
+        seen_edges = set()
+        
+        for rel in diagram.relationships:
+            if rel.source not in declared_aliases:
+                errors.append(f"Graph Error: Source node '{rel.source}' is used in a relationship but was never declared. (Dangling alias)")
+            
+            if rel.target not in declared_aliases:
+                errors.append(f"Graph Error: Target node '{rel.target}' is used in a relationship but was never declared. (Dangling alias)")
+                
+            if rel.source == rel.target:
+                errors.append(f"Graph Error: Self-loop detected on '{rel.source}'.")
+                
+            edge = (rel.source, rel.target)
+            if edge in seen_edges:
+                errors.append(f"Graph Error: Duplicate relationship detected from '{rel.source}' to '{rel.target}'. Combine multiple messages into a single labeled edge or remove duplicates.")
+            seen_edges.add(edge)
+            
+        return RelationshipValidationResult(
+            is_valid=len(errors) == 0,
+            errors=errors
         )
