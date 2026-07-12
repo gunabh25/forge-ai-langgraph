@@ -136,6 +136,7 @@ class OrchestrationService:
             "uml_recommendation_report": None,
             "requirements_json": None,
             "architecture_json": None,
+            "architecture_summary": None,
             "selected_uml_diagrams": None,
             "plantuml_diagrams": None,
             "plantuml_validation_report": None,

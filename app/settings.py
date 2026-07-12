@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     ARTIFACT_ROOT: str = "artifacts"
     ENABLE_TRACING: bool = False
     DEBUG: bool = False
+    # When True, UML diagrams are generated one-at-a-time instead of in parallel.
+    # Enable for free-tier Gemini plans (5 req/min rate limit).
+    UML_SEQUENTIAL_GENERATION: bool = False
 
     # Multi-provider integrations
     LLM_PROVIDER: str = "google"  # google, openai, anthropic, ollama, groq, openrouter

@@ -1,18 +1,24 @@
 """UML Generator Agent implementation.
 
-Pipeline per diagram:
-    1. Planning  — LLM scopes actors, components, and flow (prevents hallucination).
+Pipeline per diagram (sequential, free-tier optimized):
+    1. Planning  — LLM scopes actors, components, and flow.
     2. Generation — LLM produces PlantUML from Business Summary + Plan.
-    3. Review    — LLM self-evaluates against quality criteria.
-    4. Retry (once) — if review fails, regenerate with issue context.
+    3. Local syntax validation — subprocess plantuml check, zero LLM cost.
+    4. Review    — LLM self-evaluates, ONLY if syntax validation passed.
+    5. Retry (once) — if review fails, regenerate with issue context.
+    6. Skip review — if syntax validation fails (diagram goes to UML Repair Agent).
 
-Max LLM calls per diagram: 4 (plan + generate + review + optional regeneration).
+Max LLM calls per diagram (syntax valid, review passes)   : 3 (plan + generate + review)
+Max LLM calls per diagram (syntax valid, review fails)    : 4 (plan + generate + review + regen)
+Max LLM calls per diagram (syntax invalid)                : 2 (plan + generate) — review skipped
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
+import os
+import subprocess
+import tempfile
 import time
 from typing import Any, Dict, List, Optional
 
@@ -42,6 +48,35 @@ _ARCHITECT_SYSTEM = (
     "system design. You produce concise, accurate outputs in the format "
     "requested — never adding invented components or services."
 )
+
+
+# ---------------------------------------------------------------------------
+# Execution metrics accumulator
+# ---------------------------------------------------------------------------
+
+class _Metrics:
+    """Lightweight call counter for a single UMLGeneratorAgent.run() invocation."""
+
+    __slots__ = ("planning_calls", "generation_calls", "review_calls", "repair_calls")
+
+    def __init__(self) -> None:
+        self.planning_calls = 0
+        self.generation_calls = 0
+        self.review_calls = 0
+        self.repair_calls = 0  # populated externally by UML Repair Agent
+
+    @property
+    def total(self) -> int:
+        return self.planning_calls + self.generation_calls + self.review_calls + self.repair_calls
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "planning_calls": self.planning_calls,
+            "generation_calls": self.generation_calls,
+            "review_calls": self.review_calls,
+            "repair_calls": self.repair_calls,
+            "total_llm_calls": self.total,
+        }
 
 
 class UMLGeneratorAgent(BaseAgent):
@@ -94,6 +129,26 @@ class UMLGeneratorAgent(BaseAgent):
             logger.warning("No UML diagrams selected for generation.")
             return {}
 
+        # Respect explicit requested_diagrams from metadata — filter the
+        # selected list to only what the caller requested.
+        metadata = state.get("metadata", {}) or {}
+        requested_diagrams: List[str] = metadata.get("requested_diagrams", []) or []
+        if requested_diagrams:
+            requested_lower = {d.lower() for d in requested_diagrams}
+            filtered = [
+                d for d in selected_uml_diagrams
+                if d.get("diagram", "").lower() in requested_lower
+                or d.get("diagram_id", "").lower() in requested_lower
+            ]
+            if filtered:
+                selected_uml_diagrams = filtered
+                logger.info(
+                    "Filtered selected_uml_diagrams to explicit request | "
+                    "requested=%s | remaining=%d",
+                    requested_diagrams,
+                    len(filtered),
+                )
+
         if current_diagram_id:
             diagrams_to_process = [
                 d for d in selected_uml_diagrams
@@ -115,12 +170,7 @@ class UMLGeneratorAgent(BaseAgent):
         saved_paths = list(state.get("artifacts", {}).get("uml", []) or [])
         diagram_states = dict(state.get("diagram_execution_states", {}) or {})
 
-        arch_str = json.dumps(architecture_json, sort_keys=True)
-        arch_hash = hashlib.md5(arch_str.encode("utf-8")).hexdigest()
-
         # Build Business Architecture Summary once — shared across all diagrams.
-        # Prefer a summary already in state (from a previous run) to avoid
-        # redundant processing.
         architecture_summary: str = (
             state.get("architecture_summary")  # type: ignore[assignment]
             or self.context_builder.build_summary(architecture_json)
@@ -129,6 +179,8 @@ class UMLGeneratorAgent(BaseAgent):
             "Architecture summary ready | summary_len=%d",
             len(architecture_summary),
         )
+
+        metrics = _Metrics()
 
         for diagram_info in diagrams_to_process:
             diagram_type = diagram_info.get("diagram", diagram_info.get("type", "unknown"))
@@ -141,6 +193,7 @@ class UMLGeneratorAgent(BaseAgent):
                 continue
 
             start_time = time.time()
+            diagram_llm_calls = 0
 
             # -- Step 1: Planning ------------------------------------------------
             diagram_plan = self._plan_diagram(
@@ -148,6 +201,8 @@ class UMLGeneratorAgent(BaseAgent):
                 architecture_summary=architecture_summary,
                 user_request=user_request,
             )
+            metrics.planning_calls += 1
+            diagram_llm_calls += 1
 
             # -- Step 2: Generation ----------------------------------------------
             system_prompt, user_prompt = self.prompt_builder.build_prompt(
@@ -161,55 +216,58 @@ class UMLGeneratorAgent(BaseAgent):
                 f"{user_prompt}"
             )
 
-            # -- Pre-LLM observability -------------------------------------------
             prompt_length = len(system_prompt) + len(full_user_prompt)
-            estimated_tokens = prompt_length // 4
-
             logger.info(
                 "LLM generation starting | "
-                "diagram_type=%s | "
-                "architecture_summary_len=%d | "
-                "diagram_plan_len=%d | "
-                "prompt_length=%d | "
-                "estimated_token_count=%d",
+                "diagram_type=%s | architecture_summary_len=%d | "
+                "diagram_plan_len=%d | prompt_length=%d | estimated_token_count=%d",
                 diagram_type,
                 len(architecture_summary),
                 len(diagram_plan),
                 prompt_length,
-                estimated_tokens,
+                prompt_length // 4,
             )
 
             clean_content = self._generate(system_prompt, full_user_prompt)
+            metrics.generation_calls += 1
+            diagram_llm_calls += 1
 
-            # -- Step 3: Review --------------------------------------------------
-            constraints = get_constraints(diagram_type)
-            review = self._review_diagram(diagram_type, clean_content, constraints)
+            # -- Step 3: Local syntax validation (no LLM) ------------------------
+            syntax_valid = self._validate_syntax_locally(clean_content, diagram_type)
 
-            llm_calls = 2  # plan + generate
+            if syntax_valid:
+                # -- Step 4: Review (only when syntax is valid) ------------------
+                constraints = get_constraints(diagram_type)
+                review = self._review_diagram(diagram_type, clean_content, constraints)
+                metrics.review_calls += 1
+                diagram_llm_calls += 1
 
-            if not review.get("acceptable", True):
-                issues_text = "; ".join(review.get("issues", []))
-                logger.warning(
-                    "Diagram review failed — regenerating once | "
-                    "diagram_type=%s | issues=%s",
-                    diagram_type,
-                    issues_text,
-                )
-                # Single retry: inject issues into the user prompt
-                retry_prompt = (
-                    f"{full_user_prompt}\n\n"
-                    f"## Quality Review Feedback\n\n"
-                    f"A previous attempt was rejected for the following reasons. "
-                    f"Fix all of them in this regeneration:\n"
-                    + "\n".join(f"- {issue}" for issue in review.get("issues", []))
-                )
-                clean_content = self._generate(system_prompt, retry_prompt)
-                llm_calls += 2  # review + regeneration
-                logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
+                if not review.get("acceptable", True):
+                    issues_text = "; ".join(review.get("issues", []))
+                    logger.warning(
+                        "Diagram review failed — regenerating once | "
+                        "diagram_type=%s | issues=%s",
+                        diagram_type,
+                        issues_text,
+                    )
+                    retry_prompt = (
+                        f"{full_user_prompt}\n\n"
+                        f"## Quality Review Feedback\n\n"
+                        f"A previous attempt was rejected for the following reasons. "
+                        f"Fix all of them in this regeneration:\n"
+                        + "\n".join(f"- {issue}" for issue in review.get("issues", []))
+                    )
+                    clean_content = self._generate(system_prompt, retry_prompt)
+                    metrics.generation_calls += 1
+                    diagram_llm_calls += 1
+                    logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
+                else:
+                    logger.info("Diagram review passed | diagram_type=%s", diagram_type)
             else:
-                llm_calls += 1  # review only
-                logger.info(
-                    "Diagram review passed | diagram_type=%s", diagram_type
+                logger.warning(
+                    "Diagram has syntax errors — skipping review, sending to Repair Agent | "
+                    "diagram_type=%s",
+                    diagram_type,
                 )
 
             generation_time_ms = int((time.time() - start_time) * 1000)
@@ -227,7 +285,6 @@ class UMLGeneratorAgent(BaseAgent):
             if saved_path not in saved_paths:
                 saved_paths.append(saved_path)
 
-            # Update DiagramExecutionState
             diagram_states[diag_id] = {
                 "diagram_id": diag_id,
                 "diagram_type": diagram_type,
@@ -235,8 +292,12 @@ class UMLGeneratorAgent(BaseAgent):
                 "attempt": existing_state.get("attempt", 0) + 1,
                 "generator_output": clean_content,
                 "execution_time_ms": existing_state.get("execution_time_ms", 0) + generation_time_ms,
-                "llm_calls": existing_state.get("llm_calls", 0) + llm_calls,
+                "llm_calls": existing_state.get("llm_calls", 0) + diagram_llm_calls,
+                "syntax_valid_at_generation": syntax_valid,
             }
+
+        # -- Emit execution metrics -------------------------------------------
+        self._log_metrics(metrics, len(diagrams_to_process))
 
         new_message = AIMessage(
             content=f"Generated {len(diagrams_to_process)} diagram(s).",
@@ -247,6 +308,7 @@ class UMLGeneratorAgent(BaseAgent):
         updated_metadata = {
             **current_metadata,
             "uml_generation_completed": True,
+            "uml_llm_metrics": metrics.as_dict(),
             "last_updated": generate_timestamp(),
         }
 
@@ -257,12 +319,11 @@ class UMLGeneratorAgent(BaseAgent):
             "messages": [new_message],
             "metadata": updated_metadata,
             "current_stage": "uml_generator",
-            # Surface summary for downstream agents (Task 6 — token reduction)
             "architecture_summary": architecture_summary,
         }
 
     # -----------------------------------------------------------------------
-    # Planning step (Task 3)
+    # Planning step
     # -----------------------------------------------------------------------
 
     def _plan_diagram(
@@ -271,18 +332,7 @@ class UMLGeneratorAgent(BaseAgent):
         architecture_summary: str,
         user_request: str,
     ) -> str:
-        """Produce a scoped diagram plan before PlantUML generation.
-
-        The planning LLM call asks the model to enumerate only the elements
-        that belong in the requested diagram — actors, external systems,
-        major components, the primary business flow, and the diagram scope.
-        This explicit scoping step is the primary mechanism for preventing
-        hallucination of non-existent services.
-
-        Returns:
-            A structured plain-text plan string, or an empty string if the
-            planning call fails.
-        """
+        """Produce a scoped diagram plan before PlantUML generation."""
         planning_prompt = (
             f"You are preparing to generate a **{diagram_type} Diagram** for "
             f"the following system.\n\n"
@@ -333,7 +383,76 @@ class UMLGeneratorAgent(BaseAgent):
             return ""
 
     # -----------------------------------------------------------------------
-    # Review step (Task 4)
+    # Local syntax validation (no LLM cost)
+    # -----------------------------------------------------------------------
+
+    def _validate_syntax_locally(self, plantuml_content: str, diagram_type: str) -> bool:
+        """Run a local PlantUML syntax check using the plantuml binary.
+
+        This is a zero-LLM-cost check. If the plantuml binary is unavailable,
+        falls back to a heuristic structural check so we never block generation.
+
+        Returns:
+            True if syntax appears valid, False if an error is detected.
+        """
+        # Heuristic guard: must start with @startuml and end with @enduml.
+        content = plantuml_content.strip()
+        if not (content.startswith("@startuml") and content.endswith("@enduml")):
+            logger.warning(
+                "Local syntax heuristic failed (missing @startuml/@enduml) | diagram_type=%s",
+                diagram_type,
+            )
+            return False
+
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".puml",
+                delete=False,
+                encoding="utf-8",
+            ) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            result = subprocess.run(
+                ["plantuml", "-syntax", tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            os.unlink(tmp_path)
+
+            has_error = "Error" in result.stdout or "error" in result.stdout.lower()
+            if has_error:
+                logger.warning(
+                    "Local syntax validation: FAILED | diagram_type=%s | plantuml_output=%s",
+                    diagram_type,
+                    result.stdout[:300],
+                )
+                return False
+
+            logger.info(
+                "Local syntax validation: PASSED | diagram_type=%s", diagram_type
+            )
+            return True
+
+        except FileNotFoundError:
+            # plantuml binary not on PATH — fall back to heuristic (already passed above)
+            logger.info(
+                "plantuml binary not found — using heuristic validation only | diagram_type=%s",
+                diagram_type,
+            )
+            return True
+        except Exception as exc:
+            logger.warning(
+                "Local syntax validation error — assuming valid | diagram_type=%s | error=%s",
+                diagram_type,
+                exc,
+            )
+            return True
+
+    # -----------------------------------------------------------------------
+    # Review step (LLM — only called when syntax is valid)
     # -----------------------------------------------------------------------
 
     def _review_diagram(
@@ -344,19 +463,7 @@ class UMLGeneratorAgent(BaseAgent):
     ) -> dict[str, Any]:
         """Self-review the generated PlantUML against quality criteria.
 
-        The LLM evaluates six criteria and returns a JSON verdict. If
-        ``acceptable`` is False, the caller should regenerate once. This
-        method never triggers regeneration itself — it is a pure evaluation.
-
-        Args:
-            diagram_type: The diagram type being reviewed.
-            plantuml_content: The generated PlantUML string.
-            constraints: Per-diagram constraints (from diagram_constraints).
-
-        Returns:
-            A dict with keys:
-            - ``acceptable`` (bool): True if the diagram passes review.
-            - ``issues`` (list[str]): Descriptions of any problems found.
+        Only called when local syntax validation has already passed.
         """
         constraint_lines = "\n".join(
             f"- {k.replace('_', ' ')}: {v}" for k, v in constraints.items()
@@ -415,8 +522,6 @@ class UMLGeneratorAgent(BaseAgent):
             )
             return result
         except Exception as exc:
-            # If review itself fails (parse error, LLM error), treat as acceptable
-            # to avoid blocking generation — log prominently.
             logger.warning(
                 "Review step failed — treating as acceptable | diagram_type=%s | error=%s",
                 diagram_type,
@@ -442,6 +547,34 @@ class UMLGeneratorAgent(BaseAgent):
             .replace("```", "")
             .strip()
         )
+
+    # -----------------------------------------------------------------------
+    # Metrics logging
+    # -----------------------------------------------------------------------
+
+    def _log_metrics(self, metrics: _Metrics, diagram_count: int) -> None:
+        """Log per-workflow LLM call breakdown and total."""
+        separator = "=" * 52
+        logger.info(separator)
+        logger.info(
+            "UML Generator — LLM Call Metrics | diagrams=%d", diagram_count
+        )
+        logger.info("  planning_calls   : %d", metrics.planning_calls)
+        logger.info("  generation_calls : %d", metrics.generation_calls)
+        logger.info("  review_calls     : %d", metrics.review_calls)
+        logger.info("  repair_calls     : %d (populated by Repair Agent)", metrics.repair_calls)
+        logger.info("  ─────────────────────────────────────")
+        logger.info("  TOTAL LLM CALLS  : %d", metrics.total)
+        logger.info(separator)
+        # Also print to stdout so it's visible in the CLI
+        print(f"\n{'=' * 52}")
+        print(f"  UML LLM Metrics ({diagram_count} diagram(s))")
+        print(f"  Planning calls   : {metrics.planning_calls}")
+        print(f"  Generation calls : {metrics.generation_calls}")
+        print(f"  Review calls     : {metrics.review_calls}")
+        print(f"  {'─' * 38}")
+        print(f"  TOTAL (generator): {metrics.total}")
+        print(f"{'=' * 52}\n")
 
 
 # Automatically register the agent

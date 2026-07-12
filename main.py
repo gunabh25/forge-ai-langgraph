@@ -10,6 +10,28 @@ import argparse
 from app.workflow import ForgeWorkflow
 from core.artifact_manager import ArtifactManager
 
+def _parse_user_input(raw: str) -> tuple[str, list[str]]:
+    """Try to parse *raw* as JSON with a ``prompt`` key.
+
+    Returns:
+        (prompt_text, diagram_types) — diagram_types is an empty list when not
+        provided or when the input is plain text (not JSON).
+    """
+    try:
+        data = __import__("json").loads(raw)
+        if isinstance(data, dict) and "prompt" in data:
+            prompt_text = str(data["prompt"]).strip()
+            diagram_types = [
+                str(d).strip()
+                for d in data.get("diagram_types", [])
+                if str(d).strip()
+            ]
+            return prompt_text, diagram_types
+    except Exception:
+        pass
+    return raw, []
+
+
 def run_interactive():
     """Main CLI entry point for executing the ForgeAI workflow interactively."""
     print("==================================================")
@@ -25,6 +47,11 @@ def run_interactive():
     if not user_request:
         print("Error: Request cannot be empty.")
         sys.exit(1)
+
+    # Try to parse as JSON (supports {"prompt": "...", "diagram_types": [...]})
+    prompt_text, diagram_types = _parse_user_input(user_request)
+    if diagram_types:
+        print(f"\n📌 Explicit diagram types: {', '.join(diagram_types)}")
         
     print("\nInitializing workflow...")
     # Initialize the CLI Dashboard
@@ -38,7 +65,10 @@ def run_interactive():
     
     print("Executing Engineering Manager orchestration layer...")
     try:
-        result = service.generate_architecture(user_request)
+        result = service.generate_architecture(
+            prompt_text,
+            diagram_types=diagram_types or None,
+        )
     except Exception as e:
         print(f"\n❌ Error executing workflow: {e}")
     finally:
@@ -47,6 +77,7 @@ def run_interactive():
     print("\n==================================================")
     print("Workflow Execution Complete")
     print("==================================================")
+
 
 def run_smoke_tests():
     """Execute smoke test runner."""

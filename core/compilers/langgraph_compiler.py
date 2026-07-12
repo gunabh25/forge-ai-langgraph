@@ -124,33 +124,59 @@ class LangGraphCompiler:
         # Handle Fan-Out Edges
         for node_name, node_def in execution_graph.nodes.items():
             if node_def.sub_graph:
-                # 1. Conditional Edge from dummy node to sub_graph via Send
-                def fan_out_router(state: ForgeState, subgraph_name=f"{node_name}_subgraph"):
-                    diagrams = state.get("selected_uml_diagrams") or []
-                    change_report = state.get("change_analysis_report") or {}
-                    affected_diagrams = {d.lower() for d in change_report.get("affected_diagrams", [])}
-                    is_incremental = bool(change_report) and change_report.get("change_type") != "new_project"
-                    
-                    sends = []
-                    for diag in diagrams:
-                        diag_id = diag.get("diagram_id", diag.get("diagram", diag.get("type", "unknown")))
-                        # Skip Send if the diagram is explicitly marked as unaffected by incremental logic
-                        if is_incremental and diag_id.lower() not in affected_diagrams:
-                            continue
-                            
-                        sends.append(Send(subgraph_name, {**state, "current_diagram_id": diag_id}))
-                    return sends if sends else "skip"
-                
-                # We need to map "skip" to whatever the next node is, or END
-                outward_edge = next((e for e in execution_graph.edges if e.source == node_name), None)
-                next_node = outward_edge.target if outward_edge else END
-                if next_node == "EXIT": next_node = END
-                
-                workflow.add_conditional_edges(
-                    node_name,
-                    fan_out_router,
-                    {"skip": next_node}  # The Send targets are dynamically inferred by LangGraph
-                )
+                # Check if sequential generation is required (e.g. free-tier API limits)
+                from app.settings import settings as _settings
+                sequential_mode = _settings.UML_SEQUENTIAL_GENERATION
+
+                if sequential_mode:
+                    # Sequential mode: run UML Generator once for all diagrams, no fan-out.
+                    # UMLGeneratorAgent.run() iterates diagrams itself when current_diagram_id is None.
+                    logger.info(
+                        "UML_SEQUENTIAL_GENERATION=true — using sequential diagram generation "
+                        "(no parallel fan-out)."
+                    )
+
+                    def sequential_router(state: ForgeState, next_node_name=None, _subgraph=f"{node_name}_subgraph"):
+                        # Delegate to sub-graph once with the full state (no per-diagram Send).
+                        return [Send(_subgraph, state)]
+
+                    outward_edge = next((e for e in execution_graph.edges if e.source == node_name), None)
+                    next_node = outward_edge.target if outward_edge else END
+                    if next_node == "EXIT":
+                        next_node = END
+
+                    workflow.add_conditional_edges(
+                        node_name,
+                        sequential_router,
+                        {"skip": next_node},
+                    )
+                else:
+                    # Parallel mode: fan-out with one Send per diagram.
+                    def fan_out_router(state: ForgeState, subgraph_name=f"{node_name}_subgraph"):
+                        diagrams = state.get("selected_uml_diagrams") or []
+                        change_report = state.get("change_analysis_report") or {}
+                        affected_diagrams = {d.lower() for d in change_report.get("affected_diagrams", [])}
+                        is_incremental = bool(change_report) and change_report.get("change_type") != "new_project"
+
+                        sends = []
+                        for diag in diagrams:
+                            diag_id = diag.get("diagram_id", diag.get("diagram", diag.get("type", "unknown")))
+                            if is_incremental and diag_id.lower() not in affected_diagrams:
+                                continue
+                            sends.append(Send(subgraph_name, {**state, "current_diagram_id": diag_id}))
+                        return sends if sends else "skip"
+
+                    outward_edge = next((e for e in execution_graph.edges if e.source == node_name), None)
+                    next_node = outward_edge.target if outward_edge else END
+                    if next_node == "EXIT":
+                        next_node = END
+
+                    workflow.add_conditional_edges(
+                        node_name,
+                        fan_out_router,
+                        {"skip": next_node},
+                    )
+
                 
                 # 2. Edge from subgraph to next node
                 # The normal standard_edges list has an edge from node_name to next_node.
