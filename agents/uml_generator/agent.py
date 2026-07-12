@@ -36,6 +36,7 @@ from core.agent_registry import AgentRegistry
 from core.artifact_manager import ArtifactManager
 from core.llm import get_llm
 from core.utils import generate_timestamp
+from core.business_normalizer import normalize_plan
 
 logger = get_logger("agents.uml_generator")
 
@@ -388,7 +389,10 @@ class UMLGeneratorAgent(BaseAgent):
 
             # Validate JSON
             plan_data = json.loads(normalized_raw)
-            # Re-serialize to guarantee clean formatting
+
+            # deterministic cleanup
+            plan_data = normalize_plan(plan_data)
+
             plan_formatted = json.dumps(plan_data, indent=2)
             
             logger.info(
