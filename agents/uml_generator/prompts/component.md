@@ -4,6 +4,8 @@
 
 Generate a **high-level Component Diagram** that communicates the system's architectural structure at a glance. This diagram will be used in architecture review sessions and technical documentation.
 
+{grammar_examples}
+
 {context_block}
 
 ## Diagram Requirements

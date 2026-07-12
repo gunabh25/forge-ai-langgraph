@@ -4,6 +4,8 @@
 
 Generate a **Sequence Diagram** that captures the **primary business flow** of the system. This diagram will be used to communicate runtime behaviour in architecture reviews and onboarding documentation — precision and readability are essential.
 
+{grammar_examples}
+
 {context_block}
 
 ## Diagram Requirements

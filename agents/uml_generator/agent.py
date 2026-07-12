@@ -213,9 +213,10 @@ class UMLGeneratorAgent(BaseAgent):
                 diagram_plan=diagram_plan,
             )
             full_user_prompt = (
-                f"User Request: {user_request}\n\n"
-                f"Reason for this diagram: {reason}\n\n"
-                f"{user_prompt}"
+                f"{user_prompt}\n\n"
+                f"## Final User Request\n\n"
+                f"{user_request}\n\n"
+                f"Reason for this diagram: {reason}"
             )
 
             prompt_length = len(system_prompt) + len(full_user_prompt)

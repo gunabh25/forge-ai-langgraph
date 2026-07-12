@@ -32,6 +32,7 @@ from agents.uml_generator.diagram_constraints import (
     get_constraints,
 )
 from agents.uml_generator.diagram_profile import DiagramProfile, get_profile
+from agents.uml_generator.knowledge_loader import get_grammar_examples
 
 
 # ---------------------------------------------------------------------------
@@ -55,18 +56,18 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 # ---------------------------------------------------------------------------
 
 
-def _load_template_from_file(diagram_type: str, context: str, few_shot: str) -> str | None:
+def _load_template_from_file(diagram_type: str, context: str, few_shot: str, grammar_examples: str) -> str | None:
     """Try to load a ``.md`` template for *diagram_type* from the prompts dir.
 
-    Returns the rendered template string with ``{context_block}``
-    and ``{few_shot}`` replaced, or ``None`` if no file exists.
+    Returns the rendered template string with ``{context_block}``,
+    ``{few_shot}``, and ``{grammar_examples}`` replaced, or ``None`` if no file exists.
     """
     filename = diagram_type.lower().replace(" ", "_") + ".md"
     filepath = _PROMPTS_DIR / filename
     if not filepath.is_file():
         return None
     raw = filepath.read_text(encoding="utf-8")
-    return raw.replace("{context_block}", context).replace("{few_shot}", few_shot)
+    return raw.replace("{context_block}", context).replace("{few_shot}", few_shot).replace("{grammar_examples}", grammar_examples)
 
 
 # ---------------------------------------------------------------------------
@@ -265,10 +266,17 @@ class PromptBuilder:
             elif key == "sequence":
                 few_shot = _FEW_SHOT_SEQUENCE
 
+        # -- resolve grammar examples ------------------------------------------
+        grammar_examples_str = get_grammar_examples(key)
+        if grammar_examples_str:
+            grammar_block = f"## PlantUML Grammar Examples\n\n{grammar_examples_str}"
+        else:
+            grammar_block = ""
+
         # -- resolve user prompt -----------------------------------------------
 
         # 1. Try file-based template first (highest priority).
-        user_prompt = _load_template_from_file(key, context_block, few_shot)
+        user_prompt = _load_template_from_file(key, context_block, few_shot, grammar_block)
 
         # 2. Try runtime-registered custom template.
         if user_prompt is None:
