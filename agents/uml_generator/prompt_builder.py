@@ -26,6 +26,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from app.settings import settings
 from agents.uml_generator.diagram_constraints import (
     format_constraints_block,
     get_constraints,
@@ -54,18 +55,18 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 # ---------------------------------------------------------------------------
 
 
-def _load_template_from_file(diagram_type: str, architecture_summary: str) -> str | None:
+def _load_template_from_file(diagram_type: str, context: str, few_shot: str) -> str | None:
     """Try to load a ``.md`` template for *diagram_type* from the prompts dir.
 
-    Returns the rendered template string with ``{architecture_summary}``
-    replaced, or ``None`` if no file exists for the given type.
+    Returns the rendered template string with ``{context_block}``
+    and ``{few_shot}`` replaced, or ``None`` if no file exists.
     """
     filename = diagram_type.lower().replace(" ", "_") + ".md"
     filepath = _PROMPTS_DIR / filename
     if not filepath.is_file():
         return None
     raw = filepath.read_text(encoding="utf-8")
-    return raw.replace("{architecture_summary}", architecture_summary)
+    return raw.replace("{context_block}", context).replace("{few_shot}", few_shot)
 
 
 # ---------------------------------------------------------------------------
@@ -122,8 +123,49 @@ _SYSTEM_RULES = (
     "(like ```plantuml or ```puml). Just output the raw syntax.\n"
     "5. Use ONLY components, participants, and relationships that are "
     "explicitly present in the Architecture Summary or Diagram Plan. "
-    "Do NOT invent services, gateways, or infrastructure not mentioned there."
+    "Do NOT invent services, gateways, or infrastructure not mentioned there.\n"
+    "6. Do NOT include commentary, explanations, or notes outside the PlantUML block.\n"
+    "7. **Audience**: Architecture Review Board. Think like a Principal Software Architect.\n"
+    "8. **Priority**: Emphasize Business Capabilities over Implementation details.\n"
+    "9. **Avoid**: Implementation classes, Frameworks, Infrastructure, Controllers, "
+    "Repositories, Middleware, Internal orchestration, Helper modules."
 )
+
+_FEW_SHOT_COMPONENT = """
+## Few-Shot Example
+
+**GOOD example:**
+Requirement: Online Food Delivery
+Component Diagram:
+- Customer
+- Restaurant
+- Order Service
+- Payment Service
+- Delivery Service
+
+**BAD example (Implementation Leakage):**
+- OrderRepository
+- JWT Middleware
+- Logger
+- Redis Cache
+- Auth Controller
+"""
+
+_FEW_SHOT_SEQUENCE = """
+## Few-Shot Example
+
+**GOOD example:**
+- Customer -> Order Service: Place Order
+- Order Service -> Payment Service: Process Payment
+- Payment Service --> Order Service: Payment Confirmed
+- Order Service -> Restaurant: Send Order
+
+**BAD example (Implementation Leakage):**
+- Auth Controller -> JWT Middleware: Validate Token
+- JWT Middleware -> Redis Cache: Check Session
+- Order Service -> OrderRepository: save(order)
+- OrderRepository -> Logger: log("saved")
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -202,10 +244,25 @@ class PromptBuilder:
             constraints = get_constraints(key)
         constraints_block = format_constraints_block(constraints)
 
+        # -- resolve context block ---------------------------------------------
+        # Prefer the diagram_plan if available (Task 5 requirement)
+        if diagram_plan and diagram_plan.strip():
+            context_block = f"## Diagram Plan\n\n{diagram_plan.strip()}"
+        else:
+            context_block = f"## Architecture Summary\n\n{architecture_summary.strip()}"
+
+        # -- resolve few shot --------------------------------------------------
+        few_shot = ""
+        if settings.ENABLE_FEW_SHOT:
+            if key == "component":
+                few_shot = _FEW_SHOT_COMPONENT
+            elif key == "sequence":
+                few_shot = _FEW_SHOT_SEQUENCE
+
         # -- resolve user prompt -----------------------------------------------
 
         # 1. Try file-based template first (highest priority).
-        user_prompt = _load_template_from_file(key, architecture_summary)
+        user_prompt = _load_template_from_file(key, context_block, few_shot)
 
         # 2. Try runtime-registered custom template.
         if user_prompt is None:
@@ -225,20 +282,10 @@ class PromptBuilder:
         if user_prompt is None:
             user_prompt = (
                 f"Generate a PlantUML **{diagram_type}** diagram based on the "
-                f"architecture summary below.\n\n"
-                f"Use ONLY elements explicitly present in the summary.\n\n"
-                f"## Architecture Summary\n\n{architecture_summary}"
-            )
-
-        # -- inject diagram plan -----------------------------------------------
-        if diagram_plan and diagram_plan.strip():
-            user_prompt = (
-                f"{user_prompt}\n\n"
-                f"## Diagram Plan\n\n"
-                f"The following plan has been produced by an architectural "
-                f"planning step. Scope your diagram strictly to the elements "
-                f"listed here — do not add anything beyond them.\n\n"
-                f"{diagram_plan.strip()}"
+                f"context below.\n\n"
+                f"Use ONLY elements explicitly present in the context.\n\n"
+                f"{context_block}\n\n"
+                f"{few_shot}"
             )
 
         # -- inject constraints ------------------------------------------------

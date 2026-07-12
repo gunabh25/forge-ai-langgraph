@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # permanently marked VALIDATION_FAILED and the workflow continues.
     # Override via MAX_UML_REPAIR_ATTEMPTS in your .env file.
     MAX_UML_REPAIR_ATTEMPTS: int = 2
+    
+    # AI Quality Optimization flags
+    ENABLE_UML_REVIEW: bool = False
+    ENABLE_FEW_SHOT: bool = False
+    MIN_DIAGRAM_SCORE: int = 9
 
     # Multi-provider integrations
     LLM_PROVIDER: str = "google"  # google, openai, anthropic, ollama, groq, openrouter

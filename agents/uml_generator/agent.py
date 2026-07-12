@@ -30,6 +30,7 @@ from agents.uml_generator.context_builder import ContextBuilder
 from agents.uml_generator.diagram_constraints import get_constraints
 from agents.uml_generator.prompt_builder import PromptBuilder
 from app.state import ForgeState
+from app.settings import settings
 from config.logging import get_logger
 from core.agent_registry import AgentRegistry
 from core.artifact_manager import ArtifactManager
@@ -237,32 +238,37 @@ class UMLGeneratorAgent(BaseAgent):
 
             if syntax_valid:
                 # -- Step 4: Review (only when syntax is valid) ------------------
-                constraints = get_constraints(diagram_type)
-                review = self._review_diagram(diagram_type, clean_content, constraints)
-                metrics.review_calls += 1
-                diagram_llm_calls += 1
-
-                if not review.get("acceptable", True):
-                    issues_text = "; ".join(review.get("issues", []))
-                    logger.warning(
-                        "Diagram review failed — regenerating once | "
-                        "diagram_type=%s | issues=%s",
-                        diagram_type,
-                        issues_text,
-                    )
-                    retry_prompt = (
-                        f"{full_user_prompt}\n\n"
-                        f"## Quality Review Feedback\n\n"
-                        f"A previous attempt was rejected for the following reasons. "
-                        f"Fix all of them in this regeneration:\n"
-                        + "\n".join(f"- {issue}" for issue in review.get("issues", []))
-                    )
-                    clean_content = self._generate(system_prompt, retry_prompt)
-                    metrics.generation_calls += 1
+                if settings.ENABLE_UML_REVIEW:
+                    constraints = get_constraints(diagram_type)
+                    review = self._review_diagram(diagram_type, clean_content, constraints)
+                    metrics.review_calls += 1
                     diagram_llm_calls += 1
-                    logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
+
+                    if not review.get("acceptable", True):
+                        issues_text = "; ".join(review.get("issues", []))
+                        logger.warning(
+                            "Diagram review failed (Score %s/%s) — regenerating once | "
+                            "diagram_type=%s | issues=%s",
+                            review.get("score", 0),
+                            settings.MIN_DIAGRAM_SCORE,
+                            diagram_type,
+                            issues_text,
+                        )
+                        retry_prompt = (
+                            f"{full_user_prompt}\n\n"
+                            f"## Quality Review Feedback\n\n"
+                            f"A previous attempt scored {review.get('score', 0)}/10 and was rejected. "
+                            f"Fix all of the following issues in this regeneration:\n"
+                            + "\n".join(f"- {issue}" for issue in review.get("issues", []))
+                        )
+                        clean_content = self._generate(system_prompt, retry_prompt)
+                        metrics.generation_calls += 1
+                        diagram_llm_calls += 1
+                        logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
+                    else:
+                        logger.info("Diagram review passed (Score %s) | diagram_type=%s", review.get("score", 10), diagram_type)
                 else:
-                    logger.info("Diagram review passed | diagram_type=%s", diagram_type)
+                    logger.info("Diagram review skipped (ENABLE_UML_REVIEW=false) | diagram_type=%s", diagram_type)
             else:
                 logger.warning(
                     "Diagram has syntax errors — skipping review, sending to Repair Agent | "
@@ -332,7 +338,7 @@ class UMLGeneratorAgent(BaseAgent):
         architecture_summary: str,
         user_request: str,
     ) -> str:
-        """Produce a scoped diagram plan before PlantUML generation."""
+        """Produce a structured diagram plan (JSON) before PlantUML generation."""
         planning_prompt = (
             f"You are preparing to generate a **{diagram_type} Diagram** for "
             f"the following system.\n\n"
@@ -341,17 +347,20 @@ class UMLGeneratorAgent(BaseAgent):
             f"## User Request\n\n"
             f"{user_request}\n\n"
             f"## Task\n\n"
-            f"Before generating any PlantUML, produce a concise diagram plan "
-            f"that identifies ONLY the elements to include. Use ONLY what is "
-            f"explicitly present in the architecture summary above — do NOT "
+            f"Before generating any PlantUML, produce a concise structured plan "
+            f"identifying ONLY the elements to include. Use ONLY what is "
+            f"explicitly present in the architecture summary — do NOT "
             f"invent any services, gateways, or infrastructure.\n\n"
-            f"Format your response as:\n\n"
-            f"**Actors**: <comma-separated list>\n"
-            f"**External Systems**: <comma-separated list or 'None'>\n"
-            f"**Major Components**: <comma-separated list, max 8>\n"
-            f"**Primary Business Flow**: <one sentence describing the main flow>\n"
-            f"**Diagram Scope**: <one sentence stating what this diagram shows and what it excludes>\n\n"
-            f"Respond with ONLY the plan in the format above. No PlantUML. No extra commentary."
+            f"Respond with ONLY valid JSON in exactly this structure — no markdown fences, no commentary:\n"
+            f"{{\n"
+            f'  "actors": [],\n'
+            f'  "external_systems": [],\n'
+            f'  "major_components": [],\n'
+            f'  "major_data_stores": [],\n'
+            f'  "business_flow": [],\n'
+            f'  "explicitly_excluded": [],\n'
+            f'  "diagram_scope": "One sentence stating what this diagram shows and what it excludes"\n'
+            f"}}\n"
         )
 
         messages = [
@@ -367,13 +376,19 @@ class UMLGeneratorAgent(BaseAgent):
 
         try:
             response = self.llm.invoke(messages)
-            plan = str(response.content).strip()
+            raw = str(response.content).replace("```json", "").replace("```", "").strip()
+            
+            # Validate JSON
+            plan_data = json.loads(raw)
+            # Re-serialize to guarantee clean formatting
+            plan_formatted = json.dumps(plan_data, indent=2)
+            
             logger.info(
                 "LLM planning completed | diagram_type=%s | plan_len=%d",
                 diagram_type,
-                len(plan),
+                len(plan_formatted),
             )
-            return plan
+            return plan_formatted
         except Exception as exc:
             logger.warning(
                 "Planning step failed — proceeding without plan | diagram_type=%s | error=%s",
@@ -475,28 +490,22 @@ class UMLGeneratorAgent(BaseAgent):
             f"## Diagram Constraints\n{constraint_lines}\n\n"
             f"## Generated PlantUML\n\n"
             f"```\n{plantuml_content}\n```\n\n"
-            f"## Review Criteria\n\n"
-            f"Evaluate the diagram on each of the following criteria:\n"
-            f"1. **Abstraction level** — Does it stay at the correct business/architecture level? "
-            f"No implementation details (repositories, helpers, internals)?\n"
-            f"2. **Component count** — Does it respect the constraint limits?\n"
-            f"3. **Arrow density** — Are connections clear and not overwhelming?\n"
-            f"4. **No implementation leakage** — Are there any utility classes, "
-            f"DAOs, middleware, or internal helpers present?\n"
-            f"5. **Business flow present** — Does the diagram communicate the "
-            f"business purpose clearly?\n"
-            f"6. **No hallucinated services** — Does it contain any services "
-            f"(e.g. API Gateway, Auth Service, Notification Service) that were "
-            f"not explicitly described in the architecture context?\n\n"
+            f"## Review Criteria Rubric (Score out of 10)\n\n"
+            f"Evaluate the diagram and provide a score from 1 to 10 based on:\n"
+            f"1. **Abstraction (2 pts)** — Does it stay at the correct business/architecture level without implementation leakage?\n"
+            f"2. **Business Alignment (2 pts)** — Does it communicate the business purpose clearly?\n"
+            f"3. **Hallucination (2 pts)** — No invented infrastructure (e.g. API Gateway, Auth Service) not in context?\n"
+            f"4. **Readability (2 pts)** — Are connections clear, not overwhelming, cleanly grouped?\n"
+            f"5. **Component Count (1 pt)** — Does it respect component count limits (e.g., max 8)?\n"
+            f"6. **Participant Count (1 pt)** — Does it respect participant/message limits (e.g., max 10/20)?\n\n"
             f"## Response Format\n\n"
             f"Respond with ONLY valid JSON in exactly this structure — no markdown fences:\n"
             f"{{\n"
+            f'  "score": 10,\n'
             f'  "acceptable": true,\n'
             f'  "issues": []\n'
             f"}}\n\n"
-            f"Set ``acceptable`` to ``false`` and list specific issues if any "
-            f"criterion fails. Be strict — this diagram will be shown in a "
-            f"Senior Architect review."
+            f"List specific issues if the score is not 10. Be strict — this diagram will be shown in a Senior Architect review."
         )
 
         messages = [
@@ -514,10 +523,17 @@ class UMLGeneratorAgent(BaseAgent):
             response = self.llm.invoke(messages)
             raw = str(response.content).replace("```json", "").replace("```", "").strip()
             result: dict[str, Any] = json.loads(raw)
+            
+            score = result.get("score", 0)
+            acceptable = score >= settings.MIN_DIAGRAM_SCORE
+            result["acceptable"] = acceptable
+            
             logger.info(
-                "LLM review completed | diagram_type=%s | acceptable=%s | issue_count=%d",
+                "LLM review completed | diagram_type=%s | score=%s/%s | acceptable=%s | issue_count=%d",
                 diagram_type,
-                result.get("acceptable"),
+                score,
+                settings.MIN_DIAGRAM_SCORE,
+                acceptable,
                 len(result.get("issues", [])),
             )
             return result
@@ -527,7 +543,7 @@ class UMLGeneratorAgent(BaseAgent):
                 diagram_type,
                 exc,
             )
-            return {"acceptable": True, "issues": []}
+            return {"score": 10, "acceptable": True, "issues": []}
 
     # -----------------------------------------------------------------------
     # Shared generation helper
