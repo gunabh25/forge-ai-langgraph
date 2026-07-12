@@ -1,9 +1,11 @@
 """UML Repair Agent implementation."""
 
-import json
+import time
 from typing import Dict, Any, List, Optional
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
 from agents.base import BaseAgent
 from core.llm import get_llm
 from core.agent_registry import AgentRegistry
@@ -13,17 +15,18 @@ from core.utils import generate_timestamp
 
 logger = get_logger("agents.uml_repair")
 
+
 class UMLRepairAgent(BaseAgent):
     """UML Repair Agent responsible for fixing PlantUML syntax based on compiler errors."""
-    
+
     @property
     def name(self) -> str:
         return "UML Repair Agent"
-        
+
     @property
     def description(self) -> str:
         return "Repairs PlantUML syntax errors based on compiler feedback without altering semantics."
-        
+
     @property
     def capabilities(self) -> List[str]:
         return ["plantuml_repair", "syntax_correction"]
@@ -38,29 +41,37 @@ class UMLRepairAgent(BaseAgent):
 
     def __init__(self, llm: Optional[BaseChatModel] = None):
         self._llm = llm
-        
+
     @property
     def llm(self) -> BaseChatModel:
         if self._llm is None:
             self._llm = get_llm()
         return self._llm
 
+    # ------------------------------------------------------------------
+    # Main entry point
+    # ------------------------------------------------------------------
+
     def run(self, state: ForgeState) -> Dict[str, Any]:
         """Execute the UML Repair Agent step."""
         validation_report = state.get("plantuml_validation_report", {})
         diagrams_content = state.get("plantuml_diagrams", {})
         current_diagram_id = state.get("current_diagram_id")
-        
+
         if not validation_report or not diagrams_content:
             logger.warning("No validation report or diagrams found for repair.")
             return {}
-            
+
         diagram_results = validation_report.get("diagram_results", [])
         current_metadata = state.get("metadata", {}) or {}
         diagram_states = dict(state.get("diagram_execution_states", {}) or {})
-        
+
+        # Build the candidate list of failed diagrams.
         if current_diagram_id:
-            failed_diagrams = [d for d in diagram_results if not d.get("valid", True) and d.get("diagram", "") == current_diagram_id]
+            failed_diagrams = [
+                d for d in diagram_results
+                if not d.get("valid", True) and d.get("diagram", "") == current_diagram_id
+            ]
         else:
             failed_diagrams = [d for d in diagram_results if not d.get("valid", True)]
 
@@ -75,11 +86,9 @@ class UMLRepairAgent(BaseAgent):
         if not failed_diagrams:
             logger.info("No repair-eligible diagrams found. Exiting repair agent.")
             return {}
-            
-        logger.info(f"UML Repair starting execution for {len(failed_diagrams)} failed diagrams...")
-        
-        # current_metadata and diagram_states already initialized above
-        
+
+        logger.info("UML Repair starting execution for %d failed diagrams...", len(failed_diagrams))
+
         system_prompt = """You are a highly specialized UML Repair Agent.
 Your task is to fix syntax errors in PlantUML code based on compiler output.
 
@@ -93,17 +102,16 @@ Rules:
 
         repaired_diagrams_count = 0
         updated_diagrams_content = dict(diagrams_content)
-        
-        import time
-        
+
         for failed_diag in failed_diagrams:
             diag_name = failed_diag.get("diagram", "")
             if diag_name not in diagrams_content:
                 continue
-                
+
             original_puml = diagrams_content[diag_name]
             compiler_stderr = failed_diag.get("stderr", "")
-            
+            existing_state = diagram_states.get(diag_name, {})
+
             user_prompt = f"""The following PlantUML failed compilation.
 
 Diagram Name: {diag_name}
@@ -118,29 +126,70 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
 
             messages = [
                 SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt)
+                HumanMessage(content=user_prompt),
             ]
-            
-            logger.info(f"Invoking LLM for repairing {diag_name}...")
+
+            logger.info("Invoking LLM for repairing %s...", diag_name)
             start_time = time.time()
             llm_response = self.llm.invoke(messages)
             exec_time = int((time.time() - start_time) * 1000)
-            
+
             response_content = llm_response.content
             if isinstance(response_content, list):
                 response_content = "\n".join([str(item) for item in response_content])
             elif not isinstance(response_content, str):
                 response_content = str(response_content)
-                
-            clean_content = response_content.replace("```plantuml", "").replace("```puml", "").replace("```", "").strip()
-            
+
+            clean_content = (
+                response_content
+                .replace("```plantuml", "")
+                .replace("```puml", "")
+                .replace("```", "")
+                .strip()
+            )
+
+            # ------------------------------------------------------------------
+            # Task 3 — Duplicate output detection.
+            # If the LLM returned the same content it was given, another repair
+            # cycle would be pointless.  Immediately mark as VALIDATION_FAILED
+            # and do NOT increment repair_attempts (so the accounting stays
+            # consistent — the repair produced no useful work).
+            # ------------------------------------------------------------------
+            previous_output = (existing_state.get("generator_output") or "").strip()
+            if clean_content == previous_output:
+                failure_reason = "Repair produced identical output — LLM could not fix the syntax error."
+                logger.warning(
+                    "Duplicate repair output detected — marking VALIDATION_FAILED immediately | "
+                    "diagram_id=%s | repair_attempts=%d",
+                    diag_name,
+                    existing_state.get("repair_attempts", 0),
+                )
+                diagram_states[diag_name] = {
+                    **existing_state,
+                    "status": "VALIDATION_FAILED",
+                    "failure_reason": failure_reason,
+                    "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
+                    # repair_attempts intentionally NOT incremented — no useful work done.
+                }
+                # Emit into validation report so routing logic sees it.
+                # Set retry_requested = False via metadata so the graph continues.
+                current_metadata["retry_requested"] = False
+                current_metadata["uml_has_permanent_failures"] = True
+                logger.info(
+                    "retry_requested forced to False — duplicate repair output | diagram_id=%s",
+                    diag_name,
+                )
+                continue
+
+            # ------------------------------------------------------------------
+            # Normal path — store repaired content.
+            # ------------------------------------------------------------------
             updated_diagrams_content[diag_name] = clean_content
             repaired_diagrams_count += 1
-            logger.info(f"Successfully applied repair patch for {diag_name}.")
-            
-            existing_state = diagram_states.get(diag_name, {})
-            # Increment repair_attempts so the validator can enforce MAX_REPAIR_ATTEMPTS
-            # on the next validation pass.  attempt tracks generation retries separately.
+            logger.info("Successfully applied repair patch for %s.", diag_name)
+
+            # Increment repair_attempts so the validator can enforce the ceiling
+            # on the next pass.  attempt tracks generation retries separately.
             diagram_states[diag_name] = {
                 **existing_state,
                 "status": "repaired",
@@ -150,28 +199,28 @@ Fix ONLY the syntax. Preserve semantics. Return ONLY the corrected PlantUML code
                 "attempt": existing_state.get("attempt", 0) + 1,
                 "repair_attempts": existing_state.get("repair_attempts", 0) + 1,
             }
-            
-        logger.info(f"UML Repair completed {repaired_diagrams_count} repairs.")
-        
+
+        logger.info("UML Repair completed %d repair(s).", repaired_diagrams_count)
+
         new_message = AIMessage(
-            content=f"Attempted {repaired_diagrams_count} repairs.",
-            name="uml_repair"
+            content=f"Attempted {repaired_diagrams_count} repair(s).",
+            name="uml_repair",
         )
-        
-        # Ensure metadata is updated without global retry state pollution
+
         updated_metadata = {
             **current_metadata,
             "uml_repair_completed": True,
-            "last_updated": generate_timestamp()
+            "last_updated": generate_timestamp(),
         }
-        
+
         return {
             "plantuml_diagrams": updated_diagrams_content,
             "diagram_execution_states": diagram_states,
             "messages": [new_message],
             "metadata": updated_metadata,
-            "current_stage": "uml_repair"
+            "current_stage": "uml_repair",
         }
+
 
 # Automatically register the agent
 AgentRegistry().register(UMLRepairAgent())

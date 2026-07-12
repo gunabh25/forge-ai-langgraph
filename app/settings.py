@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     # When True, UML diagrams are generated one-at-a-time instead of in parallel.
     # Enable for free-tier Gemini plans (5 req/min rate limit).
     UML_SEQUENTIAL_GENERATION: bool = False
+    # Maximum number of LLM-driven repair cycles per diagram before it is
+    # permanently marked VALIDATION_FAILED and the workflow continues.
+    # Override via MAX_UML_REPAIR_ATTEMPTS in your .env file.
+    MAX_UML_REPAIR_ATTEMPTS: int = 2
 
     # Multi-provider integrations
     LLM_PROVIDER: str = "google"  # google, openai, anthropic, ollama, groq, openrouter
