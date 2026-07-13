@@ -247,6 +247,362 @@
       },
       "syntax_valid": true,
       "fixed_content": "@startuml\nactor \"User\" as User\nparticipant \"Circular Ingestion\" as CI\nexternal_system \"SEBI\" as SEBI\nparticipant \"Document Processing\" as DP\nparticipant \"Requirement Analysis\" as RA\nparticipant \"Compliance Data Management\" as CDM\nparticipant \"Gap Analysis\" as GA\nparticipant \"Impact Assessment\" as IA\nparticipant \"Reporting & Analytics\" as R_A\n\nUser -> CI : Initiate Circular Analysis\nactivate CI\nCI -> SEBI : Request Latest Circulars\nactivate SEBI\nSEBI --> CI : Provide Regulatory Circulars\ndeactivate SEBI\n\nCI -> DP : Submit Circulars for Parsing\nactivate DP\nDP --> CI : Return Parsed Document Structure\ndeactivate DP\n\nCI -> RA : Submit Parsed Circulars for Requirement Extraction\nactivate RA\nRA --> CI : Provide Extracted New Requirements\ndeactivate RA\n\nCI -> GA : Initiate Gap Analysis (New Requirements)\nactivate GA\nGA -> CDM : Request Existing Compliance Setup\nactivate CDM\nCDM --> GA : Provide Current Compliance Data\ndeactivate CDM\nGA --> CI : Report Gap Analysis Findings\ndeactivate GA\n\nCI -> IA : Evaluate Impact of New Requirements & Gaps\nactivate IA\nIA --> CI : Provide Impact Assessment Report\ndeactivate IA\n\nCI -> R_A : Compile Analysis Results\ndeactivate CI\nactivate R_A\nR_A --> User : Present Compliance Analysis Findings\ndeactivate R_A\n@enduml"
+    },
+    "4331075b0a971412df9ae0b976a04f81": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 50,
+        "errors": [
+          "Graph Error: Target node '[Circular Ingestion]' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node '[Reporting & UI]' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node '[Reporting & UI]' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Isolated business node detected 'Circular Ingestion'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Document Parsing'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Information Extraction'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Gap Analysis'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Impact Analysis'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Reporting & UI'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Circular Ingestion'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Document Parsing'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Information Extraction'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Gap Analysis'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Impact Analysis'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Reporting & UI'. Nodes must participate in at least one relationship."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 9,
+          "generated_components": 15,
+          "exact_matches": 15,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 50
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Compliance Officer\" as ComplianceOfficer\n[SEBI] <<external>> as SEBI\n\n[Circular Ingestion] <<service>> as CircularIngestion\n[Document Parsing] <<service>> as DocumentParsing\n[Information Extraction] <<service>> as InformationExtraction\n[Gap Analysis] <<service>> as GapAnalysis\n[Impact Analysis] <<service>> as ImpactAnalysis\n[Reporting & UI] <<service>> as ReportingUI\ndatabase \"Compliance Data Store\" <<datastore>> as ComplianceDataStore\n\nSEBI --> [Circular Ingestion] : \"Provides Circulars\"\n[Circular Ingestion] --> [Document Parsing] : \"Submits for Parsing\"\n[Document Parsing] --> [Information Extraction] : \"Parsed Documents\"\n[Information Extraction] --> [Gap Analysis] : \"Extracted Requirements\"\n[Information Extraction] --> [Impact Analysis] : \"Extracted Requirements\"\n[Gap Analysis] --> ComplianceDataStore : \"Stores Gap Analysis\"\n[Impact Analysis] --> ComplianceDataStore : \"Stores Impact Analysis\"\nComplianceDataStore --> [Reporting & UI] : \"Provides Compliance Data\"\n[Reporting & UI] --> ComplianceDataStore : \"Retrieves Data\"\nComplianceOfficer --> [Reporting & UI] : \"Views Reports\"\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "a9014c5d3a37fb31f9297f5078d9813c": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Compliance Officer\" as ComplianceOfficer\nparticipant \"SEBI\" as SEBI\nparticipant \"Circular Ingestion\" as CircularIngestion\nparticipant \"Circular Parsing\" as CircularParsing\nparticipant \"Requirement Extraction\" as RequirementExtraction\nparticipant \"Compliance Repository\" as ComplianceRepository\ndatabase \"Compliance Data Store\" as ComplianceDataStore\nparticipant \"Gap Analysis\" as GapAnalysis\nparticipant \"Impact Analysis\" as ImpactAnalysis\nparticipant \"Reporting & User Interface\" as ReportingUI\n\nComplianceOfficer -> CircularIngestion: Initiate Circular Processing\nactivate CircularIngestion\n\nCircularIngestion -> SEBI: Request Latest Circulars\nactivate SEBI\nSEBI --> CircularIngestion: Provide Circular Documents\ndeactivate SEBI\n\nCircularIngestion -> CircularParsing: Submit Circulars for Parsing\nactivate CircularParsing\ndeactivate CircularIngestion\n\nCircularParsing -> RequirementExtraction: Extract Requirements from Circulars\nactivate RequirementExtraction\n\nRequirementExtraction -> ComplianceDataStore: Persist New Requirements\nactivate ComplianceDataStore\nComplianceDataStore --> RequirementExtraction: Acknowledge Persistence\ndeactivate ComplianceDataStore\n\nRequirementExtraction -> ComplianceRepository: Update Compliance Posture\nactivate ComplianceRepository\nComplianceRepository --> RequirementExtraction: Acknowledge Update\ndeactivate ComplianceRepository\n\nRequirementExtraction -> GapAnalysis: Trigger Gap Analysis with New Requirements\ndeactivate RequirementExtraction\ndeactivate CircularParsing\nactivate GapAnalysis\n\nGapAnalysis -> ComplianceRepository: Query Existing Compliance Posture\nactivate ComplianceRepository\nComplianceRepository --> GapAnalysis: Return Current Compliance Data\ndeactivate ComplianceRepository\n\nGapAnalysis -> ImpactAnalysis: Submit Gap Analysis Results\ndeactivate GapAnalysis\nactivate ImpactAnalysis\n\nImpactAnalysis -> ReportingUI: Present Impact Analysis and Gaps\ndeactivate ImpactAnalysis\nactivate ReportingUI\n\nReportingUI --> ComplianceOfficer: Display Compliance Insights\ndeactivate ReportingUI\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "2cbe43f2b54f595c2557066c89173b3c": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"Customer\" as Customer\nactor \"Claims Manager\" as ClaimsManager\n\ncomponent \"Claim Submission\" as ClaimSubmission <<service>>\ncomponent \"Document Management\" as DocumentManagement <<service>>\ncomponent \"Claim Evaluation\" as ClaimEvaluation <<service>>\ncomponent \"Settlement Calculation\" as SettlementCalculation <<service>>\ncomponent \"Payment Routing\" as PaymentRouting <<service>>\ncomponent \"Claim Insights\" as ClaimInsights <<service>>\n\nexternal_system \"Payment Gateway\" as PaymentGateway <<external>>\n\nCustomer --> ClaimSubmission : Submits Claim\nCustomer --> ClaimInsights : Views Status/Reports\n\nClaimsManager --> ClaimEvaluation : Reviews Flagged Claims\nClaimsManager --> ClaimInsights : Views Reports\n\nClaimSubmission --> DocumentManagement : Stores Documents\nClaimSubmission --> ClaimEvaluation : Initiates Evaluation\n\nClaimEvaluation --> SettlementCalculation : Provides Claim Details\nClaimEvaluation --> ClaimInsights : Updates Status\n\nSettlementCalculation --> PaymentRouting : Requests Payment\nSettlementCalculation --> ClaimInsights : Updates Status\n\nPaymentRouting --> PaymentGateway : Processes Payment\nPaymentRouting --> ClaimInsights : Updates Status\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "52321cbd3b47e5a3b096f7a35feab6c9": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\nparticipant \"Claim Submission\" as ClaimSubmission\nparticipant \"Document Management\" as DocumentManagement\nparticipant \"Policy Validation\" as PolicyValidation\nparticipant \"Fraud Detection\" as FraudDetection\nparticipant \"Claim Evaluation\" as ClaimEvaluation\nparticipant \"Settlement Calculation\" as SettlementCalculation\nparticipant \"Payment Routing\" as PaymentRouting\nexternal_system \"Payment Gateway\" as PaymentGateway\nparticipant \"Claim Status & Reporting\" as ClaimStatusReporting\n\nCustomer -> ClaimSubmission: Submit Claim & Documents\nactivate ClaimSubmission\nClaimSubmission -> DocumentManagement: Store Documents\nDocumentManagement --> ClaimSubmission: Documents Stored\n\nClaimSubmission -> PolicyValidation: Validate Policy\nPolicyValidation --> ClaimSubmission: Policy Validated\n\nClaimSubmission -> FraudDetection: Detect Fraud\nFraudDetection --> ClaimSubmission: Fraud Check Passed\n\nClaimSubmission -> ClaimEvaluation: Evaluate Claim\nactivate ClaimEvaluation\nClaimEvaluation -> SettlementCalculation: Calculate Settlement\nactivate SettlementCalculation\nSettlementCalculation --> ClaimEvaluation: Settlement Amount\ndeactivate SettlementCalculation\nClaimEvaluation --> ClaimSubmission: Claim Approved\ndeactivate ClaimEvaluation\n\nClaimSubmission -> PaymentRouting: Route Payment\nactivate PaymentRouting\nPaymentRouting -> PaymentGateway: Process Payment\nactivate PaymentGateway\nPaymentGateway --> PaymentRouting: Payment Confirmed\ndeactivate PaymentGateway\nPaymentRouting --> ClaimSubmission: Payment Routed\ndeactivate PaymentRouting\ndeactivate ClaimSubmission\n\nClaimSubmission -> ClaimStatusReporting: Update Status & Notify Customer\nCustomer -> ClaimStatusReporting: Request Settlement Report\nClaimStatusReporting --> Customer: Provide Settlement Report\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "0bb30bb5889d56ad136a19c08bfcd283": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"Customer\" as Customer\nactor \"Loan Officer\" as LoanOfficer\n\ncomponent \"Loan Application\" as LoanApp <<service>>\ncomponent \"KYC Management\" as KYC <<service>>\ncomponent \"Credit Score Management\" as CreditScore <<service>>\ncomponent \"Eligibility Evaluation\" as Eligibility <<service>>\ncomponent \"Loan Approval\" as Approval <<service>>\ncomponent \"Repayment Schedule\" as Repayment <<service>>\ncomponent \"Loan Disbursement\" as Disbursement <<service>>\n\ncomponent \"Credit Bureau\" as CreditBureau <<external>>\ncomponent \"Banking Core System\" as BankingCore <<external>>\ncomponent \"External KYC Provider\" as ExternalKYC <<external>>\n\nCustomer --> LoanApp : \"Submits Application\"\nLoanApp --> KYC : \"Requests Verification\"\nKYC --> ExternalKYC : \"Verifies Identity\"\nLoanApp --> CreditScore : \"Requests Score\"\nCreditScore --> CreditBureau : \"Queries Score\"\nLoanApp --> Eligibility : \"Evaluates Eligibility\"\nEligibility --> Approval : \"Forwards Decision\"\nLoanOfficer --> Approval : \"Approves / Rejects\"\nApproval --> Repayment : \"Calculates Schedule\"\nRepayment --> Disbursement : \"Prepares for Disbursement\"\nDisbursement --> BankingCore : \"Disburses Funds\"\nApproval --> Customer : \"Notifies Status\"\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "ac40035ef17946f99d869103134f103d": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 97,
+        "errors": [
+          "Graph Error: Duplicate relationship detected from 'Customer' to 'Loan Application Management'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 10,
+          "generated_components": 10,
+          "exact_matches": 10,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 97
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\nparticipant \"Loan Application Management\" as LAM\nparticipant \"KYC Management\" as KYC\nexternal_system \"Credit Bureau\" as CB\nparticipant \"Loan Eligibility\" as LE\nparticipant \"Repayment Scheduling\" as RS\nparticipant \"Loan Approval\" as LA\nactor \"Loan Officer\" as LO\nexternal_system \"Banking Core\" as BC\nparticipant \"Customer Management\" as CM\n\nCustomer -> LAM : Submit Loan Application\nactivate LAM\nCustomer -> LAM : Upload KYC Documents\nLAM -> KYC : Request KYC Verification\nactivate KYC\nKYC --> LAM : Return Verification Status\ndeactivate KYC\nLAM -> CB : Request Credit Score\nactivate CB\nCB --> LAM : Provide Credit Score\ndeactivate CB\nLAM -> LE : Evaluate Eligibility Criteria\nactivate LE\nLE -> RS : Calculate Repayment Plan\nactivate RS\nRS --> LE : Return Repayment Schedule\ndeactivate RS\nLE --> LAM : Return Eligibility Decision & Schedule\ndeactivate LE\nLAM -> LA : Submit for Final Approval\ndeactivate LAM\nactivate LA\nLA -> LO : Request Manual Review & Approval\nactivate LO\nLO --> LA : Approve Loan\ndeactivate LO\nLA -> BC : Initiate Loan Disbursement\nactivate BC\nBC --> LA : Confirm Disbursement\ndeactivate BC\nLA -> CM : Notify Customer of Approval\ndeactivate LA\nactivate CM\nCM --> Customer : Send Loan Approval Notification\ndeactivate CM\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "5084f1c1cac873fddf73672b02cf0714": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"Patient\" as Patient\nactor \"Doctor\" as Doctor\nactor \"Billing Department\" as BillingDept\n\ncomponent \"Appointment Management\" <<service>> as AppointmentMgmt\ncomponent \"Patient Management\" <<service>> as PatientMgmt\ncomponent \"Medical History Management\" <<service>> as MedicalHistoryMgmt\ncomponent \"Lab Management\" <<service>> as LabMgmt\ncomponent \"Prescription Management\" <<service>> as PrescriptionMgmt\ncomponent \"Billing Management\" <<service>> as BillingMgmt\n\ncomponent \"External Laboratory System\" <<external>> as ExternalLab\n\nPatient --> AppointmentMgmt : Books Appointment\nDoctor --> AppointmentMgmt : Manages Appointments\nDoctor --> PatientMgmt : Manages Patient Data\nDoctor --> MedicalHistoryMgmt : Accesses/Updates History\nDoctor --> LabMgmt : Orders Tests\nDoctor --> PrescriptionMgmt : Prescribes Medication\n\nLabMgmt --> ExternalLab : Submits/Receives Results\n\nBillingDept --> BillingMgmt : Manages Billing\n\nBillingMgmt --> PatientMgmt : Retrieves Patient Info\nBillingMgmt --> AppointmentMgmt : Retrieves Appointment Info\nBillingMgmt --> MedicalHistoryMgmt : Retrieves Treatment Info\nBillingMgmt --> LabMgmt : Retrieves Lab Charges\nBillingMgmt --> PrescriptionMgmt : Retrieves Prescription Charges\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "00e7f206161e177032206031be8d9120": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 97,
+        "errors": [
+          "Graph Error: Duplicate relationship detected from 'Doctor' to 'Patient Records'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 11,
+          "generated_components": 10,
+          "exact_matches": 10,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 97
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Patient\" as Patient\nparticipant \"Appointments\" as Appointments\nactor \"Doctor\" as Doctor\nparticipant \"Patient Records\" as PatientRecords\nparticipant \"Lab Services\" as LabServices\nparticipant \"External Lab\" as ExternalLab\nparticipant \"Prescriptions\" as Prescriptions\nparticipant \"Discharge Summaries\" as DischargeSummaries\nparticipant \"Billing\" as Billing\nparticipant \"Insurance Provider\" as InsuranceProvider\n\nPatient -> Appointments : Book Appointment\nAppointments --> Patient : Confirm Appointment\n\nDoctor -> PatientRecords : Access Patient History\nDoctor -> LabServices : Request Lab Test\nLabServices -> ExternalLab : Order Test\nExternalLab --> LabServices : Send Results\nLabServices -> PatientRecords : Update Lab Report\n\nDoctor -> PatientRecords : Review Lab Report\nDoctor -> Prescriptions : Prescribe Medication\nDoctor -> DischargeSummaries : Generate Discharge Summary\n\nDischargeSummaries -> Billing : Notify for Treatment Billing\nBilling -> InsuranceProvider : Submit Claim\nInsuranceProvider --> Billing : Send Adjudication\nBilling --> Patient : Generate Invoice\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "9aa48f67c082f87c9836b054375e218e": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Customer\" as Customer\n\ncomponent \"Product Catalog\" as ProductCatalog <<service>>\ncomponent \"Inventory Management\" as InventoryManagement <<service>>\ncomponent \"Order Management\" as OrderManagement <<service>>\ncomponent \"Payment Management\" as PaymentManagement <<service>>\ncomponent \"Fulfillment Management\" as FulfillmentManagement <<service>>\ncomponent \"Shipping Management\" as ShippingManagement <<service>>\ncomponent \"Return & Refund Management\" as ReturnRefundManagement <<service>>\n\ncomponent \"Payment Gateway\" as PaymentGateway <<external>>\ncomponent \"Shipping Carrier\" as ShippingCarrier <<external>>\ncomponent \"Warehouse\" as Warehouse <<external>>\n\nCustomer --> ProductCatalog : Browses Products\nCustomer --> OrderManagement : Places Order\nCustomer --> ReturnRefundManagement : Initiates Return/Refund\n\nOrderManagement --> InventoryManagement : Validates & Reserves Stock\nOrderManagement --> PaymentManagement : Initiates Payment\nOrderManagement --> FulfillmentManagement : Requests Fulfillment\n\nPaymentManagement --> PaymentGateway : Authorizes & Captures Funds\n\nFulfillmentManagement --> Warehouse : Dispatches Items\nFulfillmentManagement --> ShippingManagement : Arranges Shipment\n\nShippingManagement --> ShippingCarrier : Generates Tracking\n\nReturnRefundManagement --> PaymentManagement : Processes Refund\nReturnRefundManagement --> InventoryManagement : Updates Stock\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "a13fb0ca18d4a69a3bfbd4ca353bc82d": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 94,
+        "errors": [
+          "Graph Error: Duplicate relationship detected from 'Order' to 'Inventory'. Combine multiple messages into a single labeled edge or remove duplicates.",
+          "Graph Error: Duplicate relationship detected from 'Inventory' to 'Order'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 9,
+          "generated_components": 8,
+          "exact_matches": 8,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 94
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor Customer\nparticipant Product\nparticipant Order\nparticipant Inventory\nparticipant \"Payment Gateway\" as PaymentGateway\nparticipant Fulfillment\nparticipant Shipping\nparticipant \"Shipping Carrier\" as ShippingCarrier\n\"Customer\" -> \"Product\" : Browse Products\n\"Customer\" -> \"Order\" : Place Order\n\"Order\" -> \"Inventory\" : Validate Stock Availability\n\"Inventory\" --> \"Order\" : Stock Available\n\"Order\" -> \"Inventory\" : Reserve Stock\n\"Inventory\" --> \"Order\" : Stock Reserved\n\"Order\" -> \"PaymentGateway\" : Process Payment\n\"PaymentGateway\" --> \"Order\" : Payment Confirmation\n\"Order\" -> \"Customer\" : Confirm Order Placement\n\"Order\" -> \"Fulfillment\" : Initiate Order Fulfillment\n\"Fulfillment\" -> \"Shipping\" : Request Shipment Generation\n\"Shipping\" -> \"ShippingCarrier\" : Book Shipment\n\"ShippingCarrier\" --> \"Shipping\" : Provide Tracking ID\n\"Shipping\" -> \"Customer\" : Notify Shipment & Tracking\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "44593e79791d8a42df0d499425b84e39": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"Compliance Officer\" as ComplianceOfficer\n\ncomponent \"SEBI\" <<external>> as SEBI\n\ncomponent \"Circular Ingestion\" <<service>> as CircularIngestion\ncomponent \"Document Parsing\" <<service>> as DocumentParsing\ncomponent \"Compliance Requirement Extraction\" <<service>> as RequirementExtraction\ncomponent \"Existing Compliance Management\" <<service>> as ExistingComplianceManagement\ncomponent \"Gap Analysis\" <<service>> as GapAnalysis\ncomponent \"Impact Assessment\" <<service>> as ImpactAssessment\ncomponent \"Compliance Reporting\" <<service>> as ComplianceReporting\n\ndatabase \"Raw Circulars\" as RawCircularsDB\ndatabase \"Parsed Clauses\" as ParsedClausesDB\ndatabase \"Existing Compliance Setup\" as ExistingComplianceDB\ndatabase \"Compliance Requirements\" as ComplianceRequirementsDB\ndatabase \"Gap Analysis Results\" as GapAnalysisResultsDB\ndatabase \"Impact Assessments\" as ImpactAssessmentsDB\n\nSEBI --> CircularIngestion : Provides Circulars\nCircularIngestion --> RawCircularsDB : Stores Raw\n\nDocumentParsing <-- RawCircularsDB : Reads Raw\nDocumentParsing --> ParsedClausesDB : Stores Parsed\n\nRequirementExtraction <-- ParsedClausesDB : Reads Clauses\nRequirementExtraction --> ComplianceRequirementsDB : Stores New\n\nExistingComplianceManagement --> ExistingComplianceDB : Manages Setup\n\nGapAnalysis <-- ComplianceRequirementsDB : Reads New\nGapAnalysis <-- ExistingComplianceDB : Reads Existing\nGapAnalysis --> GapAnalysisResultsDB : Stores Results\n\nImpactAssessment <-- GapAnalysisResultsDB : Reads Gaps\nImpactAssessment --> ImpactAssessmentsDB : Stores Assessments\n\nComplianceReporting <-- ComplianceRequirementsDB : Reads Requirements\nComplianceReporting <-- GapAnalysisResultsDB : Reads Gaps\nComplianceReporting <-- ImpactAssessmentsDB : Reads Assessments\n\nComplianceOfficer <-- ComplianceReporting : Views Reports\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "9016e6a0109cbec5a2e92c2984403f4f": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 97,
+        "errors": [
+          "Graph Error: Duplicate relationship detected from 'Circular Ingestion' to 'Circular Document Store'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 10,
+          "generated_components": 10,
+          "exact_matches": 10,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 97
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"User\" as User\nexternal_system \"SEBI\" as SEBI\nparticipant \"Circular Ingestion\" as CI\ndatabase \"Circular Document Store\" as CDS\nparticipant \"Requirement Extraction\" as RE\ndatabase \"Existing Compliance Setup Store\" as ECSS\nparticipant \"Gap Analysis\" as GA\nparticipant \"Impact Assessment\" as IA\ndatabase \"Compliance Analysis Results Store\" as CARS\nparticipant \"Compliance Reporting\" as CR\n\nSEBI -> CI : Provide New Circulars\nactivate CI\nCI -> CDS : Store Raw Circular\nCI -> CDS : Store Parsed Circular\ndeactivate CI\n\nRE -> CDS : Retrieve Parsed Circulars\nactivate RE\nRE --> GA : Deliver Extracted Requirements\ndeactivate RE\n\nGA -> ECSS : Query Existing Compliance Setup\nactivate GA\nGA --> IA : Deliver Gap Analysis Results\ndeactivate GA\n\nIA --> CR : Deliver Impact Assessment Findings\nactivate IA\ndeactivate IA\n\nCR -> CARS : Persist Final Compliance Report\nactivate CR\nCR --> User : Present Compliance Report\ndeactivate CR\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "d66e96acf65037ac8705ecd95a7c42ba": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"User\" as User\n\ncomponent \"SEBI\" <<external>> as SEBI\n\ncomponent \"Circular Ingestion\" <<service>> as CircularIngestion\ncomponent \"Circular Parsing\" <<service>> as CircularParsing\ncomponent \"Requirements Extraction\" <<service>> as RequirementsExtraction\ncomponent \"Gap Analysis\" <<service>> as GapAnalysis\ncomponent \"Impact Assessment\" <<service>> as ImpactAssessment\ncomponent \"Compliance Reporting\" <<service>> as ComplianceReporting\n\ndatabase \"Compliance Data Store\" <<datastore>> as ComplianceDataStore\n\nSEBI --> CircularIngestion : \"Provides Circulars\"\nCircularIngestion --> CircularParsing : \"Submits Raw Circulars\"\nCircularParsing --> RequirementsExtraction : \"Provides Parsed Clauses\"\nRequirementsExtraction --> GapAnalysis : \"Provides New Requirements\"\nGapAnalysis --> ImpactAssessment : \"Provides Gaps\"\n\nRequirementsExtraction --> ComplianceDataStore : \"Stores Requirements\"\nGapAnalysis --> ComplianceDataStore : \"Stores Gap Analysis\"\nImpactAssessment --> ComplianceDataStore : \"Stores Impact Analysis\"\n\nUser --> ComplianceReporting : \"Accesses Reports\"\nComplianceReporting --> ComplianceDataStore : \"Retrieves Data\"\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "56fc0e73a35b5036a38430cd828a6d4f": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 97,
+        "errors": [
+          "Graph Error: Self-loop detected on 'Compliance Reporting'."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 9,
+          "generated_components": 8,
+          "exact_matches": 8,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 97
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nexternal_system \"SEBI\" as SEBI\ncomponent \"Circular Ingestion\" as CircularIngestion\ndatabase \"Raw Circulars Store\" as RawCircularsStore\ncomponent \"Circular Parsing\" as CircularParsing\ndatabase \"Parsed Clauses Store\" as ParsedClausesStore\ncomponent \"Compliance Analysis\" as ComplianceAnalysis\ndatabase \"Compliance Analysis Store\" as ComplianceAnalysisStore\ncomponent \"Compliance Reporting\" as ComplianceReporting\n\nactivate CircularIngestion\nCircularIngestion -> SEBI : Request Latest Circulars\nactivate SEBI\nSEBI --> CircularIngestion : Provide Circular Documents\ndeactivate SEBI\nCircularIngestion -> RawCircularsStore : Store Raw Circulars\ndeactivate CircularIngestion\n\nactivate CircularParsing\nCircularParsing -> RawCircularsStore : Retrieve Raw Circulars for Parsing\nactivate RawCircularsStore\nRawCircularsStore --> CircularParsing : Return Raw Circulars\ndeactivate RawCircularsStore\nCircularParsing -> ParsedClausesStore : Store Parsed Clauses\nactivate ParsedClausesStore\nParsedClausesStore --> CircularParsing : Confirmation\ndeactivate ParsedClausesStore\ndeactivate CircularParsing\n\nactivate ComplianceAnalysis\nComplianceAnalysis -> ParsedClausesStore : Retrieve Parsed Clauses for Analysis\nactivate ParsedClausesStore\nParsedClausesStore --> ComplianceAnalysis : Return Parsed Clauses\ndeactivate ParsedClausesStore\nComplianceAnalysis -> ComplianceAnalysisStore : Store Compliance Analysis Results\nactivate ComplianceAnalysisStore\nComplianceAnalysisStore --> ComplianceAnalysis : Confirmation\ndeactivate ComplianceAnalysisStore\ndeactivate ComplianceAnalysis\n\nactivate ComplianceReporting\nComplianceReporting -> ComplianceAnalysisStore : Retrieve Analysis Results for Reporting\nactivate ComplianceAnalysisStore\nComplianceAnalysisStore --> ComplianceReporting : Return Analysis Results\ndeactivate ComplianceAnalysisStore\nComplianceReporting -> ComplianceReporting : Generate Compliance Report\ndeactivate ComplianceReporting\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "67c995d75811c5a583008cd777015526": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 64,
+        "errors": [
+          "Graph Error: Target node 'Publishes Circulars\" --> CircularProcessing' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Stores Raw Circulars\" --> ObjectStorage' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Provides Processed Circulars\" --> RequirementExtraction' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Stores Requirements\" --> ComplianceDataStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Provides Requirements\" --> GapAnalysis' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Retrieves Existing Setup\" --> ComplianceDataStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Stores Gap Analysis\" --> ComplianceDataStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Provides Gaps\" --> ImpactAssessment' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Stores Impact Analysis\" --> ComplianceDataStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Accesses Reports\" --> Reporting' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Retrieves Data\" --> ComplianceDataStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Isolated business node detected 'Object Storage'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Compliance Data Store'. Nodes must participate in at least one relationship."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 9,
+          "generated_components": 9,
+          "exact_matches": 9,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 64
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n\nactor \"Compliance Analysts\" as Analysts\ncomponent \"SEBI\" as SEBI <<external>>\n\ncomponent \"Circular Processing\" as CircularProcessing <<service>>\ncomponent \"Requirement Extraction\" as RequirementExtraction <<service>>\ncomponent \"Gap Analysis\" as GapAnalysis <<service>>\ncomponent \"Impact Assessment\" as ImpactAssessment <<service>>\ncomponent \"Reporting\" as Reporting <<service>>\n\ndatabase \"Object Storage\" as ObjectStorage\ndatabase \"Compliance Data Store\" as ComplianceDataStore\n\nSEBI -- \"Publishes Circulars\" --> CircularProcessing\nCircularProcessing -- \"Stores Raw Circulars\" --> ObjectStorage\nCircularProcessing -- \"Provides Processed Circulars\" --> RequirementExtraction\nRequirementExtraction -- \"Stores Requirements\" --> ComplianceDataStore\nRequirementExtraction -- \"Provides Requirements\" --> GapAnalysis\nGapAnalysis -- \"Retrieves Existing Setup\" --> ComplianceDataStore\nGapAnalysis -- \"Stores Gap Analysis\" --> ComplianceDataStore\nGapAnalysis -- \"Provides Gaps\" --> ImpactAssessment\nImpactAssessment -- \"Stores Impact Analysis\" --> ComplianceDataStore\n\nAnalysts -- \"Accesses Reports\" --> Reporting\nReporting -- \"Retrieves Data\" --> ComplianceDataStore\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "55a3155542f465ba5233d3b812b0bbaf": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Compliance Analyst\" as Analyst\nparticipant \"UI\" as UI\nparticipant \"Circular Ingestion\" as Ingestion\nexternal_system \"SEBI\" as SEBI\ndatabase \"Object Storage\" as ObjStore\nparticipant \"Document Parsing\" as Parsing\nparticipant \"Compliance Requirement Extraction\" as Extraction\ndatabase \"Compliance Data Store\" as CompDataStore\nparticipant \"Gap Analysis\" as GapAnalysis\nparticipant \"Impact Assessment\" as ImpactAssessment\n\nAnalyst -> UI : Initiate Circular Processing\nactivate UI\nUI -> Ingestion : Trigger Circular Retrieval\nactivate Ingestion\nIngestion -> SEBI : Request Latest Circulars\nactivate SEBI\nSEBI --> Ingestion : Provide Circular Documents\ndeactivate SEBI\nIngestion -> ObjStore : Store Raw Circulars\ndeactivate Ingestion\n\nactivate Parsing\nParsing -> ObjStore : Retrieve Raw Circulars\nObjStore --> Parsing : Deliver Raw Circulars\nParsing -> Extraction : Submit Parsed Content\ndeactivate Parsing\n\nactivate Extraction\nExtraction -> CompDataStore : Store Extracted Requirements\ndeactivate Extraction\n\nactivate GapAnalysis\nGapAnalysis -> CompDataStore : Perform Gap Analysis & Store Results\ndeactivate GapAnalysis\n\nactivate ImpactAssessment\nImpactAssessment -> CompDataStore : Assess IT/Ops Impact & Store Results\ndeactivate ImpactAssessment\n\nUI -> CompDataStore : Fetch Final Analysis Report\nCompDataStore --> UI : Deliver Comprehensive Report\nUI --> Analyst : Present Compliance Analysis Report\ndeactivate UI\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
     }
   },
   "review": {}
