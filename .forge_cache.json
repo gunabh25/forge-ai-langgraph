@@ -603,6 +603,69 @@
       "architecture_status": "passed",
       "business_flow_status": "passed",
       "llm_invoked": false
+    },
+    "0b43269eeb510d2b1574ff07b31cafbb": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"User\" as User\n\n[SEBI] <<external>> as SEBI\n[Internal CMS] <<external>> as InternalCMS\n\n[Regulatory Intelligence] <<service>> as RegIntel\n[Gap Analysis] <<service>> as GapAnalysis\n[Impact Assessment] <<service>> as ImpactAssessment\n[Reporting & UI] <<service>> as ReportingUI\n\ndatabase \"Raw Circular Documents\" as RawDocs\ndatabase \"Structured Clauses\" as StructuredClauses\ndatabase \"Existing Compliance Setup Data\" as ExistingCompliance\ndatabase \"Extracted Requirements\" as ExtractedReqs\ndatabase \"Gap Analysis Results\" as GapResults\ndatabase \"Impact Assessments\" as ImpactAssessments\n\nUser --> ReportingUI : \"Accesses\"\n\nSEBI --> RegIntel : \"Provides Circulars\"\n\nRegIntel --> RawDocs : \"Stores Raw\"\nRegIntel --> StructuredClauses : \"Parses & Stores\"\nRegIntel --> ExtractedReqs : \"Extracts & Stores\"\n\nInternalCMS --> ExistingCompliance : \"Provides Setup Data\"\n\nGapAnalysis --> ExtractedReqs : \"Reads Requirements\"\nGapAnalysis --> ExistingCompliance : \"Reads Setup Data\"\nGapAnalysis --> GapResults : \"Stores Results\"\n\nImpactAssessment --> ExtractedReqs : \"Reads Requirements\"\nImpactAssessment --> GapResults : \"Reads Gaps\"\nImpactAssessment --> ImpactAssessments : \"Stores Assessments\"\n\nReportingUI --> ExtractedReqs : \"Reads Requirements\"\nReportingUI --> GapResults : \"Reads Gaps\"\nReportingUI --> ImpactAssessments : \"Reads Assessments\"\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "140f724d8ffc55d60de2b78a495d345d": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"System\" as System\nexternal_system \"SEBI\" as SEBI\nparticipant \"Circular Ingestion\" as CircularIngestion\nparticipant \"Document Processing\" as DocumentProcessing\nparticipant \"Requirement Extraction\" as RequirementExtraction\nparticipant \"Existing Compliance Management\" as ExistingComplianceManagement\nparticipant \"Gap Analysis\" as GapAnalysis\nparticipant \"Impact Assessment\" as ImpactAssessment\nparticipant \"Reporting & UI\" as ReportingUI\n\nSystem -> CircularIngestion : Initiate Circular Monitoring\nCircularIngestion -> SEBI : Request Latest Circulars\nSEBI --> CircularIngestion : Provide Raw Circulars\n\nCircularIngestion -> DocumentProcessing : Submit Raw Circulars\nDocumentProcessing -> RequirementExtraction : Provide Processed Clauses\n\nRequirementExtraction -> ExistingComplianceManagement : Fetch Current Compliance Posture\nExistingComplianceManagement --> RequirementExtraction : Return Existing Compliance Data\n\nRequirementExtraction -> GapAnalysis : Submit New Requirements & Existing Compliance\nGapAnalysis -> ImpactAssessment : Request Impact Assessment for Gaps\nImpactAssessment --> GapAnalysis : Provide Impact Assessment Details\n\nImpactAssessment -> ReportingUI : Present Impact Assessment Results\nReportingUI --> System : Display Compliance Insights\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "b26bf9a494c0f0da8b823a59d66a6ac6": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"User\" as User\n\ncomponent \"SEBI\" <<external>> as SEBI\n\ncomponent \"Circular Ingestion\" <<service>> as Ingestion\ndatabase \"Raw Circulars Store\" <<datastore>> as RawStore\ncomponent \"Document Parsing\" <<service>> as Parsing\ncomponent \"Compliance Analysis\" <<service>> as Analysis\ndatabase \"Compliance Data Store\" <<datastore>> as ComplianceStore\ncomponent \"Impact Assessment\" <<service>> as Impact\ncomponent \"Reporting\" <<service>> as Reporting\n\nSEBI --> Ingestion : Provides Circulars\nIngestion --> RawStore : Stores Raw Circulars\nIngestion --> Parsing : Submits for Parsing\nParsing --> Analysis : Extracts Clauses\nAnalysis --> ComplianceStore : Stores Compliance Data\nAnalysis --> Impact : Provides Analysis\nImpact --> Reporting : Provides Impact Data\nReporting --> ComplianceStore : Reads Compliance Data\nUser --> Reporting : Views Reports\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "e4c72fcda7970f4f1ade7289eebbf98c": {
+      "pipeline_feedback": {
+        "passed": false,
+        "score": 50,
+        "errors": [
+          "No actor exists to start the workflow."
+        ],
+        "validator": "Business Flow Validator"
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 50
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nparticipant \"Circular Ingestion\" as CI\nexternal_system \"SEBI\" as SEBI\nparticipant \"Document Parsing\" as DP\nparticipant \"Compliance Analysis\" as CA\nparticipant \"Impact Assessment\" as IA\ndatabase \"Compliance Data Store\" as CDS\n\nCI -> SEBI : Request Latest Circulars\nactivate CI\nactivate SEBI\nSEBI --> CI : Provide Circular Documents\ndeactivate SEBI\n\nCI -> CDS : Store Raw Circulars\nactivate CDS\ndeactivate CDS\n\nCI -> DP : Submit Circulars for Parsing\ndeactivate CI\nactivate DP\n\nDP -> CDS : Store Parsed Clauses\nactivate CDS\ndeactivate CDS\n\nDP -> CA : Submit Parsed Clauses for Analysis\ndeactivate DP\nactivate CA\n\nCA -> CDS : Store Analysis Results\nactivate CDS\ndeactivate CDS\n\nCA -> IA : Submit Analysis for Impact Assessment\ndeactivate CA\nactivate IA\n\nIA -> CDS : Store Impact Assessment Results\nactivate CDS\ndeactivate CDS\ndeactivate IA\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "failed",
+      "llm_invoked": false
     }
   },
   "review": {}

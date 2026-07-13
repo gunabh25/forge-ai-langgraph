@@ -139,40 +139,226 @@ class ArchitectureValidator:
         }
 
 class BusinessFlowValidator:
-    """Validates the runtime business flow using LLM."""
+    """Validates the runtime business flow using LLM.
+
+    Actor validation is planner-aware (Phase 7.3):
+    - When diagram_plan["actors"] contains entries → require a planned actor as entry point.
+    - When diagram_plan["actors"] is empty      → skip the actor rule; accept any approved
+      external system or business component as a valid workflow entry point.
+
+    The Planning JSON is the single source of truth for actor requirements.
+    """
+
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
-        
-    def _deterministic_validate(self, diagram: UMLDiagram) -> Optional[Dict[str, Any]]:
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_plan_actors(diagram_plan: str) -> List[str]:
+        """Return the list of actor names from the planning JSON (may be empty)."""
+        if not diagram_plan:
+            return []
+        try:
+            plan = json.loads(diagram_plan)
+            actors = plan.get("actors", [])
+            return [a if isinstance(a, str) else a.get("name", "") for a in actors if a]
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @staticmethod
+    def _parse_plan_entry_participants(diagram_plan: str) -> List[str]:
+        """Return all approved non-actor participants that may serve as workflow entry points.
+
+        Covers external_systems, major_components, and major_data_stores from the plan.
+        """
+        if not diagram_plan:
+            return []
+        try:
+            plan = json.loads(diagram_plan)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+        participants: List[str] = []
+        for key in ("external_systems", "major_components", "major_data_stores"):
+            for item in plan.get(key, []):
+                name = item if isinstance(item, str) else item.get("name", "")
+                if name:
+                    participants.append(name)
+        return participants
+
+    # ------------------------------------------------------------------
+    # Deterministic validation
+    # ------------------------------------------------------------------
+
+    def _deterministic_validate(
+        self,
+        diagram: UMLDiagram,
+        diagram_plan: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Run deterministic checks.  Returns a result dict or None (fall through to LLM)."""
         if not diagram.relationships:
-            return None # Cannot confidently validate empty flow
-            
-        actors = [n for n in diagram.business_nodes if n.node_type == "actor"]
-        if not actors:
-            return {"passed": False, "score": 50, "errors": ["No actor exists to start the workflow."]}
-            
+            return None  # Cannot confidently validate an empty flow
+
+        # ── Planner-aware actor rule ────────────────────────────────────
+        planned_actors = self._parse_plan_actors(diagram_plan)
+        diagram_actors = [n for n in diagram.business_nodes if n.node_type == "actor"]
+
+        if planned_actors:
+            # Actors were planned → at least one must be present as workflow entry
+            planned_actor_norms = {normalize_name(a) for a in planned_actors}
+            diagram_actor_norms = {normalize_name(n.display_name) for n in diagram_actors}
+            matching_actors = planned_actor_norms & diagram_actor_norms
+
+            # Determine the first relationship source (workflow entry point)
+            first_source_name = ""
+            if diagram.relationships:
+                first_source_name = diagram.relationships[0].source
+                if first_source_node := diagram.resolve(first_source_name):
+                    first_source_name = first_source_node.display_name
+
+            if not matching_actors:
+                logger.warning(
+                    "\n"
+                    "────────── Business Flow Validator ──────────\n"
+                    "Planner Actors : %s\n"
+                    "Actor Rule     : ENFORCED\n"
+                    "Workflow Entry : %s\n"
+                    "Validation     : FAIL\n"
+                    "Reason         : Expected workflow to begin with an approved actor.\n"
+                    "─────────────────────────────────────────────",
+                    planned_actors,
+                    first_source_name,
+                )
+                return {
+                    "passed": False,
+                    "score": 50,
+                    "errors": [
+                        f"Planned actor(s) {planned_actors} not found in diagram. "
+                        "Expected workflow to begin with an approved actor."
+                    ],
+                }
+
+            logger.info(
+                "\n"
+                "────────── Business Flow Validator ──────────\n"
+                "Planner Actors : %s\n"
+                "Actor Rule     : ENFORCED\n"
+                "Workflow Entry : %s\n"
+                "Validation     : PASS\n"
+                "─────────────────────────────────────────────",
+                planned_actors,
+                first_source_name,
+            )
+
+        else:
+            # actors=[] → actor rule skipped; require any approved entry participant
+            approved_entries = self._parse_plan_entry_participants(diagram_plan)
+            approved_entry_norms = {normalize_name(e) for e in approved_entries}
+
+            # Collect root nodes (nodes with outgoing but no incoming edges)
+            root_nodes = diagram.root_nodes()
+            root_norms = {normalize_name(n.display_name) for n in root_nodes}
+
+            # Determine the first relationship source as a fallback entry signal
+            first_source_node = None
+            if diagram.relationships:
+                first_source_node = diagram.resolve(diagram.relationships[0].source)
+
+            first_source_norm = (
+                normalize_name(first_source_node.display_name) if first_source_node else ""
+            )
+            first_source_name = first_source_node.display_name if first_source_node else ""
+
+            # Accept if at least one root node (or the first message source) is approved
+            has_valid_entry = bool(root_norms & approved_entry_norms) or (
+                bool(approved_entry_norms) and first_source_norm in approved_entry_norms
+            )
+
+            # When no plan is available, fall open (cannot enforce)
+            if not approved_entry_norms:
+                has_valid_entry = True
+
+            if not has_valid_entry:
+                logger.warning(
+                    "\n"
+                    "────────── Business Flow Validator ──────────\n"
+                    "Planner Actors : []\n"
+                    "Actor Rule     : SKIPPED\n"
+                    "Workflow Entry : %s\n"
+                    "Approved Entry : %s\n"
+                    "Validation     : FAIL\n"
+                    "Reason         : Workflow entry participant is not in approved plan.\n"
+                    "─────────────────────────────────────────────",
+                    first_source_name,
+                    approved_entries,
+                )
+                return {
+                    "passed": False,
+                    "score": 55,
+                    "errors": [
+                        f"Workflow entry participant '{first_source_name}' is not in the approved plan. "
+                        f"Approved entry points: {approved_entries}"
+                    ],
+                }
+
+            logger.info(
+                "\n"
+                "────────── Business Flow Validator ──────────\n"
+                "Planner Actors : []\n"
+                "Actor Rule     : SKIPPED\n"
+                "Workflow Entry : %s\n"
+                "Validation     : PASS\n"
+                "─────────────────────────────────────────────",
+                first_source_name,
+            )
+
+        # ── Remaining deterministic checks (unchanged) ──────────────────
+
         # Self-loops
         for r in diagram.relationships:
             s_node = diagram.resolve(r.source)
             t_node = diagram.resolve(r.target)
             if s_node and t_node and s_node == t_node:
-                return {"passed": False, "score": 60, "errors": [f"Self-loop detected on: {s_node.display_name}"]}
-                
-        # Adjacent Duplicate messages
+                return {
+                    "passed": False,
+                    "score": 60,
+                    "errors": [f"Self-loop detected on: {s_node.display_name}"],
+                }
+
+        # Adjacent duplicate messages
         rels = diagram.relationships
         for i in range(1, len(rels)):
-            prev = rels[i-1]
+            prev = rels[i - 1]
             curr = rels[i]
-            if prev.source == curr.source and prev.target == curr.target and prev.label == curr.label:
-                return {"passed": False, "score": 80, "errors": [f"Duplicate adjacent message detected: {curr.source} -> {curr.target}"]}
-                
+            if (
+                prev.source == curr.source
+                and prev.target == curr.target
+                and prev.label == curr.label
+            ):
+                return {
+                    "passed": False,
+                    "score": 80,
+                    "errors": [f"Duplicate adjacent message detected: {curr.source} -> {curr.target}"],
+                }
+
         # Orphans
         orphans = diagram.isolated_nodes()
         if orphans:
             orphan_names = [o.display_name for o in orphans]
-            return {"passed": False, "score": 85, "errors": [f"Orphan participants detected (no messages): {', '.join(orphan_names)}"]}
-            
+            return {
+                "passed": False,
+                "score": 85,
+                "errors": [f"Orphan participants detected (no messages): {', '.join(orphan_names)}"],
+            }
+
         return {"passed": True, "score": 100, "errors": [], "warnings": []}
+
+    # ------------------------------------------------------------------
+    # Public validate()
+    # ------------------------------------------------------------------
 
     def validate(self, diagram_type: str, diagram_plan: str, plantuml_content: str) -> Dict[str, Any]:
         if diagram_type.lower() not in ["sequence", "activity"]:
@@ -181,15 +367,15 @@ class BusinessFlowValidator:
                 "passed": True,
                 "score": 100,
                 "errors": [],
-                "warnings": []
+                "warnings": [],
             }
-            
+
         diagram = PlantUMLParser.parse(plantuml_content)
-        det_result = self._deterministic_validate(diagram)
+        det_result = self._deterministic_validate(diagram, diagram_plan)
         if det_result is not None:
             det_result["validator"] = "Business Flow Validator"
             return det_result
-            
+
         prompt = (
             f"You are validating the business flow of a **{diagram_type} Diagram**.\\n\\n"
             f"## Diagram Plan\\n{diagram_plan}\\n\\n"
@@ -206,9 +392,11 @@ class BusinessFlowValidator:
             f'  "warnings": []\\n'
             f"}}\\n"
         )
-        
+
         try:
-            response = self.llm.invoke([SystemMessage(content=_ARCHITECT_SYSTEM), HumanMessage(content=prompt)])
+            response = self.llm.invoke(
+                [SystemMessage(content=_ARCHITECT_SYSTEM), HumanMessage(content=prompt)]
+            )
             raw = str(response.content).replace("```json", "").replace("```", "").strip()
             result = json.loads(raw)
             return {
@@ -216,7 +404,7 @@ class BusinessFlowValidator:
                 "passed": result.get("passed", True),
                 "score": result.get("score", 100),
                 "errors": result.get("errors", []),
-                "warnings": result.get("warnings", [])
+                "warnings": result.get("warnings", []),
             }
         except Exception as e:
             logger.warning("Business Flow Validator failed to parse LLM output: %s", e)
@@ -225,7 +413,7 @@ class BusinessFlowValidator:
                 "passed": True,
                 "score": 100,
                 "errors": [],
-                "warnings": []
+                "warnings": [],
             }
 
 class ReviewValidator:
