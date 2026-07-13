@@ -329,12 +329,12 @@ class UMLGeneratorAgent(BaseAgent):
                 arch_score = uml_validation_metrics.get("architecture_score", 100)
                 flow_score = uml_validation_metrics.get("business_flow_score", 100)
                 
-                confidence = (grammar_score + arch_score + flow_score) / 3
+                confidence = min(grammar_score, arch_score, flow_score)
                 # Default threshold 95
                 REVIEW_CONFIDENCE_THRESHOLD = int(os.environ.get("REVIEW_CONFIDENCE_THRESHOLD", 95))
                 
                 if confidence >= REVIEW_CONFIDENCE_THRESHOLD:
-                    logger.info("Adaptive Review Skipped (Confidence %.1f >= %d) | diagram_type=%s", confidence, REVIEW_CONFIDENCE_THRESHOLD, diagram_type)
+                    logger.info("Adaptive Review Skipped (All scores >= %d) | diagram_type=%s", REVIEW_CONFIDENCE_THRESHOLD, diagram_type)
                     uml_validation_metrics["review_score"] = 100
                 else:
                     cached_review = cache_manager.get_review(clean_content)

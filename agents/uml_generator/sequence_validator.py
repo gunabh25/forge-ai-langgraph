@@ -3,8 +3,8 @@ from dataclasses import dataclass, field
 from typing import List, Set, Any, Dict
 from config.logging import get_logger
 
-from agents.uml_generator.uml_parser import PlantUMLParser
-from core.business_normalizer import normalize_components
+from agents.uml_generator.uml_parser import UMLDiagram
+from core.business_normalizer import normalize_components, normalize_name
 
 logger = get_logger("agents.uml_generator.sequence_validator")
 
@@ -25,21 +25,12 @@ class SequenceValidator:
     """Validator for business traceability in Sequence and Component Diagrams."""
     
     def __init__(self):
-        # Common technical and generic suffixes to strip for synonym mapping
         self.alias_strips = [
             " service", " backend", " system", " management", " api", 
             " processing", " manager", " provider", " database", " db",
             " application", " app", " portal", " interface", " ui",
             " microservice", " engine", " orchestrator"
         ]
-
-    def _normalize_name(self, name: str) -> str:
-        """Canonical Normalization."""
-        # Lowercase, replace hyphens and underscores with spaces
-        normalized = name.lower().replace("_", " ").replace("-", " ")
-        # Trim whitespace and collapse multiple spaces
-        normalized = " ".join(normalized.split())
-        return normalized
 
     def build_approved_registry(self, plan_json: str) -> Set[str]:
         """Construct the Approved Participant Registry from the Planning JSON."""
@@ -70,7 +61,6 @@ class SequenceValidator:
                     current_name = current_name[:-len(suffix)].strip()
                     changed = True
                     
-        # Check if the stripped version matches any approved normalized names
         for app_norm, original in normalized_approved.items():
             app_current = app_norm
             changed = True
@@ -85,25 +75,24 @@ class SequenceValidator:
                 
         return ""
 
-    def validate(self, plan_json: str, plantuml_content: str) -> SequenceValidationResult:
+    def validate(self, plan_json: str, uml_diagram: UMLDiagram) -> SequenceValidationResult:
         """Validate traceability of generated participants against the plan."""
         approved_registry = self.build_approved_registry(plan_json)
         
-        # Build normalized lookup map
         normalized_approved = {
-            self._normalize_name(p): p for p in approved_registry
+            normalize_name(p): p for p in approved_registry
         }
-        
-        # Parse PlantUML string to structured models
-        uml_diagram = PlantUMLParser.parse(plantuml_content)
         
         traceable = []
         non_traceable = []
         participant_details = []
         
+        # Only evaluate traceability on Business Nodes (Layout Nodes are skipped)
+        business_nodes = uml_diagram.business_nodes
+        
         metrics = {
             "planned_components": len(approved_registry),
-            "generated_components": len(uml_diagram.nodes),
+            "generated_components": len(business_nodes),
             "exact_matches": 0,
             "alias_matches": 0,
             "normalizer_matches": 0,
@@ -113,9 +102,9 @@ class SequenceValidator:
         
         logger.debug("Approved Participants:\n%s", list(approved_registry))
         
-        for node in uml_diagram.nodes:
+        for node in business_nodes:
             display_name = node.display_name
-            normalized = self._normalize_name(display_name)
+            normalized = node.normalized_name
             
             detail = {
                 "traceable": False,
@@ -125,7 +114,6 @@ class SequenceValidator:
                 "match_type": "None"
             }
             
-            # 1. Exact normalized match
             if normalized in normalized_approved:
                 detail["traceable"] = True
                 detail["planning_match"] = normalized_approved[normalized]
@@ -133,17 +121,15 @@ class SequenceValidator:
                 traceable.append(display_name)
                 metrics["exact_matches"] += 1
             else:
-                # 2. Business Normalizer Match
                 normalized_business = normalize_components([display_name])
-                if normalized_business and self._normalize_name(normalized_business[0]) in normalized_approved:
-                    matched_val = normalized_approved[self._normalize_name(normalized_business[0])]
+                if normalized_business and normalize_name(normalized_business[0]) in normalized_approved:
+                    matched_val = normalized_approved[normalize_name(normalized_business[0])]
                     detail["traceable"] = True
                     detail["planning_match"] = matched_val
                     detail["match_type"] = "Business Normalizer"
                     traceable.append(display_name)
                     metrics["normalizer_matches"] += 1
                 else:
-                    # 3. Synonym Match
                     synonym_match = self._get_synonym_match(normalized, normalized_approved)
                     if synonym_match:
                         detail["traceable"] = True
@@ -156,7 +142,7 @@ class SequenceValidator:
                         non_traceable.append(display_name)
                         metrics["failed_matches"] += 1
             
-            logger.info("Traceability Result:\n------------------------------------------------\n"
+            logger.debug("Traceability Result:\n------------------------------------------------\n"
                         f"Display Name: {detail['display_name']}\n"
                         f"↓\nNormalized: {detail['normalized_name']}\n"
                         f"↓\nPlanning Match: {detail['planning_match']}\n"
@@ -165,7 +151,7 @@ class SequenceValidator:
                         "------------------------------------------------")
             participant_details.append(detail)
             
-        total = len(uml_diagram.nodes)
+        total = len(business_nodes)
         if total == 0:
             score = 100
         else:
@@ -173,7 +159,7 @@ class SequenceValidator:
             
         metrics["traceability_score"] = score
             
-        logger.info("Traceability Score:\n%d / %d participants traceable", len(traceable), total)
+        logger.debug("Traceability Score:\n%d / %d participants traceable", len(traceable), total)
         
         return SequenceValidationResult(
             traceable_participants=traceable,
@@ -192,25 +178,32 @@ class RelationshipValidationResult:
 class RelationshipValidator:
     """Validates structural correctness of UML relationships."""
     
-    def validate(self, diagram) -> RelationshipValidationResult:
+    def validate(self, diagram: UMLDiagram) -> RelationshipValidationResult:
         errors = []
-        declared_aliases = {node.alias for node in diagram.nodes}
         seen_edges = set()
         
         for rel in diagram.relationships:
-            if rel.source not in declared_aliases:
+            src_node = diagram.resolve(rel.source)
+            tgt_node = diagram.resolve(rel.target)
+            
+            if not src_node:
                 errors.append(f"Graph Error: Source node '{rel.source}' is used in a relationship but was never declared. (Dangling alias)")
             
-            if rel.target not in declared_aliases:
+            if not tgt_node:
                 errors.append(f"Graph Error: Target node '{rel.target}' is used in a relationship but was never declared. (Dangling alias)")
                 
-            if rel.source == rel.target:
-                errors.append(f"Graph Error: Self-loop detected on '{rel.source}'.")
+            if src_node and tgt_node and src_node.normalized_name == tgt_node.normalized_name:
+                errors.append(f"Graph Error: Self-loop detected on '{src_node.display_name}'.")
                 
-            edge = (rel.source, rel.target)
-            if edge in seen_edges:
-                errors.append(f"Graph Error: Duplicate relationship detected from '{rel.source}' to '{rel.target}'. Combine multiple messages into a single labeled edge or remove duplicates.")
-            seen_edges.add(edge)
+            if src_node and tgt_node:
+                edge = (src_node.normalized_name, tgt_node.normalized_name)
+                if edge in seen_edges:
+                    errors.append(f"Graph Error: Duplicate relationship detected from '{src_node.display_name}' to '{tgt_node.display_name}'. Combine multiple messages into a single labeled edge or remove duplicates.")
+                seen_edges.add(edge)
+            
+        isolated = diagram.isolated_nodes()
+        for iso in isolated:
+            errors.append(f"Graph Error: Isolated business node detected '{iso.display_name}'. Nodes must participate in at least one relationship.")
             
         return RelationshipValidationResult(
             is_valid=len(errors) == 0,

@@ -5,6 +5,7 @@ import hashlib
 from typing import Dict, Any, Optional
 
 CACHE_FILE = ".forge_cache.json"
+CACHE_SCHEMA_VERSION = "2"
 
 class CacheManager:
     def __init__(self, cache_file: str = CACHE_FILE):
@@ -29,8 +30,9 @@ class CacheManager:
 
     @staticmethod
     def generate_hash(*args: str) -> str:
-        """Generates a stable MD5 hash from the concatenated string arguments."""
+        """Generates a stable MD5 hash from the concatenated string arguments and schema version."""
         hasher = hashlib.md5()
+        hasher.update(CACHE_SCHEMA_VERSION.encode('utf-8'))
         for arg in args:
             hasher.update(arg.encode('utf-8'))
         return hasher.hexdigest()

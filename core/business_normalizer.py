@@ -1,4 +1,7 @@
+import logging
 from typing import Dict, List, Any
+
+logger = logging.getLogger("core.business_normalizer")
 
 CANONICAL_COMPONENTS = {
     "Claim Assessment": "Claim Evaluation",
@@ -30,6 +33,14 @@ FORBIDDEN_COMPONENTS = {
     "Repository Service",
 }
 
+def normalize_name(name: str) -> str:
+    """Canonical Normalization."""
+    # Lowercase, replace hyphens and underscores with spaces
+    normalized = name.lower().replace("_", " ").replace("-", " ")
+    # Trim whitespace and collapse multiple spaces
+    normalized = " ".join(normalized.split())
+    return normalized
+
 
 def normalize_components(components: List[str]) -> List[str]:
     normalized = []
@@ -49,15 +60,13 @@ def normalize_components(components: List[str]) -> List[str]:
 
 
 def normalize_plan(plan):
-    print("\n========== BEFORE NORMALIZATION ==========")
-    print(plan)
+    logger.debug("\\n========== BEFORE NORMALIZATION ==========\\n%s", plan)
 
     if "major_components" in plan:
         plan["major_components"] = normalize_components(
             plan["major_components"]
         )
 
-    print("\n========== AFTER NORMALIZATION ==========")
-    print(plan)
+    logger.debug("\\n========== AFTER NORMALIZATION ==========\\n%s", plan)
 
     return plan

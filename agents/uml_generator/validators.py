@@ -6,6 +6,10 @@ from typing import Dict, Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 from config.logging import get_logger
+import re
+
+from agents.uml_generator.uml_parser import PlantUMLParser, UMLDiagram
+from core.business_normalizer import normalize_name
 
 logger = get_logger("agents.uml_generator.validators")
 
@@ -14,8 +18,6 @@ _ARCHITECT_SYSTEM = (
     "system design. You produce concise, accurate outputs in the format "
     "requested — never adding invented components or services."
 )
-
-import re
 
 class GrammarValidator:
     """Validates PlantUML syntax only using local plantuml binary and auto-fixes deterministic issues."""
@@ -32,16 +34,22 @@ class GrammarValidator:
         # Remove empty notes
         content = re.sub(r'note\s+(?:left|right|top|bottom)(?:.*?)\n\s*end note', '', content, flags=re.MULTILINE)
         
-        # Remove duplicate participant declarations
+        # Remove duplicate participant declarations using canonical aliases
         lines = content.split('\n')
-        seen_participants = set()
+        seen_aliases = set()
         cleaned_lines = []
+        
         for line in lines:
             line_strip = line.strip()
-            if line_strip.startswith(("participant ", "actor ", "database ", "boundary ")):
-                if line_strip in seen_participants:
-                    continue
-                seen_participants.add(line_strip)
+            # If it's a declaration, parse it
+            if line_strip.startswith(("participant ", "actor ", "database ", "boundary ", "component ", "entity ", "control ", "interface ")):
+                parsed = PlantUMLParser._parse_declaration(line_strip)
+                if parsed:
+                    _, display_name, alias = parsed
+                    final_alias = normalize_name(alias if alias else display_name)
+                    if final_alias in seen_aliases:
+                        continue
+                    seen_aliases.add(final_alias)
             cleaned_lines.append(line)
             
         return "\n".join(cleaned_lines)
@@ -69,7 +77,6 @@ class GrammarValidator:
                     "warnings": []
                 }
         except FileNotFoundError:
-            # Assume valid if plantuml not available
             pass
         except Exception as exc:
             pass
@@ -96,12 +103,11 @@ class ArchitectureValidator:
             }
             
         from agents.uml_generator.sequence_validator import SequenceValidator, RelationshipValidator
-        from agents.uml_generator.uml_parser import PlantUMLParser
         
         diagram = PlantUMLParser.parse(plantuml_content)
         
         seq_validator = SequenceValidator()
-        val_result = seq_validator.validate(diagram_plan, plantuml_content)
+        val_result = seq_validator.validate(diagram_plan, diagram)
         
         rel_validator = RelationshipValidator()
         rel_result = rel_validator.validate(diagram)
@@ -114,11 +120,19 @@ class ArchitectureValidator:
             errors.extend(rel_result.errors)
             
         passed = val_result.is_traceable and rel_result.is_valid
+        
+        # Calculate composite score
+        traceability_score = val_result.score
+        rel_score = 100 if rel_result.is_valid else max(0, 100 - len(rel_result.errors) * 10)
+        isolated = diagram.isolated_nodes()
+        conn_score = 100 if not isolated else max(0, 100 - len(isolated) * 15)
+        
+        combined_score = int((traceability_score * 0.5) + (rel_score * 0.3) + (conn_score * 0.2))
             
         return {
             "validator": "Architecture Validator",
             "passed": passed,
-            "score": val_result.score,
+            "score": combined_score,
             "errors": errors,
             "warnings": [],
             "traceability_metrics": getattr(val_result, "traceability_metrics", {})
@@ -129,60 +143,34 @@ class BusinessFlowValidator:
     def __init__(self, llm: BaseChatModel):
         self.llm = llm
         
-    def _deterministic_validate(self, plantuml_content: str) -> Optional[Dict[str, Any]]:
-        lines = plantuml_content.split('\n')
-        actors = set()
-        declared_participants = set()
-        messages = []
-        
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith("@") or line.startswith("'"):
-                continue
-            if line.startswith("actor "):
-                actors.add(line.split(' ')[1].strip('"'))
-                declared_participants.add(line.split(' ')[1].strip('"'))
-            elif line.startswith(("participant ", "database ", "boundary ")):
-                declared_participants.add(line.split(' ')[1].strip('"'))
-            elif "->" in line or "-->" in line:
-                # Basic message parsing
-                parts = re.split(r'-(?:>|->)', line)
-                if len(parts) >= 2:
-                    sender = parts[0].strip().split(' ')[-1].strip('"')
-                    receiver = parts[1].split(':')[0].strip().strip('"')
-                    messages.append((sender, receiver, line))
-        
-        if not messages:
+    def _deterministic_validate(self, diagram: UMLDiagram) -> Optional[Dict[str, Any]]:
+        if not diagram.relationships:
             return None # Cannot confidently validate empty flow
             
+        actors = [n for n in diagram.business_nodes if n.node_type == "actor"]
         if not actors:
             return {"passed": False, "score": 50, "errors": ["No actor exists to start the workflow."]}
             
-        # Actor starts workflow?
-        first_sender = messages[0][0]
-        if first_sender not in actors and len(actors) > 0:
-            # This might be fine, but could be a warning. Let's just enforce it loosely.
-            pass
-            
         # Self-loops
-        for sender, receiver, line in messages:
-            if sender == receiver and "loop" not in line.lower():
-                return {"passed": False, "score": 60, "errors": [f"Self-loop detected without explicit allowance: {line}"]}
+        for r in diagram.relationships:
+            s_node = diagram.resolve(r.source)
+            t_node = diagram.resolve(r.target)
+            if s_node and t_node and s_node == t_node:
+                return {"passed": False, "score": 60, "errors": [f"Self-loop detected on: {s_node.display_name}"]}
                 
         # Adjacent Duplicate messages
-        for i in range(1, len(messages)):
-            if messages[i] == messages[i-1]:
-                return {"passed": False, "score": 80, "errors": [f"Duplicate adjacent message detected: {messages[i][2]}"]}
+        rels = diagram.relationships
+        for i in range(1, len(rels)):
+            prev = rels[i-1]
+            curr = rels[i]
+            if prev.source == curr.source and prev.target == curr.target and prev.label == curr.label:
+                return {"passed": False, "score": 80, "errors": [f"Duplicate adjacent message detected: {curr.source} -> {curr.target}"]}
                 
         # Orphans
-        involved = set()
-        for s, r, _ in messages:
-            involved.add(s)
-            involved.add(r)
-            
-        orphans = declared_participants - involved
+        orphans = diagram.isolated_nodes()
         if orphans:
-            return {"passed": False, "score": 85, "errors": [f"Orphan participants detected (no messages): {', '.join(orphans)}"]}
+            orphan_names = [o.display_name for o in orphans]
+            return {"passed": False, "score": 85, "errors": [f"Orphan participants detected (no messages): {', '.join(orphan_names)}"]}
             
         return {"passed": True, "score": 100, "errors": [], "warnings": []}
 
@@ -196,27 +184,27 @@ class BusinessFlowValidator:
                 "warnings": []
             }
             
-        # Try deterministic logic first to save LLM cost
-        det_result = self._deterministic_validate(plantuml_content)
+        diagram = PlantUMLParser.parse(plantuml_content)
+        det_result = self._deterministic_validate(diagram)
         if det_result is not None:
             det_result["validator"] = "Business Flow Validator"
             return det_result
             
         prompt = (
-            f"You are validating the business flow of a **{diagram_type} Diagram**.\n\n"
-            f"## Diagram Plan\n{diagram_plan}\n\n"
-            f"## Generated PlantUML\n```\n{plantuml_content}\n```\n\n"
-            f"## Criteria\n"
-            f"1. Is the primary business flow preserved?\n"
-            f"2. Are major business capabilities present?\n"
-            f"3. Are there broken flow steps or orphan participants (unreachable)?\n\n"
-            f"Respond with ONLY valid JSON:\n"
-            f"{{\n"
-            f'  "passed": true,\n'
-            f'  "score": 100,\n'
-            f'  "errors": ["List orphan participants or missing flow steps here if failed"],\n'
-            f'  "warnings": []\n'
-            f"}}\n"
+            f"You are validating the business flow of a **{diagram_type} Diagram**.\\n\\n"
+            f"## Diagram Plan\\n{diagram_plan}\\n\\n"
+            f"## Generated PlantUML\\n```\\n{plantuml_content}\\n```\\n\\n"
+            f"## Criteria\\n"
+            f"1. Is the primary business flow preserved?\\n"
+            f"2. Are major business capabilities present?\\n"
+            f"3. Are there broken flow steps or orphan participants (unreachable)?\\n\\n"
+            f"Respond with ONLY valid JSON:\\n"
+            f"{{\\n"
+            f'  "passed": true,\\n'
+            f'  "score": 100,\\n'
+            f'  "errors": ["List orphan participants or missing flow steps here if failed"],\\n'
+            f'  "warnings": []\\n'
+            f"}}\\n"
         )
         
         try:
@@ -231,7 +219,7 @@ class BusinessFlowValidator:
                 "warnings": result.get("warnings", [])
             }
         except Exception as e:
-            logger.warning(f"Business Flow Validator failed to parse LLM output: {e}")
+            logger.warning("Business Flow Validator failed to parse LLM output: %s", e)
             return {
                 "validator": "Business Flow Validator",
                 "passed": True,

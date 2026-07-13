@@ -157,6 +157,96 @@
       },
       "syntax_valid": true,
       "fixed_content": "@startuml\nactor \"Customer\" as Customer\nparticipant \"Customer Dashboard\" as Dashboard\nparticipant \"Claim Submission\" as ClaimSubmission\nparticipant \"Document Management\" as DocumentManagement\nparticipant \"Claim Evaluation\" as ClaimEvaluation\nparticipant \"Claim Review\" as ClaimReview\nparticipant \"Claim Settlement\" as ClaimSettlement\nparticipant \"Payment Processing\" as PaymentProcessing\nactor \"Claims Manager\" as ClaimsManager\nexternal_system \"Payment Gateway\" as PaymentGateway\n\nCustomer -> ClaimSubmission : Submit Claim Details\nactivate ClaimSubmission\nClaimSubmission -> DocumentManagement : Request Document Upload Link\nactivate DocumentManagement\nDocumentManagement --> ClaimSubmission : Upload Link Provided\ndeactivate DocumentManagement\nCustomer -> DocumentManagement : Upload Supporting Documents\nactivate DocumentManagement\nDocumentManagement --> Customer : Documents Uploaded Confirmation\ndeactivate DocumentManagement\nClaimSubmission -> ClaimEvaluation : Initiate Claim Processing (Details, Docs)\ndeactivate ClaimSubmission\nactivate ClaimEvaluation\n\nopt Claim requires review\n    ClaimEvaluation -> ClaimReview : Flag Claim for Review\n    activate ClaimReview\n    ClaimsManager -> ClaimReview : Review Claim\n    ClaimReview --> ClaimEvaluation : Claim Reviewed (Approved/Rejected)\n    deactivate ClaimReview\nend\n\nClaimEvaluation -> ClaimSettlement : Request Settlement Calculation\ndeactivate ClaimEvaluation\nactivate ClaimSettlement\nClaimSettlement --> ClaimEvaluation : Settlement Amount Calculated\ndeactivate ClaimSettlement\nactivate ClaimEvaluation\nClaimEvaluation -> PaymentProcessing : Authorize Payment (Amount)\ndeactivate ClaimEvaluation\nactivate PaymentProcessing\nPaymentProcessing -> PaymentGateway : Process Payment Request\nactivate PaymentGateway\nPaymentGateway --> PaymentProcessing : Payment Confirmation\ndeactivate PaymentGateway\nPaymentProcessing --> Customer : Payment Confirmation\ndeactivate PaymentProcessing\n\nClaimEvaluation -> Dashboard : Update Claim Status (Approved/Settled)\nactivate Dashboard\nDashboard --> Customer : Display Status Update\ndeactivate Dashboard\n\nCustomer -> Dashboard : View Claim Status / Download Report\nactivate Dashboard\nDashboard --> Customer : Display Claim Details / Report\ndeactivate Dashboard\n@enduml"
+    },
+    "bc5d17b022ad77cdaff8f06099ac90ad": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 52,
+        "errors": [
+          "Non-traceable (invented) participants found: COMPONENT_COLOR, #7E9E8F, #4A6980, #333333, DATABASE_COLOR, #8FAFCB, ACTOR_COLOR, #F0F0F0, #A0A0A0, Compliance Monitoring Solution",
+          "Graph Error: Source node 'SEBIWebsite' is used in a relationship but was never declared. (Dangling alias)"
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 11,
+          "generated_components": 21,
+          "exact_matches": 11,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 10,
+          "traceability_score": 52
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 52
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n\n!define COMPONENT_COLOR #ADD1B2\n!define DATABASE_COLOR #C4D7ED\n!define EXTERNAL_COLOR #FFD700\n!define ACTOR_COLOR #F0F0F0\n\nskinparam component {\n  BackgroundColor COMPONENT_COLOR\n  BorderColor #7E9E8F\n  ArrowColor #4A6980\n  ArrowFontColor #4A6980\n  FontColor #333333\n}\nskinparam database {\n  BackgroundColor DATABASE_COLOR\n  BorderColor #8FAFCB\n  FontColor #333333\n}\nskinparam actor {\n  BackgroundColor ACTOR_COLOR\n  BorderColor #4A6980\n  FontColor #4A6980\n}\nskinparam package {\n  BackgroundColor #F0F0F0\n  BorderColor #A0A0A0\n  FontColor #333333\n}\n\nactor \"User\" as User\n\ncomponent \"SEBI Website\" <<external>> as SEBIWebsite EXTERNAL_COLOR\n\npackage \"Compliance Monitoring Solution\" {\n\n  component \"Circular Ingestion\" <<service>> as CircularIngestion\n  component \"Document Processing\" <<service>> as DocumentProcessing\n  component \"Requirement Extraction\" <<service>> as RequirementExtraction\n  component \"Compliance Management\" <<service>> as ComplianceManagement\n  component \"Analysis\" <<service>> as Analysis\n  component \"Reporting\" <<service>> as Reporting\n\n  database \"Raw Circulars Store\" <<datastore>> as RawCircularsStore\n  database \"Parsed Documents Store\" <<datastore>> as ParsedDocumentsStore\n  database \"Compliance Data Store\" <<datastore>> as ComplianceDataStore\n\n}\n\nSEBIWebsite --> CircularIngestion : Provides Circulars\nCircularIngestion --> RawCircularsStore : Stores Raw Circulars\n\nDocumentProcessing --> RawCircularsStore : Reads Raw Circulars\nDocumentProcessing --> ParsedDocumentsStore : Stores Parsed Documents\n\nRequirementExtraction --> ParsedDocumentsStore : Reads Parsed Documents\nRequirementExtraction --> ComplianceDataStore : Stores Requirements\n\nComplianceManagement --> ComplianceDataStore : Manages Compliance Rules & Status\nAnalysis --> ComplianceDataStore : Reads Compliance Data\nAnalysis --> ComplianceManagement : Queries Compliance Status\nReporting --> ComplianceDataStore : Reads Compliance Data\nReporting --> Analysis : Consumes Analysis Results\n\nUser --> ComplianceManagement : Manages Compliance\nUser --> Analysis : Initiates Analysis\nUser --> Reporting : Views Reports\n\n@enduml"
+    },
+    "e1f8fe57f349ab2debdb021b87e489d9": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 100,
+        "errors": [
+          "Graph Error: Self-loop detected on 'Analysis'.",
+          "Graph Error: Self-loop detected on 'Reporting'."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 9,
+          "generated_components": 9,
+          "exact_matches": 9,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Scheduler\" as Scheduler\nparticipant \"Circular Ingestion\" as CircularIngestion\nexternal_system \"SEBI\" as SEBI\ndatabase \"Document Store\" as DocumentStore\nparticipant \"Document Processing\" as DocumentProcessing\nparticipant \"Requirement Extraction\" as RequirementExtraction\ndatabase \"Compliance Data Store\" as ComplianceDataStore\nparticipant \"Analysis\" as Analysis\nparticipant \"Reporting\" as Reporting\n\nScheduler -> CircularIngestion : Trigger Ingestion Workflow\nactivate CircularIngestion\n\nCircularIngestion -> SEBI : Request Latest Circulars\nactivate SEBI\nSEBI --> CircularIngestion : Provide SEBI Circulars\ndeactivate SEBI\n\nCircularIngestion -> DocumentStore : Store Raw Circulars\nactivate DocumentStore\ndeactivate DocumentStore\n\nCircularIngestion -> DocumentProcessing : Initiate Document Processing\ndeactivate CircularIngestion\nactivate DocumentProcessing\n\nDocumentProcessing -> DocumentStore : Retrieve Raw Documents\nactivate DocumentStore\nDocumentStore --> DocumentProcessing : Return Raw Documents\ndeactivate DocumentStore\n\nDocumentProcessing -> RequirementExtraction : Submit Processed Documents\ndeactivate DocumentProcessing\nactivate RequirementExtraction\n\nRequirementExtraction -> Analysis : Provide Extracted Requirements\ndeactivate RequirementExtraction\nactivate Analysis\n\nAnalysis -> ComplianceDataStore : Query Existing Compliance Setup\nactivate ComplianceDataStore\nComplianceDataStore --> Analysis : Return Existing Compliance Data\ndeactivate ComplianceDataStore\n\nAnalysis -> Analysis : Perform Gap Analysis and Assess Organizational Impact\n\nAnalysis -> Reporting : Submit Analysis Results\ndeactivate Analysis\nactivate Reporting\n\nReporting -> Reporting : Prepare Analysis Reports\ndeactivate Reporting\n@enduml"
+    },
+    "5190f788e225bcdd72ff43e394cf2f86": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 65,
+        "errors": [
+          "Non-traceable (invented) participants found: Compliance Officer, SEBI Regulatory Feed, Document Parsing Service, Requirement Extraction Service, Compliance Reporting Service, Raw Circulars Store, Parsed Clauses Store, Extracted Requirements Store, Organizational Compliance Profile Store"
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 13,
+          "generated_components": 13,
+          "exact_matches": 0,
+          "alias_matches": 4,
+          "normalizer_matches": 0,
+          "failed_matches": 9,
+          "traceability_score": 30
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 65
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n\n!pragma layout smetana\n\nactor \"Compliance Officer\" as User\n\ncomponent \"SEBI Regulatory Feed\" as SEBI <<external>>\n\ncomponent \"Circular Ingestion Service\" as CircularIngestion <<service>>\ncomponent \"Document Parsing Service\" as DocumentProcessing <<service>>\ncomponent \"Requirement Extraction Service\" as RequirementAnalysis <<service>>\ncomponent \"Compliance Profile Management Service\" as ComplianceProfileManagement <<service>>\ncomponent \"Gap Analysis Service\" as GapAnalysis <<service>>\ncomponent \"Impact Assessment Service\" as ImpactAssessment <<service>>\ncomponent \"Compliance Reporting Service\" as Reporting <<service>>\n\ndatabase \"Raw Circulars Store\" as CircularsStore\ndatabase \"Parsed Clauses Store\" as ClausesStore\ndatabase \"Extracted Requirements Store\" as RequirementsStore\ndatabase \"Organizational Compliance Profile Store\" as ComplianceStore\n\nSEBI --> CircularIngestion : Provides Circulars\nCircularIngestion --> CircularsStore : Stores Raw Data\nCircularIngestion --> DocumentProcessing : Triggers Parsing\n\nDocumentProcessing --> ClausesStore : Stores Parsed Clauses\nDocumentProcessing --> RequirementAnalysis : Submits for Extraction\n\nRequirementAnalysis --> RequirementsStore : Stores Requirements\nRequirementAnalysis --> GapAnalysis : Feeds New Requirements\n\nGapAnalysis --> ComplianceProfileManagement : Retrieves Current Profile\nGapAnalysis --> ImpactAssessment : Provides Gap Results\n\nImpactAssessment --> ComplianceProfileManagement : Retrieves Current Profile\n\nUser --> ComplianceProfileManagement : Manages Profile\nComplianceProfileManagement --> ComplianceStore : Persists Profile\n\nUser --> Reporting : Requests Reports\nReporting --> RequirementsStore : Queries Requirements\nReporting --> ComplianceProfileManagement : Queries Profile\nReporting --> GapAnalysis : Queries Gap Analysis Results\nReporting --> ImpactAssessment : Queries Impact Assessment Results\n\n@enduml"
+    },
+    "4b6ce33b0c8309b9e102ea3358ee7b65": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"User\" as User\nparticipant \"Circular Ingestion\" as CI\nexternal_system \"SEBI\" as SEBI\nparticipant \"Document Processing\" as DP\nparticipant \"Requirement Analysis\" as RA\nparticipant \"Compliance Data Management\" as CDM\nparticipant \"Gap Analysis\" as GA\nparticipant \"Impact Assessment\" as IA\nparticipant \"Reporting & Analytics\" as R_A\n\nUser -> CI : Initiate Circular Analysis\nactivate CI\nCI -> SEBI : Request Latest Circulars\nactivate SEBI\nSEBI --> CI : Provide Regulatory Circulars\ndeactivate SEBI\n\nCI -> DP : Submit Circulars for Parsing\nactivate DP\nDP --> CI : Return Parsed Document Structure\ndeactivate DP\n\nCI -> RA : Submit Parsed Circulars for Requirement Extraction\nactivate RA\nRA --> CI : Provide Extracted New Requirements\ndeactivate RA\n\nCI -> GA : Initiate Gap Analysis (New Requirements)\nactivate GA\nGA -> CDM : Request Existing Compliance Setup\nactivate CDM\nCDM --> GA : Provide Current Compliance Data\ndeactivate CDM\nGA --> CI : Report Gap Analysis Findings\ndeactivate GA\n\nCI -> IA : Evaluate Impact of New Requirements & Gaps\nactivate IA\nIA --> CI : Provide Impact Assessment Report\ndeactivate IA\n\nCI -> R_A : Compile Analysis Results\ndeactivate CI\nactivate R_A\nR_A --> User : Present Compliance Analysis Findings\ndeactivate R_A\n@enduml"
     }
   },
   "review": {}

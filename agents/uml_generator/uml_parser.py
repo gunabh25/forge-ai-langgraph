@@ -1,52 +1,195 @@
 import re
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Set
+from enum import Enum, auto
+from core.business_normalizer import normalize_name
 
 logger = logging.getLogger("agents.uml_generator.uml_parser")
+
+class ArrowType(Enum):
+    SYNC = auto()
+    ASYNC = auto()
+    RETURN = auto()
+    DOTTED = auto()
+    COMPOSITION = auto()
+    AGGREGATION = auto()
+    UNKNOWN = auto()
 
 @dataclass
 class UMLNode:
     display_name: str
     alias: str
     node_type: str
+    
+    @property
+    def normalized_name(self) -> str:
+        return normalize_name(self.display_name)
 
 @dataclass
 class UMLRelationship:
     source: str
     target: str
+    arrow_type: ArrowType
     label: Optional[str] = None
 
-@dataclass
 class UMLDiagram:
-    nodes: List[UMLNode] = field(default_factory=list)
-    relationships: List[UMLRelationship] = field(default_factory=list)
+    def __init__(self):
+        self.nodes: List[UMLNode] = []
+        self.relationships: List[UMLRelationship] = []
+        
+    @property
+    def business_nodes(self) -> List[UMLNode]:
+        return [n for n in self.nodes if n.node_type in PlantUMLParser.BUSINESS_NODES]
+        
+    @property
+    def layout_nodes(self) -> List[UMLNode]:
+        return [n for n in self.nodes if n.node_type in PlantUMLParser.LAYOUT_NODES]
+
+    @property
+    def alias_map(self) -> Dict[str, UMLNode]:
+        return {n.alias: n for n in self.nodes}
+
+    def get_node(self, name: str) -> Optional[UMLNode]:
+        if name in self.alias_map:
+            return self.alias_map[name]
+        for n in self.nodes:
+            if n.display_name == name:
+                return n
+        return None
+
+    def resolve(self, name: str) -> Optional[UMLNode]:
+        return self.get_node(name)
+
+    def outgoing(self, node: UMLNode) -> List[UMLRelationship]:
+        return [r for r in self.relationships if self.resolve(r.source) == node]
+
+    def incoming(self, node: UMLNode) -> List[UMLRelationship]:
+        return [r for r in self.relationships if self.resolve(r.target) == node]
+
+    def neighbors(self, node: UMLNode) -> List[UMLNode]:
+        res = set()
+        for r in self.outgoing(node):
+            if t := self.resolve(r.target):
+                res.add(t)
+        for r in self.incoming(node):
+            if s := self.resolve(r.source):
+                res.add(s)
+        return list(res)
+
+    def isolated_nodes(self) -> List[UMLNode]:
+        isolated = []
+        for n in self.business_nodes:
+            if not self.outgoing(n) and not self.incoming(n):
+                isolated.append(n)
+        return isolated
+
+    def duplicate_edges(self) -> List[UMLRelationship]:
+        seen = set()
+        duplicates = []
+        for r in self.relationships:
+            s_node = self.resolve(r.source)
+            t_node = self.resolve(r.target)
+            if not s_node or not t_node:
+                continue
+            edge = (s_node.normalized_name, t_node.normalized_name, r.label)
+            if edge in seen:
+                duplicates.append(r)
+            else:
+                seen.add(edge)
+        return duplicates
+
+    def root_nodes(self) -> List[UMLNode]:
+        roots = []
+        for n in self.business_nodes:
+            if not self.incoming(n) and self.outgoing(n):
+                roots.append(n)
+        return roots
+
+    def leaf_nodes(self) -> List[UMLNode]:
+        leaves = []
+        for n in self.business_nodes:
+            if not self.outgoing(n) and self.incoming(n):
+                leaves.append(n)
+        return leaves
+
+    def connected_components(self) -> List[Set[UMLNode]]:
+        visited = set()
+        components = []
+        b_nodes = set(self.business_nodes)
+        
+        for node in b_nodes:
+            if node not in visited:
+                comp = set()
+                queue = [node]
+                while queue:
+                    curr = queue.pop(0)
+                    if curr not in visited:
+                        visited.add(curr)
+                        comp.add(curr)
+                        for nbr in self.neighbors(curr):
+                            if nbr in b_nodes and nbr not in visited:
+                                queue.append(nbr)
+                components.append(comp)
+        return components
+
+    def has_cycle(self) -> bool:
+        visited = set()
+        rec_stack = set()
+        b_nodes = self.business_nodes
+        
+        def visit(n: UMLNode) -> bool:
+            visited.add(n)
+            rec_stack.add(n)
+            for r in self.outgoing(n):
+                if t := self.resolve(r.target):
+                    if t in b_nodes:
+                        if t not in visited:
+                            if visit(t):
+                                return True
+                        elif t in rec_stack:
+                            return True
+            rec_stack.remove(n)
+            return False
+
+        for node in b_nodes:
+            if node not in visited:
+                if visit(node):
+                    return True
+        return False
 
 class PlantUMLParser:
     """Lightweight deterministic parser for PlantUML diagrams."""
     
-    RELATIONSHIP_PATTERN = re.compile(
-        r'^(?:"([^"]+)"|([a-zA-Z0-9_.-]+))'                                        # Group 1: Quoted Source, Group 2: Unquoted Source
-        r'\s*(?:(?:<|<<|o|x)?[-=.]+(?:left|right|up|down)?[-=.]*(?:>|>>|o|x)?)\s*' # The arrow
-        r'(?:"([^"]+)"|([a-zA-Z0-9_.-]+))'                                        # Group 3: Quoted Target, Group 4: Unquoted Target
-        r'(?:\s*:\s*(.*))?$'                                                       # Group 5: Label
-    )
-
-    # Keywords that start a line but are NOT entities
-    NON_ENTITY_KEYWORDS = {
-        'note', 'skinparam', 'title', 'return', 'autonumber', 'hide', 'show', 
-        'activate', 'deactivate', 'group', 'loop', 'alt', 'else', 'opt', 
-        'par', 'break', 'critical', 'box', 'end', 'scale', 'legend', 
-        'header', 'footer', 'newpage', 'title', 'caption'
+    BUSINESS_NODES = {
+        'actor', 'participant', 'component', 'database', 'entity', 
+        'boundary', 'control', 'interface', 'external_system', 'usecase', 'card'
     }
+    
+    LAYOUT_NODES = {
+        'package', 'frame', 'folder', 'cloud', 'rectangle', 'node', 'collections', 'queue', 'storage', 'artifact'
+    }
+    
+    ARROW_PATTERN = re.compile(r'([-=.]+(?:left|right|up|down)?[-=.]*(?:>|>>|o|x)?|<[-=.]+(?:left|right|up|down)?[-=.]*(?:>|>>|o|x)?|[-=.]+|o[-=.]+>|x[-=.]+>)')
 
     @classmethod
-    def _parse_declaration(cls, line: str) -> Optional[Tuple[str, str, Optional[str]]]:
-        """
-        Parses a declaration line and returns (node_type, display_name, alias).
-        Returns None if the line is not a declaration.
-        """
-        # Remove stereotypes << ... >> for simpler parsing
+    def _parse_arrow_type(cls, arrow_str: str) -> ArrowType:
+        if '..' in arrow_str:
+            return ArrowType.DOTTED
+        elif '-->' in arrow_str or '<--' in arrow_str:
+            return ArrowType.RETURN
+        elif '->' in arrow_str or '<-' in arrow_str:
+            return ArrowType.SYNC
+        elif '>>' in arrow_str or '<<' in arrow_str:
+            return ArrowType.ASYNC
+        elif '*--' in arrow_str or '--*' in arrow_str:
+            return ArrowType.COMPOSITION
+        elif 'o--' in arrow_str or '--o' in arrow_str:
+            return ArrowType.AGGREGATION
+        return ArrowType.UNKNOWN
+
+    @classmethod
+    def _parse_declaration(cls, line: str) -> Optional[Tuple[str, str, str]]:
         clean_line = re.sub(r'<<[^>]+>>', '', line).strip()
         if not clean_line:
             return None
@@ -55,7 +198,6 @@ class PlantUMLParser:
         display_name = None
         alias = None
         
-        # 1. Check for shorthand bracket syntax for components: [Display Name] as Alias
         if clean_line.startswith('['):
             close_idx = clean_line.find(']')
             if close_idx != -1:
@@ -66,21 +208,18 @@ class PlantUMLParser:
                     alias = rest[3:].strip()
                 return node_type, display_name, alias
                 
-        # 2. Check for shorthand parentheses syntax for usecases: () "Display Name" as Alias
         if clean_line.startswith('()'):
             node_type = "usecase"
             rest = clean_line[2:].strip()
         else:
-            # Standard type declaration: TYPE "Display Name" as Alias
             match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)\s+(.*)$', clean_line)
             if not match:
                 return None
             node_type = match.group(1).lower()
-            if node_type in cls.NON_ENTITY_KEYWORDS:
+            if node_type not in cls.BUSINESS_NODES and node_type not in cls.LAYOUT_NODES:
                 return None
             rest = match.group(2).strip()
 
-        # Parse the rest: "Display Name" as Alias OR DisplayName as Alias
         if rest.startswith('"'):
             end_quote = rest.find('"', 1)
             if end_quote != -1:
@@ -89,10 +228,8 @@ class PlantUMLParser:
                 if rest.lower().startswith("as "):
                     alias = rest[3:].strip()
             else:
-                # Missing end quote, fallback
                 display_name = rest[1:].strip()
         else:
-            # Unquoted name
             parts = re.split(r'\s+as\s+', rest, maxsplit=1, flags=re.IGNORECASE)
             display_name = parts[0].strip()
             if len(parts) > 1:
@@ -103,10 +240,42 @@ class PlantUMLParser:
         return None
 
     @classmethod
+    def _parse_relationship(cls, line: str) -> Optional[UMLRelationship]:
+        in_quotes = False
+        arrow_match = None
+        for m in cls.ARROW_PATTERN.finditer(line):
+            before = line[:m.start()]
+            if before.count('"') % 2 == 0:
+                arrow_match = m
+                break
+                
+        if not arrow_match:
+            return None
+            
+        source_str = line[:arrow_match.start()].strip()
+        rest = line[arrow_match.end():].strip()
+        
+        target_str = rest
+        label = None
+        if ':' in rest:
+            parts = rest.split(':', 1)
+            target_str = parts[0].strip()
+            label = parts[1].strip()
+            
+        source = source_str.strip('"')
+        target = target_str.strip('"')
+        
+        if not source or not target:
+            return None
+            
+        arrow_type = cls._parse_arrow_type(arrow_match.group(0))
+        
+        return UMLRelationship(source=source, target=target, arrow_type=arrow_type, label=label)
+
+    @classmethod
     def parse(cls, plantuml_content: str) -> UMLDiagram:
         diagram = UMLDiagram()
         lines = plantuml_content.split('\n')
-        
         seen_aliases = set()
         
         for line in lines:
@@ -114,34 +283,18 @@ class PlantUMLParser:
             if not line or line.startswith("'") or line.startswith("@"):
                 continue
                 
-            # 1. Check for Relationship first (to avoid parsing arrows as declarations)
-            rel_match = cls.RELATIONSHIP_PATTERN.match(line)
-            if rel_match:
-                source = rel_match.group(1) if rel_match.group(1) else rel_match.group(2)
-                target = rel_match.group(3) if rel_match.group(3) else rel_match.group(4)
-                label = rel_match.group(5).strip() if rel_match.group(5) else None
-                
-                diagram.relationships.append(UMLRelationship(
-                    source=source,
-                    target=target,
-                    label=label
-                ))
-                continue
-                
-            # 2. Check for node declaration
             parsed = cls._parse_declaration(line)
             if parsed:
                 node_type, display_name, alias = parsed
                 final_alias = alias if alias else display_name
                 
-                # Log the parsed node deterministically
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
                         "--------------------------------\n"
                         "Node Parsed\n"
-                        "Type\n%s\n"
-                        "Display Name\n%s\n"
-                        "Alias\n%s\n"
+                        "Type: %s\n"
+                        "Display Name: %s\n"
+                        "Alias: %s\n"
                         "--------------------------------",
                         node_type, display_name, final_alias
                     )
@@ -153,6 +306,17 @@ class PlantUMLParser:
                         node_type=node_type
                     ))
                     seen_aliases.add(final_alias)
+                    
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("'") or line.startswith("@"):
                 continue
-
+                
+            if cls._parse_declaration(line):
+                continue
+                
+            rel = cls._parse_relationship(line)
+            if rel:
+                diagram.relationships.append(rel)
+                
         return diagram
