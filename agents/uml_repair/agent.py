@@ -528,6 +528,11 @@ class UMLRepairAgent(BaseAgent):
                 **existing_state,
                 "status": "repaired",
                 "generator_output": clean_content,
+                # Clear stale compiler artefacts from the previous failed cycle
+                # so UMLValidatorAgent does not re-read an obsolete error on the
+                # next validation pass.
+                "compiler_error": None,
+                "compiler_output": "",
                 "llm_calls": existing_state.get("llm_calls", 0) + 1,
                 "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
                 "attempt": existing_state.get("attempt", 0) + 1,

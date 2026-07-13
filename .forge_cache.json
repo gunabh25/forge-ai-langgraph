@@ -666,6 +666,34 @@
       "architecture_status": "passed",
       "business_flow_status": "failed",
       "llm_invoked": false
+    },
+    "6c06a5e4fdd6d73379837a84ca8cc8c1": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Compliance Analyst\" as Analyst\n\ncomponent \"User Interface\" as UI\ncomponent \"Circular Ingestion\" as Ingestion <<service>>\ncomponent \"Document Parsing\" as Parsing <<service>>\ncomponent \"Requirement Extraction\" as Extraction <<service>>\ncomponent \"Gap Analysis\" as GapAnalysis <<service>>\ncomponent \"Impact Assessment\" as ImpactAssessment <<service>>\n\ncomponent \"SEBI\" as SEBI <<external>>\n\ndatabase \"Raw Documents\" as RawDocs\ndatabase \"Parsed Content\" as ParsedContent\ndatabase \"Compliance Requirements\" as ComplianceReqs\ndatabase \"Existing Compliance\" as ExistingCompliance\n\nAnalyst --> UI : Uses\nUI --> Ingestion : Trg. Ingestion\n\nSEBI --> Ingestion : Provides Circulars\nIngestion --> RawDocs : Stores Raw\nIngestion --> Parsing : Trg. Parsing\n\nParsing --> RawDocs : Reads Raw\nParsing --> ParsedContent : Stores Parsed\nParsing --> Extraction : Trg. Extraction\n\nExtraction --> ParsedContent : Reads Parsed\nExtraction --> ComplianceReqs : Stores New Req.\nExtraction --> GapAnalysis : Trg. Gap Analysis\n\nGapAnalysis --> ComplianceReqs : Reads New Req.\nGapAnalysis --> ExistingCompliance : Reads Existing Req.\nGapAnalysis --> ImpactAssessment : Trg. Impact Assessment\n\nImpactAssessment --> GapAnalysis : Consumes Gaps\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "3c39e8a2528f3037d6e33e07face110a": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nskinparam componentStyle rectangle\n\nexternal_system \"SEBI\" as SEBI\ncomponent \"Circular Ingestion\" as Ingestion\ndatabase \"Raw Circulars\" as RawCirculars\ncomponent \"Document Parsing\" as Parsing\ndatabase \"Parsed Clauses\" as ParsedClauses\ncomponent \"Requirement Extraction\" as Extraction\ndatabase \"Extracted Requirements\" as ExtractedReqs\ncomponent \"Compliance Gap Analysis\" as GapAnalysis\ndatabase \"Existing Compliance Setup\" as ExistingSetup\ncomponent \"Organizational Impact Assessment\" as ImpactAssessment\n\nactivate Ingestion\nIngestion -> SEBI : Request Latest Circulars\nactivate SEBI\nSEBI --> Ingestion : Provide Circulars\ndeactivate SEBI\nIngestion -> RawCirculars : Store Raw Circulars\ndeactivate Ingestion\n\nactivate Parsing\nIngestion -> Parsing : Process New Circulars\nParsing -> RawCirculars : Retrieve Raw Circulars\nactivate RawCirculars\nRawCirculars --> Parsing : Return Raw Circulars\ndeactivate RawCirculars\nParsing -> ParsedClauses : Store Parsed Clauses\ndeactivate Parsing\n\nactivate Extraction\nParsing -> Extraction : Extract Requirements from Clauses\nExtraction -> ParsedClauses : Retrieve Parsed Clauses\nactivate ParsedClauses\nParsedClauses --> Extraction : Return Parsed Clauses\ndeactivate ParsedClauses\nExtraction -> ExtractedReqs : Store Extracted Requirements\ndeactivate Extraction\n\nactivate GapAnalysis\nExtraction -> GapAnalysis : Analyze Compliance Gaps\nGapAnalysis -> ExtractedReqs : Retrieve New Requirements\nactivate ExtractedReqs\nExtractedReqs --> GapAnalysis : Return New Requirements\ndeactivate ExtractedReqs\nGapAnalysis -> ExistingSetup : Query Existing Compliance Setup\nactivate ExistingSetup\nExistingSetup --> GapAnalysis : Return Existing Setup\ndeactivate ExistingSetup\ndeactivate GapAnalysis\n\nactivate ImpactAssessment\nGapAnalysis -> ImpactAssessment : Assess Organizational Impact (with Gaps)\nImpactAssessment -> ExtractedReqs : Retrieve Requirements for Impact\nactivate ExtractedReqs\nExtractedReqs --> ImpactAssessment : Return Requirements\ndeactivate ExtractedReqs\ndeactivate ImpactAssessment\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
     }
   },
   "review": {}

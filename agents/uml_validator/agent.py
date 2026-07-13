@@ -5,7 +5,7 @@ import os
 import subprocess
 import tempfile
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, cast
 from langchain_core.messages import AIMessage
 from agents.base import BaseAgent
 from core.agent_registry import AgentRegistry
@@ -173,7 +173,71 @@ class UMLValidatorAgent(BaseAgent):
 
             start_time = time.time()
             check_res = self._check_syntax(puml_content)
-            
+
+            # ------------------------------------------------------------------
+            # Fix 1 — Pre-entry diagnostic dump.
+            # Log the full DiagramExecutionState before any override so we can
+            # verify which fields carry stale values from the previous cycle.
+            # ------------------------------------------------------------------
+            logger.info(
+                "\n"
+                "══════════ Pre-Validation State Dump ══════════\n"
+                "diagram_id           : %s\n"
+                "status               : %s\n"
+                "pipeline_feedback    : %s\n"
+                "compiler_error       : %s\n"
+                "grammar_status       : %s\n"
+                "architecture_status  : %s\n"
+                "business_flow_status : %s\n"
+                "overall_status       : %s\n"
+                "repair_attempts      : %s\n"
+                "═══════════════════════════════════════════════",
+                diagram_name,
+                existing_state.get("status"),
+                existing_state.get("pipeline_feedback"),
+                existing_state.get("compiler_error"),
+                existing_state.get("grammar_status"),
+                existing_state.get("architecture_status"),
+                existing_state.get("business_flow_status"),
+                existing_state.get("overall_status"),
+                existing_state.get("repair_attempts", 0),
+            )
+
+            # ------------------------------------------------------------------
+            # Fix 2 — Stale pipeline_feedback guard.
+            #
+            # After a successful repair, `pipeline_feedback` may still contain a
+            # *previous* failing result (e.g., Architecture Validator from cycle N-1).
+            # The injection block below would then override a valid compiler result
+            # back to failed, creating an infinite repair loop.
+            #
+            # Rule: if the diagram arrived from the Repair Agent (status=="repaired")
+            # and the repair's own ValidationPipeline ran cleanly (grammar_status and
+            # architecture_status are not "failed"), then pipeline_feedback is stale
+            # and must be cleared before the injection block executes.
+            # ------------------------------------------------------------------
+            repaired_state = existing_state.get("status") == "repaired"
+            if repaired_state:
+                stale_pf = existing_state.get("pipeline_feedback")
+                if stale_pf and not stale_pf.get("passed", True):
+                    grammar_ok = existing_state.get("grammar_status") in ("passed", "skipped", None)
+                    arch_ok = existing_state.get("architecture_status") in ("passed", "skipped", None)
+                    if grammar_ok and arch_ok:
+                        logger.info(
+                            "Clearing stale pipeline_feedback for repaired diagram | "
+                            "diagram_id=%s | stale_validator=%s | stale_score=%s",
+                            diagram_name,
+                            stale_pf.get("validator"),
+                            stale_pf.get("score"),
+                        )
+                        # Shadow the existing_state locally — do not mutate the dict.
+                        # cast() preserves DiagramExecutionState typing so all subsequent
+                        # .get() calls remain properly typed.
+                        existing_state = cast(DiagramExecutionState, {
+                            **existing_state,
+                            "pipeline_feedback": None,
+                        })
+
             # -- Multi-Layer Pipeline Feedback Injection (Phase 5) --
             pipeline_feedback = existing_state.get("pipeline_feedback")
             if pipeline_feedback and not pipeline_feedback.get("passed", True):
@@ -246,7 +310,6 @@ class UMLValidatorAgent(BaseAgent):
                         existing_state.get("llm_calls", 0),
                     )
 
-                    from typing import cast
                     diagram_states[diagram_name] = cast(DiagramExecutionState, {
                         **existing_state,
                         "status": "VALIDATION_FAILED",
@@ -269,7 +332,6 @@ class UMLValidatorAgent(BaseAgent):
                         max_repair_attempts,
                     )
 
-                    from typing import cast
                     diagram_states[diagram_name] = cast(DiagramExecutionState, {
                         **existing_state,
                         "compiler_output": check_res["stdout"],
@@ -280,7 +342,6 @@ class UMLValidatorAgent(BaseAgent):
 
             else:
                 passed_count += 1
-                from typing import cast
                 diagram_states[diagram_name] = cast(DiagramExecutionState, {
                     **existing_state,
                     "compiler_output": check_res["stdout"],
