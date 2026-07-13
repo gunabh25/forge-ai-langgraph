@@ -109,6 +109,13 @@ class DiagramExecutionState(TypedDict, total=False):
     syntax_valid_at_generation: Optional[bool]
     repair_attempts: int  # number of post-generation repair cycles applied (ceiling: MAX_REPAIR_ATTEMPTS)
     failure_reason: Optional[str]  # human-readable reason when status == VALIDATION_FAILED
+    diagram_plan: Optional[str]
+    grammar_status: Optional[str]
+    architecture_status: Optional[str]
+    business_flow_status: Optional[str]
+    overall_status: Optional[str]
+    pipeline_feedback: Optional[Dict[str, Any]]
+    uml_validation_metrics: Optional[Dict[str, Any]]
 
 def merge_diagram_states(left: Dict[str, DiagramExecutionState], right: Dict[str, DiagramExecutionState]) -> Dict[str, DiagramExecutionState]:
     """Reducer function to merge DiagramExecutionState maps in LangGraph."""

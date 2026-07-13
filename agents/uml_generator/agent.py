@@ -252,19 +252,67 @@ class UMLGeneratorAgent(BaseAgent):
             metrics.generation_calls += 1
             diagram_llm_calls += 1
 
+            # -- Deterministic Traceability (Task 4) -----------------------
+            from agents.uml_generator.uml_parser import PlantUMLParser
+            import json
+            from core.business_normalizer import normalize_name
+
+            try:
+                plan_data = json.loads(diagram_plan)
+                allowed_names = set()
+                original_names = {}
+                for key in ["actors", "external_systems", "major_components", "major_data_stores"]:
+                    for item in plan_data.get(key, []):
+                        norm = normalize_name(item)
+                        allowed_names.add(norm)
+                        original_names[norm] = item
+                
+                diagram = PlantUMLParser.parse(clean_content)
+                hallucinated = []
+                lexical_fixes = False
+                for node in diagram.business_nodes:
+                    if node.normalized_name not in allowed_names:
+                        # Check for trivial subset matches
+                        match = next((a for a in allowed_names if node.normalized_name in a or a in node.normalized_name), None)
+                        if match:
+                            node.display_name = original_names[match]
+                            node.alias = node.display_name # reset alias
+                            lexical_fixes = True
+                        else:
+                            hallucinated.append(node.display_name)
+                            
+                if lexical_fixes:
+                    clean_content = diagram.to_plantuml()
+                    logger.info("Applied deterministic lexical renaming for trivial traceability issues.")
+                    
+                if hallucinated:
+                    logger.warning("Traceability failure detected before validation: %s. Regenerating once.", hallucinated)
+                    retry_prompt = (
+                        f"{full_user_prompt}\n\n"
+                        f"## Traceability Failure\n"
+                        f"You invented the following participants which are NOT in the approved architectural plan: {', '.join(hallucinated)}.\n"
+                        f"Allowed participants: {', '.join(original_names.values())}.\n"
+                        f"Regenerate the diagram using ONLY the allowed participants."
+                    )
+                    clean_content = self._generate(system_prompt, retry_prompt)
+                    metrics.generation_calls += 1
+                    diagram_llm_calls += 1
+                    
+            except Exception as e:
+                logger.warning(f"Failed to perform deterministic traceability check: {e}")
+
             # -- Multi-Layer Validation Pipeline (Phase 5) -----------------------
-            from agents.uml_generator.validators import (
-                GrammarValidator, ArchitectureValidator, BusinessFlowValidator, ReviewValidator
-            )
+            from agents.uml_generator.validators import ValidationPipeline, ReviewValidator
             
-            grammar_val = GrammarValidator()
-            arch_val = ArchitectureValidator()
-            flow_val = BusinessFlowValidator(self.llm)
+            pipeline = ValidationPipeline(self.llm)
             review_val = ReviewValidator(self.llm)
 
             pipeline_feedback = None
             uml_validation_metrics = {}
             syntax_valid = False
+            grammar_status = "skipped"
+            architecture_status = "skipped"
+            business_flow_status = "skipped"
             
             cache_manager = CacheManager()
             cached_validation = cache_manager.get_validation(diagram_plan, clean_content)
@@ -274,54 +322,27 @@ class UMLGeneratorAgent(BaseAgent):
                 pipeline_feedback = cached_validation.get("pipeline_feedback")
                 uml_validation_metrics = cached_validation.get("uml_validation_metrics", {})
                 syntax_valid = cached_validation.get("syntax_valid", False)
+                grammar_status = cached_validation.get("grammar_status", "passed")
+                architecture_status = cached_validation.get("architecture_status", "passed")
+                business_flow_status = cached_validation.get("business_flow_status", "passed")
                 # Ensure the fixed content from grammar is propagated if it existed
                 if "fixed_content" in cached_validation:
                     clean_content = cached_validation["fixed_content"]
             else:
-                # Layer 1: Grammar Validator (Local, No LLM, auto-fixes)
-                grammar_res = grammar_val.validate(diagram_type, clean_content)
-                if "fixed_content" in grammar_res:
-                    clean_content = grammar_res["fixed_content"]
+                val_res = pipeline.validate_diagram(diagram_type, diagram_plan, clean_content)
+                clean_content = val_res.get("fixed_content", clean_content)
+                pipeline_feedback = val_res.get("pipeline_feedback")
+                uml_validation_metrics = val_res.get("uml_validation_metrics", {})
+                syntax_valid = val_res.get("syntax_valid", False)
+                grammar_status = val_res.get("grammar_status", "failed")
+                architecture_status = val_res.get("architecture_status", "skipped")
+                business_flow_status = val_res.get("business_flow_status", "skipped")
                 
-                uml_validation_metrics["grammar_score"] = grammar_res["score"]
-                logger.info("Grammar Validator | %s", "PASS" if grammar_res["passed"] else "FAIL")
-                
-                if not grammar_res["passed"]:
-                    pipeline_feedback = grammar_res
-                    syntax_valid = False
-                else:
-                    syntax_valid = True
+                if val_res.get("llm_invoked", False):
+                    metrics.review_calls += 1
+                    diagram_llm_calls += 1
                     
-                    # Layer 2: Architecture Validator
-                    arch_res = arch_val.validate(diagram_type, diagram_plan, clean_content)
-                    uml_validation_metrics["architecture_score"] = arch_res["score"]
-                    if "traceability_metrics" in arch_res:
-                        state_traceability_metrics = arch_res["traceability_metrics"]
-                    logger.info("Architecture Validator | %s", "PASS" if arch_res["passed"] else "FAIL")
-                    
-                    if not arch_res["passed"]:
-                        pipeline_feedback = arch_res
-                    else:
-                        # Layer 3: Business Flow Validator
-                        flow_res = flow_val.validate(diagram_type, diagram_plan, clean_content)
-                        # Only LLM calls cost money, deterministic is free
-                        if flow_res.get("llm_invoked", False):
-                            metrics.review_calls += 1  
-                            diagram_llm_calls += 1
-                        
-                        uml_validation_metrics["business_flow_score"] = flow_res["score"]
-                        logger.info("Business Flow Validator | %s", "PASS" if flow_res["passed"] else "FAIL")
-                        
-                        if not flow_res["passed"]:
-                            pipeline_feedback = flow_res
-
-                # Save to cache
-                cache_manager.set_validation(diagram_plan, clean_content, {
-                    "pipeline_feedback": pipeline_feedback,
-                    "uml_validation_metrics": uml_validation_metrics,
-                    "syntax_valid": syntax_valid,
-                    "fixed_content": clean_content
-                })
+                cache_manager.set_validation(diagram_plan, clean_content, val_res)
 
             # Layer 4: Adaptive Review Agent
             if syntax_valid and not pipeline_feedback and settings.ENABLE_UML_REVIEW:
@@ -373,13 +394,17 @@ class UMLGeneratorAgent(BaseAgent):
                         logger.info("Diagram regenerated after review | diagram_type=%s", diagram_type)
                         
                         # Check grammar one last time so we don't pass fundamentally broken output
-                        grammar_res2 = grammar_val.validate(diagram_type, clean_content)
-                        if "fixed_content" in grammar_res2:
-                            clean_content = grammar_res2["fixed_content"]
+                        val_res2 = pipeline.validate_diagram(diagram_type, diagram_plan, clean_content)
+                        if "fixed_content" in val_res2:
+                            clean_content = val_res2["fixed_content"]
                         
-                        if not grammar_res2["passed"]:
-                            pipeline_feedback = grammar_res2
+                        if not val_res2.get("syntax_valid", False):
+                            pipeline_feedback = val_res2.get("pipeline_feedback")
                             syntax_valid = False
+                        else:
+                            grammar_status = val_res2.get("grammar_status", "failed")
+                            architecture_status = val_res2.get("architecture_status", "skipped")
+                            business_flow_status = val_res2.get("business_flow_status", "skipped")
             elif not settings.ENABLE_UML_REVIEW:
                 logger.info("Review Agent disabled globally (ENABLE_UML_REVIEW=false) | diagram_type=%s", diagram_type)
 
@@ -407,9 +432,13 @@ class UMLGeneratorAgent(BaseAgent):
                 "execution_time_ms": existing_state.get("execution_time_ms", 0) + generation_time_ms,
                 "llm_calls": existing_state.get("llm_calls", 0) + diagram_llm_calls,
                 "syntax_valid_at_generation": syntax_valid,
+                "diagram_plan": diagram_plan,
+                "grammar_status": grammar_status,
+                "architecture_status": architecture_status,
+                "business_flow_status": business_flow_status,
+                "pipeline_feedback": pipeline_feedback,
+                "uml_validation_metrics": uml_validation_metrics,
             }
-            diagram_states[diag_id]["pipeline_feedback"] = pipeline_feedback # type: ignore[typeddict-item]
-            diagram_states[diag_id]["uml_validation_metrics"] = uml_validation_metrics # type: ignore[typeddict-item]
             # Keep latest metrics for global metadata
             state_uml_validation_metrics = uml_validation_metrics
 

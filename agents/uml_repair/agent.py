@@ -194,6 +194,23 @@ Fix the diagram to resolve the feedback. Return ONLY the corrected PlantUML code
             # ------------------------------------------------------------------
             # Normal path — store repaired content.
             # ------------------------------------------------------------------
+            
+            # Re-run Semantic Validators (Task 4)
+            from agents.uml_generator.validators import ValidationPipeline
+            pipeline = ValidationPipeline(self.llm)
+            
+            diagram_type = existing_state.get("diagram_type") or ""
+            diagram_plan = existing_state.get("diagram_plan") or ""
+            
+            val_res = pipeline.validate_diagram(diagram_type, diagram_plan, clean_content)
+            clean_content = val_res.get("fixed_content", clean_content)
+            pipeline_feedback = val_res.get("pipeline_feedback")
+            uml_validation_metrics = val_res.get("uml_validation_metrics", {})
+            syntax_valid = val_res.get("syntax_valid", False)
+            grammar_status = val_res.get("grammar_status", "failed")
+            architecture_status = val_res.get("architecture_status", "skipped")
+            business_flow_status = val_res.get("business_flow_status", "skipped")
+            
             updated_diagrams_content[diag_name] = clean_content
             repaired_diagrams_count += 1
             logger.info("Successfully applied repair patch for %s.", diag_name)
@@ -208,6 +225,11 @@ Fix the diagram to resolve the feedback. Return ONLY the corrected PlantUML code
                 "execution_time_ms": existing_state.get("execution_time_ms", 0) + exec_time,
                 "attempt": existing_state.get("attempt", 0) + 1,
                 "repair_attempts": existing_state.get("repair_attempts", 0) + 1,
+                "pipeline_feedback": pipeline_feedback,
+                "uml_validation_metrics": uml_validation_metrics,
+                "grammar_status": grammar_status,
+                "architecture_status": architecture_status,
+                "business_flow_status": business_flow_status,
             }
 
         logger.info("UML Repair completed %d repair(s).", repaired_diagrams_count)

@@ -190,12 +190,21 @@ class LangGraphCompiler:
             workflow.add_edge(source, target)
             
         # Add conditional edges
-        for source, conditions in conditional_edges.items():
+        for source, target in conditional_edges.items():
             # Domain specific logic wrapper for "retry_requested" metadata
-            def create_router(src=source, routing_map=conditions):
+            def create_router(src=source, routing_map=target):
                 def route(state: ForgeState) -> str:
+                    # Diagram Scoped Routing
+                    diag_id = state.get("current_diagram_id")
+                    if src == "UML Validator" and diag_id:
+                        diag_state = state.get("diagram_execution_states", {}).get(diag_id, {})
+                        if diag_state.get("status") == "failed_validation" and "retry" in routing_map:
+                            return "retry"
+                        if "continue" in routing_map:
+                            return "continue"
+                            
                     metadata = state.get("metadata", {})
-                    # Hardcoded logic mapping for UML Validator retries for now
+                    # Hardcoded logic mapping for general retries
                     if metadata.get("retry_requested") and "retry" in routing_map:
                         return "retry"
                     if "continue" in routing_map:
@@ -204,7 +213,7 @@ class LangGraphCompiler:
                     return list(routing_map.keys())[0] if routing_map else ""
                 return route
                 
-            workflow.add_conditional_edges(source, create_router(source, conditions), conditions)
+            workflow.add_conditional_edges(source, create_router(source, target), target)
             
         # 4. Handle exit nodes explicitly if no outward edge exists
         for node_name in execution_graph.nodes:

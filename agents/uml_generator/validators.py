@@ -275,3 +275,80 @@ class ReviewValidator:
                 "errors": [],
                 "warnings": []
             }
+
+class ValidationPipeline:
+    """Reusable validation pipeline combining Grammar, Architecture, and Business Flow validators."""
+    
+    def __init__(self, llm: BaseChatModel):
+        self.grammar_val = GrammarValidator()
+        self.arch_val = ArchitectureValidator()
+        self.flow_val = BusinessFlowValidator(llm)
+        self.llm = llm
+
+    def validate_diagram(self, diagram_type: str, diagram_plan: str, plantuml_content: str) -> Dict[str, Any]:
+        """
+        Runs all validators sequentially.
+        Returns a dict containing validation feedback, status fields, and optionally fixed_content.
+        """
+        pipeline_feedback = None
+        uml_validation_metrics = {}
+        syntax_valid = False
+        
+        # Layer 1: Grammar Validator (Local, No LLM, auto-fixes)
+        grammar_res = self.grammar_val.validate(diagram_type, plantuml_content)
+        if "fixed_content" in grammar_res:
+            plantuml_content = grammar_res["fixed_content"]
+        
+        uml_validation_metrics["grammar_score"] = grammar_res["score"]
+        grammar_status = "passed" if grammar_res["passed"] else "failed"
+        
+        if not grammar_res["passed"]:
+            pipeline_feedback = grammar_res
+            syntax_valid = False
+            return {
+                "pipeline_feedback": pipeline_feedback,
+                "uml_validation_metrics": uml_validation_metrics,
+                "syntax_valid": syntax_valid,
+                "fixed_content": plantuml_content,
+                "grammar_status": grammar_status,
+                "architecture_status": "skipped",
+                "business_flow_status": "skipped"
+            }
+            
+        syntax_valid = True
+        
+        # Layer 2: Architecture Validator
+        arch_res = self.arch_val.validate(diagram_type, diagram_plan, plantuml_content)
+        uml_validation_metrics["architecture_score"] = arch_res["score"]
+        architecture_status = "passed" if arch_res["passed"] else "failed"
+        
+        if not arch_res["passed"]:
+            pipeline_feedback = arch_res
+            return {
+                "pipeline_feedback": pipeline_feedback,
+                "uml_validation_metrics": uml_validation_metrics,
+                "syntax_valid": syntax_valid,
+                "fixed_content": plantuml_content,
+                "grammar_status": grammar_status,
+                "architecture_status": architecture_status,
+                "business_flow_status": "skipped"
+            }
+            
+        # Layer 3: Business Flow Validator
+        flow_res = self.flow_val.validate(diagram_type, diagram_plan, plantuml_content)
+        uml_validation_metrics["business_flow_score"] = flow_res["score"]
+        business_flow_status = "passed" if flow_res["passed"] else "failed"
+        
+        if not flow_res["passed"]:
+            pipeline_feedback = flow_res
+            
+        return {
+            "pipeline_feedback": pipeline_feedback,
+            "uml_validation_metrics": uml_validation_metrics,
+            "syntax_valid": syntax_valid,
+            "fixed_content": plantuml_content,
+            "grammar_status": grammar_status,
+            "architecture_status": architecture_status,
+            "business_flow_status": business_flow_status,
+            "llm_invoked": flow_res.get("llm_invoked", False)
+        }

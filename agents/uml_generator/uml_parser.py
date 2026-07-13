@@ -38,6 +38,33 @@ class UMLDiagram:
         self.nodes: List[UMLNode] = []
         self.relationships: List[UMLRelationship] = []
         
+    def to_plantuml(self) -> str:
+        lines = ["@startuml"]
+        
+        # Serialize nodes
+        for node in self.nodes:
+            alias_part = f' as {node.alias}' if node.alias and node.alias != node.display_name else ''
+            # Quote display name if it has spaces or special chars
+            if not node.display_name.isalnum():
+                lines.append(f'{node.node_type} "{node.display_name}"{alias_part}')
+            else:
+                lines.append(f'{node.node_type} {node.display_name}{alias_part}')
+                
+        # Serialize relationships
+        for rel in self.relationships:
+            arrow = "->"
+            if rel.arrow_type == ArrowType.ASYNC: arrow = ">>"
+            elif rel.arrow_type == ArrowType.RETURN: arrow = "-->"
+            elif rel.arrow_type == ArrowType.DOTTED: arrow = "..>"
+            elif rel.arrow_type == ArrowType.COMPOSITION: arrow = "*--"
+            elif rel.arrow_type == ArrowType.AGGREGATION: arrow = "o--"
+            
+            label_part = f" : {rel.label}" if rel.label else ""
+            lines.append(f'"{rel.source}" {arrow} "{rel.target}"{label_part}')
+            
+        lines.append("@enduml")
+        return "\n".join(lines)
+        
     @property
     def business_nodes(self) -> List[UMLNode]:
         return [n for n in self.nodes if n.node_type in PlantUMLParser.BUSINESS_NODES]
@@ -189,7 +216,7 @@ class PlantUMLParser:
         return ArrowType.UNKNOWN
 
     @classmethod
-    def _parse_declaration(cls, line: str) -> Optional[Tuple[str, str, str]]:
+    def _parse_declaration(cls, line: str) -> Optional[Tuple[str, str, Optional[str]]]:
         clean_line = re.sub(r'<<[^>]+>>', '', line).strip()
         if not clean_line:
             return None
