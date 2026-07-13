@@ -16,8 +16,6 @@ class Settings(BaseSettings):
 
     # API Keys and Provider Options
     GOOGLE_API_KEY: Optional[str] = None
-    GROQ_API_KEY: Optional[str] = None
-    GROQ_MODEL: Optional[str] = None
     MODEL_NAME: str = ModelDefaults.GEMINI_MODEL
     TEMPERATURE: float = ModelDefaults.TEMPERATURE
     MAX_TOKENS: Optional[int] = ModelDefaults.MAX_TOKENS
@@ -38,11 +36,10 @@ class Settings(BaseSettings):
     MIN_DIAGRAM_SCORE: int = 9
 
     # Multi-provider integrations
-    LLM_PROVIDER: str = "groq"  # google, openai, anthropic, ollama, groq, openrouter
+    LLM_PROVIDER: str = "google"  # google, openai, anthropic, ollama, openrouter
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     OLLAMA_BASE_URL: Optional[str] = "http://localhost:11434"
-    GROQ_API_KEY: Optional[str] = None
     OPENROUTER_API_KEY: Optional[str] = None
 
     # Quality Engine configuration

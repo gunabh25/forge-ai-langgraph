@@ -32,12 +32,8 @@ class LLMFactory:
             from core.providers.openai import OpenAIProvider
             return OpenAIProvider(**kwargs)
         
-        elif provider == "groq":
-            from core.providers.groq import GroqProvider
-            return GroqProvider(**kwargs)
-            
         # The architecture naturally extends to other providers like Anthropic,
-        # Ollama, Groq, OpenRouter by adding the corresponding classes here.
+        # Ollama, OpenRouter by adding the corresponding classes here.
         else:
             raise ValueError(
                 f"Unsupported LLM provider: '{provider}'. "
