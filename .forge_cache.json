@@ -694,6 +694,63 @@
       "architecture_status": "passed",
       "business_flow_status": "passed",
       "llm_invoked": false
+    },
+    "85fbd7daff669d17f1d230db95320ce8": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 64,
+        "errors": [
+          "Graph Error: Target node 'Fetch Circulars\" --> DocProcessing' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Store Raw Documents\" --> RawStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Parse & Forward\" --> ReqExtraction' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Store Requirements\" --> ComplianceStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Provide Requirements\" --> GapAnalysis' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Provide Requirements\" --> ImpactAnalysis' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Store Gap Results\" --> ComplianceStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Store Impact Results\" --> ComplianceStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Read/Manage Compliance State\" --> ComplianceStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Access\" --> ReportingUI' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Query Compliance Status\" --> ComplianceMgmt' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Retrieve Detailed Data\" --> ComplianceStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Retrieve Raw Documents\" --> RawStore' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Isolated business node detected 'Raw Circulars Store'. Nodes must participate in at least one relationship.",
+          "Graph Error: Isolated business node detected 'Compliance Data Store'. Nodes must participate in at least one relationship."
+        ],
+        "warnings": [],
+        "traceability_metrics": {
+          "planned_components": 10,
+          "generated_components": 10,
+          "exact_matches": 10,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 64
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\n!pragma layout smetana\n\nactor \"User\" as User\n\ncomponent \"SEBI Regulatory Source\" <<external>> as SEBI\n\npackage \"Compliance Solution\" {\n  component \"Regulatory Document Processing\" <<service>> as DocProcessing\n  database \"Raw Circulars Store\" as RawStore\n\n  component \"Requirement Extraction\" <<service>> as ReqExtraction\n  database \"Compliance Data Store\" as ComplianceStore\n\n  component \"Gap Analysis\" <<service>> as GapAnalysis\n  component \"Impact Analysis\" <<service>> as ImpactAnalysis\n  component \"Compliance Management\" <<service>> as ComplianceMgmt\n  component \"Reporting & UI\" <<service>> as ReportingUI\n}\n\nSEBI -- \"Fetch Circulars\" --> DocProcessing\nDocProcessing -- \"Store Raw Documents\" --> RawStore\nDocProcessing -- \"Parse & Forward\" --> ReqExtraction\n\nReqExtraction -- \"Store Requirements\" --> ComplianceStore\nReqExtraction -- \"Provide Requirements\" --> GapAnalysis\nReqExtraction -- \"Provide Requirements\" --> ImpactAnalysis\n\nGapAnalysis -- \"Store Gap Results\" --> ComplianceStore\nImpactAnalysis -- \"Store Impact Results\" --> ComplianceStore\n\nComplianceMgmt -- \"Read/Manage Compliance State\" --> ComplianceStore\n\nUser -- \"Access\" --> ReportingUI\nReportingUI -- \"Query Compliance Status\" --> ComplianceMgmt\nReportingUI -- \"Retrieve Detailed Data\" --> ComplianceStore\nReportingUI -- \"Retrieve Raw Documents\" --> RawStore\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped"
+    },
+    "77993cc9bf14dfd5be37077490a6782b": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"System Initiator\" as Initiator\nparticipant \"Circular Ingestion\" as Ingestion\nparticipant \"SEBI\" as SEBI\nparticipant \"Document Parsing\" as Parsing\nparticipant \"Requirement Extraction\" as Extraction\nparticipant \"Compliance Management\" as Compliance\nparticipant \"Gap Analysis\" as GapAnalysis\nparticipant \"Impact Analysis\" as ImpactAnalysis\nparticipant \"Reporting & UI\" as ReportingUI\n\nInitiator -> Ingestion : Initiate circular processing\nactivate Ingestion\n\nIngestion -> SEBI : Request latest circulars\nactivate SEBI\nSEBI --> Ingestion : Provide SEBI circulars\ndeactivate SEBI\n\nIngestion -> Parsing : Submit circulars for parsing\ndeactivate Ingestion\nactivate Parsing\n\nParsing -> Extraction : Forward parsed document content\ndeactivate Parsing\nactivate Extraction\n\nExtraction -> Compliance : Query existing compliance rules\nactivate Compliance\nCompliance --> Extraction : Return existing compliance data\ndeactivate Compliance\n\nExtraction -> GapAnalysis : Submit new & existing requirements\ndeactivate Extraction\nactivate GapAnalysis\n\nGapAnalysis -> ImpactAnalysis : Forward gap analysis results\ndeactivate GapAnalysis\nactivate ImpactAnalysis\n\nImpactAnalysis -> ReportingUI : Publish impact analysis report\ndeactivate ImpactAnalysis\nactivate ReportingUI\n\nReportingUI --> Initiator : Display analysis results\ndeactivate ReportingUI\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
     }
   },
   "review": {}

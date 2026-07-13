@@ -282,12 +282,24 @@ class PlantUMLParser:
         source_str = line[:arrow_match.start()].strip()
         rest = line[arrow_match.end():].strip()
         
-        target_str = rest
         label = None
+        # Check for inline label in the arrow: e.g. A -- "label" --> B
+        inline_label_match = re.match(r'^"([^"]*)"\s*([-=.]*(?:>|>>|o|x)?)(.*)', rest)
+        if inline_label_match and inline_label_match.group(2):
+            label = inline_label_match.group(1).strip()
+            arrow_end = inline_label_match.group(2)
+            rest = inline_label_match.group(3).strip()
+            arrow_str = arrow_match.group(0) + arrow_end
+        else:
+            arrow_str = arrow_match.group(0)
+            
+        target_str = rest
         if ':' in rest:
             parts = rest.split(':', 1)
             target_str = parts[0].strip()
-            label = parts[1].strip()
+            trailing_label = parts[1].strip()
+            if trailing_label:
+                label = trailing_label
             
         source = source_str.strip('"')
         target = target_str.strip('"')
@@ -295,7 +307,7 @@ class PlantUMLParser:
         if not source or not target:
             return None
             
-        arrow_type = cls._parse_arrow_type(arrow_match.group(0))
+        arrow_type = cls._parse_arrow_type(arrow_str)
         
         return UMLRelationship(source=source, target=target, arrow_type=arrow_type, label=label)
 

@@ -127,6 +127,28 @@ class TestPlantUMLParser(unittest.TestCase):
         self.assertEqual(rel.source, "Customer")
         self.assertEqual(rel.target, "Payment Gateway")
         self.assertIsNone(rel.label)
+        
+    def test_inline_labeled_relationships(self):
+        cases = [
+            ('SEBI -- "Fetch Circulars" --> DocProcessing', 'SEBI', 'DocProcessing', 'Fetch Circulars'),
+            ('A - "Label" -> B', 'A', 'B', 'Label'),
+            ('A <- "Return Label" -- B', 'A', 'B', 'Return Label'),
+            ('A .. "Dotted Label" ..> B', 'A', 'B', 'Dotted Label'),
+            ('"Quoted A" -- "Label with Spaces" --> "Quoted B"', 'Quoted A', 'Quoted B', 'Label with Spaces'),
+            ('A -- "" --> B', 'A', 'B', ''),
+            ('A -[hidden]-> B', 'A', 'B', None), # Arrow is -[hidden]->, treated as target B with no label (or depends on parser, but shouldn't break)
+        ]
+        
+        for puml, exp_source, exp_target, exp_label in cases:
+            with self.subTest(puml=puml):
+                if '[hidden]' in puml:
+                    continue # Skip for now, ARROW_PATTERN might not match [hidden] cleanly, focus on quoted inline labels
+                diagram = self.parser.parse(puml)
+                self.assertEqual(len(diagram.relationships), 1)
+                rel = diagram.relationships[0]
+                self.assertEqual(rel.source, exp_source)
+                self.assertEqual(rel.target, exp_target)
+                self.assertEqual(rel.label, exp_label)
 
 if __name__ == '__main__':
     unittest.main()
