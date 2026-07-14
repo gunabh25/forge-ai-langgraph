@@ -65,7 +65,27 @@ Respond ONLY with a valid JSON object containing:
 1. "intent": a string from the allowed intents list.
 2. "workflow": a category of the workflow (e.g., "software_design").
 3. "goal": a human-readable description of the goal.
-4. "required_outputs": an array of the final required output keys. For ANY software or architecture design, it MUST BE exactly ["rendered_svg_references", "feedback_forwarded"].
+4. "required_outputs" MUST ONLY contain output keys supported by the pipeline.
+
+Allowed output keys are ONLY:
+
+- requirements_json
+- architecture_json
+- selected_uml_diagrams
+- plantuml_diagrams
+- plantuml_validation_report
+- rendered_svg_references
+- feedback_forwarded
+- workflow_execution_summary
+
+Never invent new output keys.
+
+For ANY request that requires UML diagrams, architecture generation, software design, or requirement analysis resulting in architecture diagrams, return exactly:
+
+[
+  "rendered_svg_references",
+  "feedback_forwarded"
+]
 5. "constraints": an object with "allow_parallelism" (boolean) and "reuse_existing" (boolean).
 
 Example:
@@ -117,7 +137,7 @@ Do NOT include any other text, markdown formatting, or explanation.
             parsed_result = {"intent": "unknown", "confidence": 0.0}
             
         # FORCE FULL PIPELINE for design workflows
-        if parsed_result.get("intent") in ["architecture_design", "software_design", "uml_generation"]:
+        if parsed_result.get("intent") in ["architecture_design", "software_design", "uml_generation", "requirement_analysis"]:
             parsed_result["required_outputs"] = ["rendered_svg_references", "feedback_forwarded", "execution_report"]
             
         logger.info(f"Intent classified: {parsed_result}")

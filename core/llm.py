@@ -34,7 +34,7 @@ class ForgeCallbackHandler(BaseCallbackHandler):
         
         WorkflowEventManager().publish(EventTypes.LLM_STARTED, {
             "request_id": request_id,
-            "provider": "google",  # Defaulting or could extract from serialized
+            "provider": "openai",  # Defaulting or could extract from serialized
             "model": model_name
         })
         logger.debug(f"LLM Started: {model_name}", extra={"event_type": EventTypes.LLM_STARTED})

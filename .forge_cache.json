@@ -751,6 +751,146 @@
       "architecture_status": "passed",
       "business_flow_status": "passed",
       "llm_invoked": false
+    },
+    "46ddc07a582a1b92f74cd5eb04f7b4de": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nleft to right direction\nskinparam componentStyle rectangle\nskinparam shadowing false\nskinparam linetype ortho\n\nactor \"Compliance Analyst\" as ComplianceAnalyst\nactor \"Risk Analyst\" as RiskAnalyst\nactor \"Reviewer\" as Reviewer\nactor \"Administrator\" as Administrator\n\ncloud \"SEBI Channels\" as SEBIChannels <<external>>\ncloud \"Parsing and OCR Providers\" as ParsingProviders <<external>>\ncloud \"Existing Compliance Setup\" as ExistingComplianceSetup <<external>>\n\n[Circular Management] as CircularManagement <<service>>\n[Circular Parsing and Clause Segmentation] as CircularParsing <<service>>\n[Compliance Requirement Extraction] as RequirementExtraction <<service>>\n[Compliance Mapping and Gap Analysis] as GapAnalysis <<service>>\n[IT and Operational Impact Assessment] as ImpactAssessment <<service>>\n[Compliance Review and Approval] as ReviewApproval <<service>>\n[Compliance Reporting and Audit] as ReportingAudit <<service>>\n\ndatabase \"Circular Versions\" as CircularVersions <<datastore>>\ndatabase \"Parsed Clauses\" as ParsedClauses <<datastore>>\ndatabase \"Compliance Findings\" as ComplianceFindings <<datastore>>\ndatabase \"Audit Records\" as AuditRecords <<datastore>>\n\nSEBIChannels --> CircularManagement : Provides circulars\nComplianceAnalyst --> CircularManagement : Manages circular retrieval\nCircularManagement --> CircularVersions : Versions circulars\nCircularManagement --> CircularParsing : Submits circulars\n\nCircularParsing --> ParsingProviders : Requests parsing and OCR\nCircularParsing --> ParsedClauses : Stores segmented clauses\nCircularParsing --> RequirementExtraction : Provides parsed clauses\n\nRequirementExtraction --> GapAnalysis : Provides requirements\nExistingComplianceSetup --> GapAnalysis : Provides existing controls\nComplianceAnalyst --> GapAnalysis : Reviews mappings\n\nGapAnalysis --> ComplianceFindings : Records gaps\nGapAnalysis --> ImpactAssessment : Provides identified gaps\nRiskAnalyst --> ImpactAssessment : Assesses impacts\n\nImpactAssessment --> ComplianceFindings : Records impact findings\nImpactAssessment --> ReviewApproval : Submits findings\nReviewer --> ReviewApproval : Reviews and approves\nReviewApproval --> ComplianceFindings : Updates approval status\nReviewApproval --> AuditRecords : Records decisions\nReviewApproval --> ReportingAudit : Provides approved findings\n\nComplianceAnalyst --> ReportingAudit : Reviews reports\nAdministrator --> ReportingAudit : Administers reporting\nReportingAudit --> ComplianceFindings : Reads findings\nReportingAudit --> AuditRecords : Maintains audit records\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "54986ee4b674f417d066c2818bfebf4c": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nautonumber\n\nactor \"Compliance Analyst\" as Analyst\nparticipant \"Circular Acquisition\" as Acquisition\nparticipant \"SEBI Channels\" as SEBI\nparticipant \"Circular Version Management\" as Versioning\nparticipant \"Circular Clause Processing\" as ClauseProcessing\nparticipant \"Compliance Requirement Extraction\" as RequirementExtraction\nparticipant \"Compliance Gap Analysis\" as GapAnalysis\nparticipant \"Existing Compliance Setup\" as ComplianceSetup\nparticipant \"IT and Operational Impact Assessment\" as ImpactAssessment\nactor \"Risk Reviewer\" as Reviewer\n\ngroup Circular acquisition and interpretation\n    Analyst -> Acquisition : Initiate circular compliance assessment\n    Acquisition -> SEBI : Retrieve latest circulars\n    SEBI --> Acquisition : Provide current circulars\n    Acquisition -> Versioning : Submit circulars for verification and versioning\n    Versioning -> ClauseProcessing : Provide verified circular versions\n    ClauseProcessing -> RequirementExtraction : Submit segmented circular clauses\n    RequirementExtraction -> GapAnalysis : Provide extracted compliance requirements\nend\n\ngroup Compliance and impact assessment\n    GapAnalysis -> ComplianceSetup : Compare requirements with current compliance setup\n    ComplianceSetup --> GapAnalysis : Provide existing controls and obligations\n    GapAnalysis -> ImpactAssessment : Submit identified compliance gaps\n    ImpactAssessment --> Analyst : Present IT and operational impact findings\nend\n\ngroup Findings approval\n    Analyst -> Reviewer : Submit consolidated findings for review\n    Reviewer --> Analyst : Approve compliance and impact findings\nend\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "697fdb27012096ad30bad69b8edb827c": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nleft to right direction\nskinparam componentStyle rectangle\nskinparam shadowing false\nskinparam linetype ortho\n\nactor \"Responsible User\" as ResponsibleUser\nactor \"Reviewer\" as Reviewer\nactor \"Administrator\" as Administrator\n\ncloud \"SEBI Publication Channels\" as SEBI <<external>>\ncloud \"SSO Identity Provider\" as SSO <<external>>\ncloud \"Existing Compliance Setup\" as ExistingSetup <<external>>\ncloud \"Downstream Systems\" as Downstream <<external>>\n\ncomponent \"Access Administration\" as Access <<service>>\ncomponent \"Circular Ingestion and Clause Parsing\" as Ingestion <<service>>\ncomponent \"Compliance Requirement Extraction\" as Extraction <<service>>\ncomponent \"Compliance Gap Analysis\" as GapAnalysis <<service>>\ncomponent \"IT and Operational Impact Assessment\" as ImpactAssessment <<service>>\ncomponent \"Findings Review and Publication\" as Findings <<service>>\ncomponent \"Traceability and Audit\" as Traceability <<service>>\n\ndatabase \"Source Documents and Metadata\" as SourceDocuments <<datastore>>\ndatabase \"Versioned Clauses\" as Clauses <<datastore>>\ndatabase \"Requirements and Assessments\" as Assessments <<datastore>>\ndatabase \"Evidence and Audit History\" as AuditHistory <<datastore>>\n\nAdministrator --> Access : Administers access\nAccess --> SSO : Validates identity\n\nSEBI --> Ingestion : Retrieve New SEBI Circulars\nIngestion --> SourceDocuments : Stores documents and metadata\nIngestion --> Clauses : Normalize and Segment Documents\nIngestion --> Extraction : Provides parsed clauses\n\nExtraction --> Clauses : Reads versioned clauses\nExtraction --> Assessments : Stores compliance requirements\nExtraction --> GapAnalysis : Extract Compliance Requirements\n\nExistingSetup --> GapAnalysis : Provides existing compliance setup\nGapAnalysis --> Assessments : Stores gap assessments\nGapAnalysis --> ImpactAssessment : Analyze Existing Compliance Gaps\n\nImpactAssessment --> Assessments : Stores impact assessments\nImpactAssessment --> Findings : Assess IT and Operational Impact\n\nResponsibleUser --> Findings : Reviews findings\nReviewer --> Findings : Review and Publish Findings\nFindings --> Downstream : Publishes approved findings\n\nIngestion --> Traceability : Records source lineage\nExtraction --> Traceability : Records requirement lineage\nGapAnalysis --> Traceability : Records gap evidence\nImpactAssessment --> Traceability : Records impact evidence\nFindings --> Traceability : Records review and publication\nAccess --> Traceability : Records access activity\nTraceability --> AuditHistory : Stores evidence and audit history\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "24f615a13a7244017f8bd3cb532f09f7": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nactor \"Responsible User\" as Responsible\nparticipant \"Circular Ingestion\" as Ingestion\nparticipant \"SEBI Publication Channels\" as SEBI\nparticipant \"Document and Clause Processing\" as Processing\nparticipant \"Compliance Requirement Extraction\" as Extraction\nparticipant \"Compliance Gap Analysis\" as GapAnalysis\nparticipant \"IT and Operational Impact Assessment\" as ImpactAssessment\nparticipant \"Assessment Review and Publication\" as ReviewPublication\nactor \"Reviewer\" as Reviewer\nparticipant \"Downstream Systems\" as Downstream\n\ngroup Circular Acquisition and Interpretation\n  Responsible -> Ingestion : Initiate circular monitoring\n  Ingestion -> SEBI : Retrieve latest circulars\n  SEBI --> Ingestion : Provide published circulars\n  Ingestion -> Processing : Submit circulars for parsing\n  Processing -> Extraction : Provide segmented clauses\n  Extraction -> GapAnalysis : Submit new compliance requirements\nend\n\ngroup Compliance Assessment\n  GapAnalysis -> ImpactAssessment : Provide identified compliance gaps\n  ImpactAssessment -> ReviewPublication : Submit impact assessment and findings\nend\n\ngroup Review and Publication\n  ReviewPublication -> Reviewer : Present findings for review\n  Reviewer -> ReviewPublication : Approve findings for publication\n  ReviewPublication -> Responsible : Publish approved compliance findings\n  ReviewPublication -> Downstream : Publish approved assessment results\nend\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "2755c1cddf1bb9ff6dc7d71effbd1a31": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nleft to right direction\n\nskinparam shadowing false\nskinparam componentStyle rectangle\nskinparam packageStyle rectangle\nskinparam linetype ortho\nskinparam dpi 180\nskinparam ArrowThickness 2\nskinparam nodesep 70\nskinparam ranksep 90\nskinparam defaultFontSize 14\nskinparam wrapWidth 180\n\nactor \"Compliance Officers\" as ComplianceOfficers\nactor \"Legal Teams\" as LegalTeams\nactor \"IT Risk Managers\" as ITRiskManagers\nactor \"Operations Managers\" as OperationsManagers\nactor \"System Administrators\" as SystemAdministrators\n\ncomponent \"Approved SEBI Sources\" as ApprovedSEBISources <<External System>>\ncomponent \"Existing Compliance Setup\" as ExistingComplianceSetup <<External System>>\n\ncomponent \"Circular Ingestion\" as CircularIngestion\ncomponent \"Document Management\" as DocumentManagement\ncomponent \"Clause Extraction\" as ClauseExtraction\ncomponent \"Compliance Requirement Extraction\" as ComplianceRequirementExtraction\ncomponent \"Compliance Gap Analysis\" as ComplianceGapAnalysis\ncomponent \"IT and Operational Impact Assessment\" as ImpactAssessment\ncomponent \"Reporting and Audit Lineage\" as ReportingAuditLineage\n\ndatabase \"Circular Documents\" as CircularDocuments\ndatabase \"Parsed Clauses\" as ParsedClauses\ndatabase \"Compliance Requirements\" as ComplianceRequirements\ndatabase \"Gap Assessments\" as GapAssessments\ndatabase \"Impact Assessments\" as ImpactAssessments\ndatabase \"Audit Lineage\" as AuditLineage\n\nComplianceOfficers -right-> ReportingAuditLineage : Review Reports\nLegalTeams -right-> ComplianceRequirementExtraction : Review Requirements\nITRiskManagers -right-> ImpactAssessment : Review IT Impact\nOperationsManagers -right-> ImpactAssessment : Review Operational Impact\nSystemAdministrators -right-> DocumentManagement : Administer Documents\n\nApprovedSEBISources -right-> CircularIngestion : Retrieve Circulars\nCircularIngestion -right-> DocumentManagement : Manage Circular Documents\nDocumentManagement -right-> ClauseExtraction : Extract Clauses\nClauseExtraction -right-> ComplianceRequirementExtraction : Identify Compliance Requirements\nComplianceRequirementExtraction -right-> ComplianceGapAnalysis : Analyze Compliance Gaps\nExistingComplianceSetup -right-> ComplianceGapAnalysis : Existing Compliance Baseline\nComplianceGapAnalysis -right-> ImpactAssessment : Assess IT and Operational Impact\nImpactAssessment -right-> ReportingAuditLineage : Generate Reports and Audit Lineage\n\nDocumentManagement -down-> CircularDocuments : Stores\nClauseExtraction -down-> ParsedClauses : Stores\nComplianceRequirementExtraction -down-> ComplianceRequirements : Stores\nComplianceGapAnalysis -down-> GapAssessments : Stores\nImpactAssessment -down-> ImpactAssessments : Stores\nReportingAuditLineage -down-> AuditLineage : Stores\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "2066c3b0557eb11dd6a5d473a7283836": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nskinparam shadowing false\nskinparam linetype ortho\nskinparam dpi 180\nskinparam ArrowThickness 2\nskinparam defaultFontSize 14\nskinparam wrapWidth 180\n\nhide footbox\n\nactor \"Compliance Officer\" as ComplianceOfficer\nparticipant \"Circular Ingestion\" as CircularIngestion\nparticipant \"SEBI Approved Sources\" as SEBISources\nparticipant \"Document Management\" as DocumentManagement\nparticipant \"Clause Structuring\" as ClauseStructuring\nparticipant \"Requirement Extraction\" as RequirementExtraction\nparticipant \"Gap Analysis\" as GapAnalysis\nparticipant \"Existing Compliance Setup\" as ExistingComplianceSetup\nparticipant \"Impact Assessment\" as ImpactAssessment\nparticipant \"Reporting and Audit Lineage\" as ReportingAuditLineage\n\ngroup SEBI Circular Processing\nComplianceOfficer -> CircularIngestion : Retrieve Circulars\nCircularIngestion -> SEBISources : Retrieve latest circulars\nSEBISources --> CircularIngestion : Source circulars\nCircularIngestion -> DocumentManagement : Manage Documents\nDocumentManagement -> ClauseStructuring : Structure Clauses\nClauseStructuring -> RequirementExtraction : Extract Requirements\nRequirementExtraction -> GapAnalysis : Analyze Gaps\nGapAnalysis -> ExistingComplianceSetup : Compare with current setup\nExistingComplianceSetup --> GapAnalysis : Current compliance posture\nGapAnalysis -> ImpactAssessment : Assess Impact\nImpactAssessment -> ReportingAuditLineage : Generate Reports\nReportingAuditLineage --> ComplianceOfficer : Reports and audit lineage\nend\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "bcc1782135f2a38d827c93b0bf3362b2": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Compliance Assessment Sequence\n\nautonumber\n\nactor \"Administrators\" as Administrators\nactor \"Analysts\" as Analysts\nactor \"Compliance officers\" as ComplianceOfficers\nactor \"Control owners\" as ControlOwners\nactor \"Auditors\" as Auditors\n\nparticipant \"SEBI publication channels\" as SEBI\nparticipant \"Enterprise identity provider\" as IdentityProvider\nparticipant \"Governance and repository systems\" as GovernanceSystems\n\nparticipant \"Circular Acquisition and Parsing\" as CircularAcquisition\nparticipant \"Requirement Extraction\" as RequirementExtraction\nparticipant \"Compliance Inventory and Control Mapping\" as ControlMapping\nparticipant \"Gap Analysis\" as GapAnalysis\nparticipant \"Impact Assessment\" as ImpactAssessment\nparticipant \"Findings Review and Reporting\" as FindingsReview\n\ndatabase \"Circular archive\" as CircularArchive\ndatabase \"Clause catalog\" as ClauseCatalog\ndatabase \"Compliance inventory\" as ComplianceInventory\ndatabase \"Assessment records\" as AssessmentRecords\ndatabase \"Audit history\" as AuditHistory\n\n== Circular acquisition and parsing ==\n\nAdministrators -> IdentityProvider: Authenticate\nIdentityProvider --> Administrators: Identity confirmed\nAdministrators -> CircularAcquisition: Initiate circular monitoring\nCircularAcquisition -> SEBI: Monitor for latest circulars\nSEBI --> CircularAcquisition: Provide published circulars\nCircularAcquisition -> CircularArchive: Archive circulars\nCircularAcquisition -> CircularAcquisition: Parse circulars into clauses\nCircularAcquisition -> ClauseCatalog: Store parsed clauses\nCircularAcquisition -> AuditHistory: Record circular acquisition and parsing\nCircularAcquisition -> RequirementExtraction: Submit parsed clauses\n\n== Requirement extraction and control mapping ==\n\nRequirementExtraction -> RequirementExtraction: Extract new compliance requirements\nRequirementExtraction -> ClauseCatalog: Store extracted requirements\nRequirementExtraction -> AuditHistory: Record requirement extraction\nRequirementExtraction -> ControlMapping: Submit extracted requirements\n\nControlMapping -> ComplianceInventory: Retrieve existing compliance setup and controls\nComplianceInventory --> ControlMapping: Existing compliance inventory\nControlMapping -> GovernanceSystems: Retrieve governance and repository information\nGovernanceSystems --> ControlMapping: Existing governance and control information\nControlMapping -> ControlOwners: Validate requirement-to-control mappings\nControlOwners --> ControlMapping: Confirm control mappings\nControlMapping -> ComplianceInventory: Update requirement-to-control mappings\nControlMapping -> AuditHistory: Record control mapping\nControlMapping -> GapAnalysis: Submit requirements and mapped controls\n\n== Gap and impact assessment ==\n\nGapAnalysis -> GapAnalysis: Assess compliance gaps\nGapAnalysis -> AssessmentRecords: Store gap assessment\nGapAnalysis -> AuditHistory: Record gap assessment\nGapAnalysis -> ImpactAssessment: Submit requirements and identified gaps\n\nImpactAssessment -> ControlOwners: Request IT and operational impact input\nControlOwners --> ImpactAssessment: Provide IT and operational impact input\nImpactAssessment -> ImpactAssessment: Assess IT and operational impacts\nImpactAssessment -> AssessmentRecords: Store impact assessment\nImpactAssessment -> AuditHistory: Record impact assessment\nImpactAssessment -> FindingsReview: Submit gap and impact findings\n\n== Findings review and publication ==\n\nAnalysts -> IdentityProvider: Authenticate\nIdentityProvider --> Analysts: Identity confirmed\nAnalysts -> FindingsReview: Review assessment findings\nFindingsReview -> AssessmentRecords: Retrieve gap and impact assessments\nAssessmentRecords --> FindingsReview: Assessment results\nFindingsReview --> Analysts: Present consolidated findings\nAnalysts -> FindingsReview: Submit reviewed findings\n\nComplianceOfficers -> IdentityProvider: Authenticate\nIdentityProvider --> ComplianceOfficers: Identity confirmed\nComplianceOfficers -> FindingsReview: Approve findings for publication\nFindingsReview -> GovernanceSystems: Publish approved findings\nGovernanceSystems --> FindingsReview: Publication confirmed\nFindingsReview -> AssessmentRecords: Store reviewed findings\nFindingsReview -> AuditHistory: Record review and publication\nFindingsReview --> ComplianceOfficers: Confirm findings published\n\n== Audit review ==\n\nAuditors -> IdentityProvider: Authenticate\nIdentityProvider --> Auditors: Identity confirmed\nAuditors -> AuditHistory: Review compliance assessment history\nAuditHistory --> Auditors: Acquisition, assessment, review, and publication history\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "3ed4cc973a6ddda825d467a85864b787": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Solution\n\nskinparam shadowing false\nskinparam componentStyle rectangle\nskinparam packageStyle rectangle\nskinparam linetype ortho\nskinparam dpi 180\nskinparam ArrowThickness 2\nskinparam nodesep 70\nskinparam ranksep 90\nskinparam defaultFontSize 14\nskinparam wrapWidth 180\n\nactor \"Analyst\" as Analyst\nactor \"Officer\" as Officer\nactor \"Owner\" as Owner\nactor \"Administrator\" as Administrator\nactor \"Auditor\" as Auditor\n\ncomponent \"SEBI Publication Channels\" as SEBI <<External System>>\ncomponent \"Enterprise Identity Provider\" as IdentityProvider <<External System>>\ncomponent \"Governance and Repository Systems\" as GovernanceSystems <<External System>>\n\npackage \"Regulatory Intelligence\" {\n    component \"Circular Monitoring and Ingestion\" as Monitoring\n    component \"Document Parsing and Clause Extraction\" as Parsing\n    component \"Compliance Requirement Identification\" as Identification\n}\n\npackage \"Compliance Evaluation\" {\n    component \"Compliance Inventory and Control Mapping\" as ControlMapping\n    component \"Compliance Gap Analysis\" as GapAnalysis\n}\n\npackage \"Organizational Impact and Governance\" {\n    component \"IT and Operational Impact Assessment\" as ImpactAssessment\n    component \"Compliance Review and Reporting\" as ReviewReporting\n}\n\npackage \"Data Layer\" {\n    database \"Original Documents\" as OriginalDocuments\n    database \"Parsed Clauses\" as ParsedClauses\n    database \"Compliance Requirements and Assessments\" as RequirementsAssessments\n    database \"Compliance Inventory and Control Mappings\" as InventoryMappings\n    database \"Audit and Version History\" as AuditHistory\n}\n\nSEBI -right-> Monitoring : Monitor and Ingest\\nSEBI Circulars\nMonitoring -right-> Parsing : Parse Documents and\\nExtract Clauses\nParsing -right-> Identification : Identify New\\nCompliance Requirements\nIdentification -right-> ControlMapping : Map Requirements to Existing\\nCompliance Controls\nControlMapping -right-> GapAnalysis : Analyze Compliance Gaps\nGapAnalysis -right-> ImpactAssessment : Assess IT and\\nOperational Impacts\nImpactAssessment -right-> ReviewReporting : Review, Approve\\nand Report\n\nAdministrator -right-> Monitoring : Manages monitoring\nOfficer -right-> ControlMapping : Maintains controls\nAnalyst -right-> GapAnalysis : Performs analysis\nOwner -right-> ImpactAssessment : Reviews impacts\nAuditor -right-> ReviewReporting : Audits compliance\n\nIdentityProvider -left-> ReviewReporting : Provides authenticated access\nReviewReporting -right-> GovernanceSystems : Publishes reports and records\n\nMonitoring -down-> OriginalDocuments : Stores\nParsing -down-> ParsedClauses : Stores\nIdentification -down-> RequirementsAssessments : Records requirements\nControlMapping -down-> InventoryMappings : Maintains mappings\nGapAnalysis -down-> RequirementsAssessments : Records gap assessments\nImpactAssessment -down-> RequirementsAssessments : Records impact assessments\nReviewReporting -down-> AuditHistory : Records decisions and versions\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "83e484651a7dde893a6ffa5964b7b79d": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nleft to right direction\n\nskinparam shadowing false\nskinparam componentStyle rectangle\nskinparam packageStyle rectangle\nskinparam linetype ortho\nskinparam dpi 180\nskinparam ArrowThickness 2\nskinparam nodesep 70\nskinparam ranksep 90\nskinparam defaultFontSize 14\nskinparam wrapWidth 180\n\nactor \"Compliance Analyst\" as Analyst\nactor \"Approver\" as Approver\nactor \"Administrator\" as Administrator\n\ncomponent \"SEBI Sources\" as SEBI <<external system>>\n\npackage \"Regulatory Change Processing\" {\n  component \"Circular Retrieval\" as Retrieval\n  component \"Clause Extraction\" as Extraction\n}\n\npackage \"Compliance Assessment\" {\n  component \"Compliance Requirement Identification\" as Identification\n  component \"Control Mapping and Gap Analysis\" as GapAnalysis\n  component \"IT and Operational Impact Assessment\" as ImpactAssessment\n}\n\npackage \"Governance and Assurance\" {\n  component \"Compliance Review and Approval\" as ReviewApproval\n  component \"Compliance Reporting and Audit\" as ReportingAudit\n}\n\npackage \"Compliance Data\" {\n  database \"Source Documents\" as SourceDocuments\n  database \"Clauses\" as Clauses\n  database \"Existing Compliance Controls\" as ExistingControls\n  database \"Compliance Assessments\" as Assessments\n  database \"Audit and Version History\" as AuditHistory\n}\n\nSEBI -right-> Retrieval : Retrieve Latest Circulars\nRetrieval -right-> Extraction : Extract Clauses and Metadata\nExtraction -right-> Identification : Identify Compliance Requirements\nIdentification -right-> GapAnalysis : Map Existing Controls and Analyze Gaps\nGapAnalysis -right-> ImpactAssessment : Assess IT and Operational Impacts\nImpactAssessment -right-> ReviewApproval : Review and Approve Assessments\nReviewApproval -right-> ReportingAudit : Report and Audit Compliance Findings\n\nAnalyst -down-> ReviewApproval : Review Assessments\nApprover -down-> ReviewApproval : Approve Assessments\nAdministrator -down-> ReportingAudit : Report and Audit Compliance Findings\n\nRetrieval -down-> SourceDocuments\nExtraction -down-> Clauses\nExistingControls -up-> GapAnalysis\nImpactAssessment -down-> Assessments\nReportingAudit -down-> AuditHistory\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
+    },
+    "a599a458c34cefca2504ecf06349bd99": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\nskinparam shadowing false\nskinparam linetype ortho\nskinparam dpi 180\nskinparam ArrowThickness 2\nskinparam defaultFontSize 14\nskinparam wrapWidth 180\nhide footbox\n\ntitle Primary Compliance Monitoring Flow\n\nactor \"Compliance Analyst\" as Analyst\nparticipant \"Circular Retrieval\" as Retrieval\nparticipant \"SEBI Sources\" as SEBI\nparticipant \"Clause Parsing\" as Parsing\nparticipant \"Compliance Requirement Extraction\" as Extraction\nparticipant \"Compliance Gap Analysis\" as GapAnalysis\nparticipant \"IT and Operational Impact Assessment\" as ImpactAssessment\nparticipant \"Assessment Review and Approval\" as ReviewApproval\nactor \"Approver\" as Approver\nparticipant \"Compliance Reporting\" as Reporting\n\ngroup Circular acquisition and interpretation\n    Analyst -> Retrieval : Retrieve latest SEBI circulars\n    Retrieval -> SEBI : Request latest circulars\n    SEBI --> Retrieval : Return latest circulars\n    Retrieval -> Parsing : Provide retrieved circulars\n    Parsing -> Extraction : Provide parsed clauses\n    Extraction -> GapAnalysis : Provide new compliance requirements\nend\n\ngroup Organizational assessment\n    GapAnalysis -> ImpactAssessment : Provide gaps against existing compliance setup\n    ImpactAssessment -> ReviewApproval : Submit IT and operational impact assessment\nend\n\ngroup Review, approval, and reporting\n    ReviewApproval -> Approver : Submit compliance assessment for approval\n    Approver --> ReviewApproval : Approve compliance assessment\n    ReviewApproval -> Reporting : Provide approved assessment\n    Reporting --> Analyst : Deliver compliance report\nend\n\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false
     }
   },
   "review": {}

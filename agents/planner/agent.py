@@ -111,7 +111,7 @@ class PlannerAgent(BaseAgent):
         for key, value in state.items():
             if value:
                 provided_outputs.add(key)
-                
+                        
         # Backward Chaining
         needed_outputs = {req for req in required_outputs if req in all_produced and req not in provided_outputs}
         selected_agents = set()
