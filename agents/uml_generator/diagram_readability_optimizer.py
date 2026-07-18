@@ -85,6 +85,68 @@ class DiagramReadabilityOptimizer:
         return warnings
 
     @classmethod
+    def compute_adaptive_spacing(cls, diagram: ComponentDiagramCanonical) -> tuple[int, int]:
+        """Compute (ranksep, nodesep) dynamically based on diagram size and labels."""
+        total_elements = len(diagram.all_elements())
+        num_packages = len(diagram.business_packages)
+        
+        labels = [cap.name for cap in diagram.business_capabilities]
+        avg_label_len = sum(len(l) for l in labels) / max(1, len(labels))
+        
+        ranksep = min(150, max(50, 50 + total_elements + (num_packages * 5)))
+        nodesep = min(100, max(40, int(avg_label_len * 2.5)))
+        
+        # pyrefly: ignore [unnecessary-type-conversion]
+        return int(ranksep), int(nodesep)
+
+    @classmethod
+    def infer_render_time_packages(cls, diagram: ComponentDiagramCanonical) -> List[Dict[str, Any]]:
+        """Infer visual packages if none exist by clustering strongly connected capabilities."""
+        if diagram.business_packages:
+            return []
+            
+        from collections import defaultdict
+        adj = defaultdict(set)
+        for rel in diagram.relationships:
+            if rel.source_id.startswith("cap_") and rel.target_id.startswith("cap_"):
+                adj[rel.source_id].add(rel.target_id)
+                adj[rel.target_id].add(rel.source_id)
+                
+        visited = set()
+        clusters = []
+        
+        for cap in diagram.business_capabilities:
+            if cap.id not in visited:
+                cluster_caps = set()
+                queue = [cap.id]
+                while queue:
+                    curr = queue.pop(0)
+                    if curr not in visited:
+                        visited.add(curr)
+                        cluster_caps.add(curr)
+                        for neighbor in adj[curr]:
+                            if neighbor not in visited:
+                                queue.append(neighbor)
+                if cluster_caps:
+                    clusters.append(cluster_caps)
+                    
+        inferred = []
+        for i, cluster_caps in enumerate(clusters):
+            names = [c.name for c in diagram.business_capabilities if c.id in cluster_caps]
+            if len(names) > 1:
+                pkg_name = f"{names[0]} Domain"
+            else:
+                pkg_name = f"{names[0]} System"
+                
+            inferred.append({
+                "id": f"pkg_inferred_{i}",
+                "name": pkg_name,
+                "capability_ids": list(cluster_caps)
+            })
+            
+        return inferred
+
+    @classmethod
     def optimize(cls, diagram: ComponentDiagramCanonical) -> Dict[str, Any]:
         """Run full readability optimization pass. Returns readability metrics."""
         density = cls.compute_visual_density(diagram)
@@ -96,10 +158,16 @@ class DiagramReadabilityOptimizer:
         elif density > IDEAL_DENSITY_MAX:
             density_status = "dense"
 
+        ranksep, nodesep = cls.compute_adaptive_spacing(diagram)
+        inferred_packages = cls.infer_render_time_packages(diagram)
+
         metrics = {
             "visual_density": density,
             "density_status": density_status,
             "package_imbalance_warnings": imbalance_warnings,
+            "adaptive_ranksep": ranksep,
+            "adaptive_nodesep": nodesep,
+            "inferred_packages": inferred_packages,
         }
 
         if imbalance_warnings:

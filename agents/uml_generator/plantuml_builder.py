@@ -7,7 +7,7 @@ Translates canonical diagram models (with stable IDs) into syntactically valid,
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, cast
 
 from schemas.canonical_diagram import (
     BaseCanonicalDiagram,
@@ -80,10 +80,16 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
         declared_ids: Set[str] = set()
 
         # 1. Render Packages & Contained Capabilities/Databases (Sorted topologically by flow)
-        packages_sorted = sorted(diagram.business_packages, key=lambda p: p.id)
-        for pkg in packages_sorted:
-            lines.append(f'package "{pkg.name}" as {pkg.id} {{')
-            contained_ids_sorted = DeterministicLayoutEngine.topological_sort_capabilities(diagram, pkg.capability_ids)
+        # Use inferred packages if the canonical diagram has no business packages
+        packages_data = []
+        if diagram.business_packages:
+            packages_data = [{"id": p.id, "name": p.name, "capability_ids": p.capability_ids} for p in sorted(diagram.business_packages, key=lambda p: p.id)]
+        elif hasattr(layout, "inferred_packages") and layout.inferred_packages:
+            packages_data = layout.inferred_packages
+
+        for pkg in packages_data:
+            lines.append(f'package "{pkg["name"]}" as {pkg["id"]} {{')
+            contained_ids_sorted = DeterministicLayoutEngine.topological_sort_capabilities(diagram, cast(List[str], pkg["capability_ids"]))
             for cap_id in contained_ids_sorted:
                 elem = diagram.get_element_by_id(cap_id)
                 if elem:
@@ -128,10 +134,12 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
 
         # 6. Render Relationships (Sorted by source_id, target_id)
         rels_sorted = sorted(diagram.relationships, key=lambda r: (r.source_id, r.target_id, r.label or ""))
+        from agents.uml_generator.diagram_readability_optimizer import DiagramReadabilityOptimizer
         for rel in rels_sorted:
             pair = (rel.source_id, rel.target_id)
             arrow = layout.formatted_arrows.get(pair, rel.direction or "-->")
-            label_str = f" : {rel.label}" if rel.label else ""
+            wrapped_label = DiagramReadabilityOptimizer.wrap_label(rel.label) if rel.label else ""
+            label_str = f" : {wrapped_label}" if wrapped_label else ""
             lines.append(f"{rel.source_id} {arrow} {rel.target_id}{label_str}")
 
         # 7. Render Hidden Alignment Edges for spatial grid layout

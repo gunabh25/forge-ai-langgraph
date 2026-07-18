@@ -7,7 +7,7 @@ to DeterministicLayoutEngine.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from pydantic import BaseModel, Field
 
 from schemas.canonical_diagram import (
@@ -46,6 +46,10 @@ class PlannedComponentLayout(BaseModel):
     hidden_alignment_edges: List[str] = Field(
         default_factory=list,
         description="List of hidden alignment edge strings (e.g. 'pkg_1 -[hidden]right-> pkg_2')"
+    )
+    inferred_packages: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Render-time inferred packages when canonical diagram has none"
     )
 
 
@@ -87,6 +91,7 @@ class LayoutPlanner:
             standalone_element_order=res.layers.layer_2_capabilities,
             formatted_arrows=res.formatted_arrows,
             hidden_alignment_edges=res.hidden_alignment_edges,
+            inferred_packages=res.readability_metrics.get("inferred_packages", []),
         )
         if res.dynamic_skinparams:
             layout.skinparams.extend(res.dynamic_skinparams)
