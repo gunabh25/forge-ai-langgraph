@@ -13,7 +13,12 @@ from schemas.canonical_diagram import (
     Relationship,
 )
 from agents.uml_generator.layout_engine import DeterministicLayoutEngine
-from agents.uml_generator.graph_layout_optimizer import GraphLayoutOptimizer
+from agents.uml_generator.graph_model import DirectedGraph
+from agents.uml_generator.layer_assignment import LayerAssigner
+from agents.uml_generator.crossing_optimizer import CrossingOptimizer
+from agents.uml_generator.node_ordering import NodeOrderer
+from agents.uml_generator.coordinate_assignment import CoordinateAssigner
+from agents.uml_generator.edge_router import EdgeRouter
 
 
 @pytest.fixture
@@ -54,25 +59,19 @@ def complex_diagram() -> ComponentDiagramCanonical:
 
 
 def test_graph_layout_optimizer_reduces_cost(complex_diagram: ComponentDiagramCanonical):
-    """Test that GraphLayoutOptimizer produces a layout with equal or lower cost than baseline."""
-    initial_result = DeterministicLayoutEngine.compute_component_layout(complex_diagram)
+    """Test that CrossingOptimizer produces a layout with minimal cost."""
+    graph = DirectedGraph(complex_diagram)
+    LayerAssigner.assign_layers(graph)
     
-    # We intercept the initial result before GraphOptimizer logic
-    # Actually, compute_component_layout already runs GraphLayoutOptimizer internally.
-    # Let's run the base assignment manually.
-    direction = DeterministicLayoutEngine.analyze_topology(complex_diagram)
-    layers = DeterministicLayoutEngine.assign_layers(complex_diagram)
-    arrows = DeterministicLayoutEngine.compute_routing_hints(complex_diagram, layers, direction)
+    layers = {i: graph.get_layer_nodes(i) for i in range(5)}
+    baseline_crossings = CrossingOptimizer.count_crossings(graph, layers)
     
-    baseline_cost = GraphLayoutOptimizer.calculate_layout_cost(complex_diagram, layers, arrows)
+    CrossingOptimizer.optimize_crossings(graph)
     
-    # Now run the full optimized engine
-    optimized_result = DeterministicLayoutEngine.compute_component_layout(complex_diagram)
+    layers = {i: graph.get_layer_nodes(i) for i in range(5)}
+    optimized_crossings = CrossingOptimizer.count_crossings(graph, layers)
     
-    optimized_cost = optimized_result.readability_metrics.get("layout_cost", baseline_cost)
-    
-    # The optimized cost should be <= baseline cost
-    assert optimized_cost <= baseline_cost
+    assert optimized_crossings <= baseline_crossings
 
 
 def test_database_placement_layer(complex_diagram: ComponentDiagramCanonical):
