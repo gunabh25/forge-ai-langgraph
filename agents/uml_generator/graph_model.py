@@ -46,6 +46,7 @@ class DirectedGraph:
     def __init__(self, canonical_diagram: ComponentDiagramCanonical):
         self.nodes: Dict[str, GraphNode] = {}
         self.edges: List[GraphEdge] = []
+        self.max_layer: int = 4
         self._build_graph(canonical_diagram)
 
     def _build_graph(self, diagram: ComponentDiagramCanonical) -> None:

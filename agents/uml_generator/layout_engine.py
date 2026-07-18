@@ -161,4 +161,4 @@ class DeterministicLayoutEngine:
                     continuity_penalty += (diff - 1)
         
         cost = (10 * continuity_penalty) + (5 * crossings) + (3 * avg_len)
-        return float(cost)
+        return cost
