@@ -411,14 +411,18 @@ class UMLRepairAgent(BaseAgent):
                     "Be progressively narrower. Never regenerate the full sequence."
                 )
 
-            # ── Task 7: Repair budget narrowing in user prompt ─────────────
+            # ── Task 7: Targeted Section Repair User Prompt ─────────────
             user_prompt = (
                 f"Diagram Name: {diag_name}\n"
+                f"Diagram Type: {diagram_type}\n"
                 f"Repair Attempt: {repair_attempt_number}\n\n"
-                f"Validation Feedback:\n{structured_feedback}\n\n"
-                f"Original PlantUML:\n{original_puml}\n\n"
-                "Fix the diagram to resolve the feedback using ONLY approved participants.\n"
-                "Return ONLY the corrected PlantUML code."
+                f"## Original PlantUML\n{original_puml}\n\n"
+                f"## Structured Validator Feedback (Diagnostics)\n{structured_feedback}\n\n"
+                f"## Architectural Plan\n{diagram_plan}\n\n"
+                "Perform a TARGETED SECTION REPAIR. Do NOT redesign or regenerate the entire diagram.\n"
+                "Repair only the specific failing sections (relationships, aliases, packages, syntax, layout hints) specified in the feedback.\n"
+                "You may respond with a Targeted Repair Patch JSON or corrected PlantUML syntax.\n"
+                "Return ONLY the patch JSON or corrected PlantUML syntax."
             )
 
             messages = [
@@ -426,7 +430,7 @@ class UMLRepairAgent(BaseAgent):
                 HumanMessage(content=user_prompt),
             ]
 
-            logger.info("Invoking LLM for repair | diagram_id=%s | attempt=%d", diag_name, repair_attempt_number)
+            logger.info("Invoking LLM for targeted repair | diagram_id=%s | attempt=%d", diag_name, repair_attempt_number)
             start_time = time.time()
             llm_response = self.llm.invoke(messages)
             exec_time = int((time.time() - start_time) * 1000)
@@ -451,9 +455,29 @@ class UMLRepairAgent(BaseAgent):
                 response_content
                 .replace("```plantuml", "")
                 .replace("```puml", "")
+                .replace("```json", "")
                 .replace("```", "")
                 .strip()
             )
+
+            # ── Targeted Patch Compilation ─────────────────────────────
+            if clean_content.startswith("{") and clean_content.endswith("}"):
+                from agents.uml_repair.targeted_patcher import TargetedPatcher
+                from agents.uml_generator.canonical_validator import CanonicalDiagramValidator
+                from agents.uml_generator.layout_planner import LayoutPlanner
+                from agents.uml_generator.plantuml_builder import PlantUMLBuilderFactory
+                try:
+                    patch = TargetedPatcher.parse_patch_from_response(clean_content)
+                    raw_canonical = existing_state.get("canonical_diagram_json")
+                    if isinstance(raw_canonical, (dict, str)) and raw_canonical:
+                        canonical = CanonicalDiagramValidator.parse_and_validate_schema(raw_canonical, diagram_type)
+                        updated_canonical = TargetedPatcher.apply_patch(canonical, patch)
+                        _, layout_plan = LayoutPlanner.plan(updated_canonical)
+                        builder = PlantUMLBuilderFactory.get_builder(diagram_type)
+                        clean_content = builder.build(updated_canonical, layout_plan)
+                        logger.info("Targeted repair patch applied successfully | diagram_id=%s", diag_name)
+                except Exception as patch_err:
+                    logger.warning("Could not apply targeted repair patch: %s — using raw output.", patch_err)
 
             # ------------------------------------------------------------------
             # Duplicate-output detection
