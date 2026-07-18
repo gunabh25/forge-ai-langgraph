@@ -93,8 +93,8 @@ class ReadabilityOptimizer:
         labels = [cap.name for cap in diagram.business_capabilities]
         avg_label_len = sum(len(l) for l in labels) / max(1, len(labels))
         
-        ranksep = min(150, max(50, 50 + total_elements + (num_packages * 5)))
-        nodesep = min(100, max(40, int(avg_label_len * 2.5)))
+        ranksep = min(250, max(120, 100 + total_elements + (num_packages * 10)))
+        nodesep = min(180, max(90, int(avg_label_len * 3.5)))
         
         # pyrefly: ignore [unnecessary-type-conversion]
         return int(ranksep), int(nodesep)

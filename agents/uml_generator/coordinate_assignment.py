@@ -31,6 +31,27 @@ class CoordinateAssigner:
             for node in layer_nodes:
                 if node.node_type == "package":
                     continue
+                    
+                # Enforce Actor separation (Phase 9.8)
+                if node.node_type == "actor":
+                    node.x = 0.0
+                    x = max(x, 10.0)  # Reserve left column
+                    continue
+                    
+                # Enforce External System separation
+                if node.node_type == "external_system":
+                    if i == 1: # Ingest / Producer
+                        node.x = x
+                        x += node.width + 5.0 # Extra padding
+                    else: # Downstream / Consumer
+                        # Push far right
+                        node.x = max(x, 50.0)
+                        x = node.x + node.width + 5.0
+                    continue
+
+                if x < 10.0 and i > 0:
+                    x = 10.0 # Force core components into middle column
+
                 node.x = x
                 x += node.width + 0.5
 

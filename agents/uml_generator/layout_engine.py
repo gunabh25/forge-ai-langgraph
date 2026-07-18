@@ -82,6 +82,19 @@ class DeterministicLayoutEngine:
         # 6. Edge Routing
         routing_hints = EdgeRouter.route_edges(graph)
         
+        # Generate Hidden Alignment Edges to enforce coordinates (Phase 9.8)
+        hidden_alignment_edges = []
+        for i in range(5):
+            layer_nodes = sorted([n for n in graph.get_layer_nodes(i) if n.node_type != "package"], key=lambda n: n.x)
+            for j in range(len(layer_nodes) - 1):
+                hidden_alignment_edges.append(f"{layer_nodes[j].id} -[hidden]right-> {layer_nodes[j+1].id}")
+        
+        # Force databases directly below their first consumer
+        for db in [n for n in graph.get_layer_nodes(4) if n.node_type == "database"]:
+            in_edges = graph.get_in_edges(db.id)
+            if in_edges:
+                hidden_alignment_edges.append(f"{in_edges[0].source_id} -[hidden]down-> {db.id}")
+
         # Convert internal graph layout state back to EngineLayoutResult
         layers = LayerAssignment(
             layer_0_actors=[n.id for n in graph.get_layer_nodes(0) if n.node_type == "actor"],
@@ -101,6 +114,7 @@ class DeterministicLayoutEngine:
             "skinparam sameClassWidth true",
             "skinparam maxMessageSize 100",
             "skinparam ArrowThickness 1.5",
+            "skinparam defaultTextAlignment center",
         ]
         
         metrics = {
@@ -112,7 +126,7 @@ class DeterministicLayoutEngine:
             direction_directive="top to bottom direction",
             layers=layers,
             formatted_arrows=routing_hints,
-            hidden_alignment_edges=[],
+            hidden_alignment_edges=hidden_alignment_edges,
             dynamic_skinparams=dynamic_skinparams,
             readability_metrics=metrics,
         )
