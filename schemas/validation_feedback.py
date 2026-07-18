@@ -34,11 +34,15 @@ class ValidationDiagnostic(BaseModel):
         return self.model_dump()
 
 
+from schemas.diagram_score import DiagramScoreCard
+
+
 class StructuredValidationFeedback(BaseModel):
     """Container aggregating structured diagnostics across validation layers."""
     validator: str = Field("Validation Pipeline", description="Name of the validator or pipeline")
     passed: bool = Field(True, description="Whether the diagram passed validation")
     score: int = Field(100, description="Overall validation score (0-100)")
+    score_card: Optional[DiagramScoreCard] = Field(None, description="Quantitative 0-100 enterprise diagram score card")
     diagnostics: List[ValidationDiagnostic] = Field(default_factory=list, description="Categorized diagnostic list")
     errors: List[str] = Field(default_factory=list, description="Legacy string error list for backward compatibility")
     warnings: List[str] = Field(default_factory=list, description="Warning messages")

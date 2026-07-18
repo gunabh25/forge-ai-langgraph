@@ -71,7 +71,8 @@ class ExecutionDashboardAgent(BaseAgent):
         # Per-diagram detail rows (Task 6 — extended fields)
         details: List[Dict[str, Any]] = []
 
-        for diag_id, s in diagram_states.items():
+        for diag_id, raw_s in diagram_states.items():
+            s = raw_s or {}
             status = s.get("status", "unknown")
             repair_attempts = s.get("repair_attempts", 0)
             failure_reason = s.get("failure_reason")
@@ -105,6 +106,17 @@ class ExecutionDashboardAgent(BaseAgent):
                 else:
                     new_artifacts += 1
 
+            metrics = s.get("uml_validation_metrics") or {}
+            diag_score = s.get("diagram_score")
+            if diag_score is None:
+                diag_score = metrics.get("diagram_score", 100.0)
+
+            is_prod_ready = s.get("is_production_ready")
+            if is_prod_ready is None:
+                is_prod_ready = metrics.get("is_production_ready", True)
+
+            score_card = s.get("score_card") or metrics.get("score_card")
+
             # Task 6 — rich per-diagram row
             details.append({
                 "diagram_id": diag_id,
@@ -114,11 +126,18 @@ class ExecutionDashboardAgent(BaseAgent):
                 "failure_reason": failure_reason,
                 "llm_calls": llm_calls,
                 "execution_time_ms": exec_time,
+                "diagram_score": diag_score,
+                "is_production_ready": is_prod_ready,
+                "score_card": score_card,
             })
 
         for old_id in previous_states:
             if old_id not in diagram_states:
                 removed_artifacts += 1
+
+        scores = [d.get("diagram_score", 100.0) for d in details if d.get("diagram_score") is not None]
+        avg_score = round(sum(scores) / float(len(scores)), 1) if scores else 100.0
+        prod_ready_count = sum(1 for d in details if d.get("is_production_ready", True))
 
         total_failed_needing_repair = repaired_successfully + permanently_failed
         repair_success_rate = (
@@ -158,6 +177,8 @@ class ExecutionDashboardAgent(BaseAgent):
             "successful_diagrams": success_count,
             "failed_diagrams": failed_count,
             "success_rate": f"{(success_count / total_diagrams * 100) if total_diagrams > 0 else 0:.1f}%",
+            "average_diagram_score": avg_score,
+            "production_ready_diagrams": f"{prod_ready_count}/{total_diagrams}",
             "total_execution_time_ms": total_execution_time_ms,
             "total_llm_calls": total_llm_calls_new,
             "total_llm_calls_saved": total_saved_calls,
@@ -186,6 +207,7 @@ class ExecutionDashboardAgent(BaseAgent):
 
         dashboard_text = (
             "----------------------------------------------------\n"
+            f"Average Diagram Score: {avg_score} (Production Ready: {prod_ready_count}/{total_diagrams})\n"
             f"Total LLM Calls: {total_llm_calls_new}\n"
             f"LLM Calls Saved: {total_saved_calls}\n"
             f"Cache Hits: {total_cache_hits}\n"

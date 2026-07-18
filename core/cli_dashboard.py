@@ -7,7 +7,7 @@ from rich.tree import Tree
 from rich.table import Table
 from rich.panel import Panel
 from core.workflow_events import WorkflowEventManager, EventTypes
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 class CLIDashboard:
     """Subscribes to workflow events and renders a real-time CLI dashboard using Rich."""
@@ -27,6 +27,8 @@ class CLIDashboard:
         self.generated_artifacts = 0
         self.successful_diagrams = 0
         self.failed_diagrams = 0
+        self.diagram_scores: List[float] = []
+        self.production_ready_count = 0
         
         self.tree: Optional[Tree] = None
         self.current_agent_node = None
@@ -82,6 +84,11 @@ class CLIDashboard:
             elif event_type == EventTypes.RENDERER_COMPLETED:
                 diag = payload.get("diagram", "Unknown")
                 status = payload.get("status", "success")
+                score = payload.get("diagram_score")
+                if score is not None:
+                    self.diagram_scores.append(float(score))
+                    if score >= 90.0:
+                        self.production_ready_count += 1
                 if status == "success":
                     self.successful_diagrams += 1
                     self.console.print(f"  [green]Rendered {diag}[/green]")
@@ -94,6 +101,9 @@ class CLIDashboard:
                 
             elif event_type == EventTypes.WORKFLOW_COMPLETED:
                 self.end_time = payload.get("timestamp", time.time())
+                summary_data = payload.get("summary", {})
+                if summary_data and "average_diagram_score" in summary_data:
+                    self.diagram_scores = [float(summary_data["average_diagram_score"])]
                 self._render_dashboard()
         except Exception as e:
             pass # Failsafe against rich formatting errors
@@ -109,6 +119,7 @@ class CLIDashboard:
         table.add_column("Value", style="white")
         
         duration = self.end_time - self.start_time if self.start_time else 0.0
+        avg_score = f"{(sum(self.diagram_scores) / len(self.diagram_scores)):.1f}" if self.diagram_scores else "100.0"
         
         table.add_row("Workflow ID", self.workflow_id)
         table.add_row("Execution Time", f"{duration:.2f} sec")
@@ -119,5 +130,7 @@ class CLIDashboard:
         table.add_row("Repair Attempts", str(self.repair_attempts))
         table.add_row("Successful Diagrams", f"[green]{self.successful_diagrams}[/green]")
         table.add_row("Failed Diagrams", f"[red]{self.failed_diagrams}[/red]")
+        table.add_row("Average Diagram Score", f"[magenta]{avg_score}[/magenta]")
+        table.add_row("Production Ready Count", f"[cyan]{self.production_ready_count}/{self.successful_diagrams + self.failed_diagrams}[/cyan]")
         
         self.console.print(Panel(table, border_style="blue"))

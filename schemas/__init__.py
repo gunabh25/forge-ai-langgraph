@@ -16,6 +16,10 @@ from schemas.validation_feedback import (
     ValidationDiagnostic,
     StructuredValidationFeedback,
 )
+from schemas.diagram_score import (
+    DiagramScoreCard,
+    PRODUCTION_READINESS_THRESHOLD,
+)
 
 __all__ = [
     "BaseElement",
@@ -32,4 +36,6 @@ __all__ = [
     "DiagnosticCategory",
     "ValidationDiagnostic",
     "StructuredValidationFeedback",
+    "DiagramScoreCard",
+    "PRODUCTION_READINESS_THRESHOLD",
 ]

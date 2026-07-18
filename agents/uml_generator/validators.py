@@ -9,6 +9,7 @@ from config.logging import get_logger
 import re
 
 from agents.uml_generator.uml_parser import PlantUMLParser, UMLDiagram
+from agents.uml_generator.diagram_scorer import EnterpriseDiagramScorer
 from core.business_normalizer import normalize_name
 from schemas.validation_feedback import (
     DiagnosticCategory,
@@ -508,6 +509,8 @@ class ValidationPipeline:
         pipeline_feedback = None
         uml_validation_metrics = {}
         syntax_valid = False
+        arch_res: Optional[Dict[str, Any]] = None
+        flow_res: Optional[Dict[str, Any]] = None
         aggregated_diagnostics: List[Dict[str, Any]] = []
 
         # Layer 1: Grammar Validator
@@ -518,9 +521,25 @@ class ValidationPipeline:
         uml_validation_metrics["grammar_score"] = grammar_res["score"]
         grammar_status = "passed" if grammar_res["passed"] else "failed"
 
+        # Compute quantitative diagram score card across 9 metrics
+        score_card = EnterpriseDiagramScorer.evaluate(
+            diagram_type=diagram_type,
+            plantuml_content=plantuml_content,
+            grammar_res=grammar_res,
+            arch_res=arch_res if grammar_res["passed"] else None,
+            flow_res=flow_res if (grammar_res["passed"] and arch_res is not None and arch_res["passed"]) else None,
+        )
+
+        uml_validation_metrics.update({
+            "diagram_score": score_card.overall_score,
+            "is_production_ready": score_card.is_production_ready,
+            "score_card": score_card.to_dict(),
+        })
+
+        if pipeline_feedback is not None and isinstance(pipeline_feedback, dict):
+            pipeline_feedback["score_card"] = score_card.to_dict()
+
         if not grammar_res["passed"]:
-            pipeline_feedback = grammar_res
-            syntax_valid = False
             return {
                 "pipeline_feedback": pipeline_feedback,
                 "uml_validation_metrics": uml_validation_metrics,
@@ -528,7 +547,8 @@ class ValidationPipeline:
                 "fixed_content": plantuml_content,
                 "grammar_status": grammar_status,
                 "architecture_status": "skipped",
-                "business_flow_status": "skipped"
+                "business_flow_status": "skipped",
+                "score_card": score_card.to_dict(),
             }
 
         syntax_valid = True
@@ -538,8 +558,22 @@ class ValidationPipeline:
         uml_validation_metrics["architecture_score"] = arch_res["score"]
         architecture_status = "passed" if arch_res["passed"] else "failed"
 
+        # Re-evaluate score card with architecture results
+        score_card = EnterpriseDiagramScorer.evaluate(
+            diagram_type=diagram_type,
+            plantuml_content=plantuml_content,
+            grammar_res=grammar_res,
+            arch_res=arch_res,
+        )
+        uml_validation_metrics.update({
+            "diagram_score": score_card.overall_score,
+            "is_production_ready": score_card.is_production_ready,
+            "score_card": score_card.to_dict(),
+        })
+
         if not arch_res["passed"]:
             pipeline_feedback = arch_res
+            pipeline_feedback["score_card"] = score_card.to_dict()
             return {
                 "pipeline_feedback": pipeline_feedback,
                 "uml_validation_metrics": uml_validation_metrics,
@@ -547,7 +581,8 @@ class ValidationPipeline:
                 "fixed_content": plantuml_content,
                 "grammar_status": grammar_status,
                 "architecture_status": architecture_status,
-                "business_flow_status": "skipped"
+                "business_flow_status": "skipped",
+                "score_card": score_card.to_dict(),
             }
 
         # Layer 3: Business Flow Validator
@@ -555,8 +590,23 @@ class ValidationPipeline:
         uml_validation_metrics["business_flow_score"] = flow_res["score"]
         business_flow_status = "passed" if flow_res["passed"] else "failed"
 
+        # Re-evaluate final score card with full pipeline results
+        score_card = EnterpriseDiagramScorer.evaluate(
+            diagram_type=diagram_type,
+            plantuml_content=plantuml_content,
+            grammar_res=grammar_res,
+            arch_res=arch_res,
+            flow_res=flow_res,
+        )
+        uml_validation_metrics.update({
+            "diagram_score": score_card.overall_score,
+            "is_production_ready": score_card.is_production_ready,
+            "score_card": score_card.to_dict(),
+        })
+
         if not flow_res["passed"]:
             pipeline_feedback = flow_res
+            pipeline_feedback["score_card"] = score_card.to_dict()
 
         return {
             "pipeline_feedback": pipeline_feedback,
@@ -566,5 +616,6 @@ class ValidationPipeline:
             "grammar_status": grammar_status,
             "architecture_status": architecture_status,
             "business_flow_status": business_flow_status,
-            "llm_invoked": flow_res.get("llm_invoked", False)
+            "llm_invoked": flow_res.get("llm_invoked", False),
+            "score_card": score_card.to_dict(),
         }

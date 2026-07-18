@@ -440,6 +440,9 @@ class UMLGeneratorAgent(BaseAgent):
                 "business_flow_status": business_flow_status,
                 "pipeline_feedback": pipeline_feedback,
                 "uml_validation_metrics": uml_validation_metrics,
+                "diagram_score": uml_validation_metrics.get("diagram_score", 100.0),
+                "is_production_ready": uml_validation_metrics.get("is_production_ready", True),
+                "score_card": uml_validation_metrics.get("score_card"),
             }
             # Keep latest metrics for global metadata
             state_uml_validation_metrics = uml_validation_metrics
