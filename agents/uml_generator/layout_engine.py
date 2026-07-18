@@ -401,8 +401,11 @@ class GraphOptimizer:
         max_c = max(non_zero_layers) if non_zero_layers else 1
         min_c = min(non_zero_layers) if non_zero_layers else 1
         whitespace_penalty = float(max_c - min_c) * 0.5
+        
+        # Package Dispersion: heavily penalized if too many packages
+        package_dispersion = len(diagram.business_packages) * 2.0
 
-        return float(edge_crossings) + (2.0 * avg_length) + (3.0 * longest_edge_penalty) + whitespace_penalty
+        return float(edge_crossings) + (2.0 * avg_length) + (3.0 * longest_edge_penalty) + whitespace_penalty + package_dispersion
 
     @classmethod
     def optimize(

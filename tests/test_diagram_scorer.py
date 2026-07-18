@@ -96,12 +96,36 @@ def test_enterprise_diagram_scorer_low_quality():
 
     grammar_res = {"passed": False, "score": 0, "errors": ["Syntax error: unknown keyword"]}
     arch_res = {"passed": False, "score": 40, "errors": ["Hallucinated component found"]}
+    
+    # Mocking a layout_result to simulate poor visual density and overlapping labels
+    from agents.uml_generator.layout_engine import EngineLayoutResult, LayerAssignment
+    bad_layout = EngineLayoutResult(
+        direction_directive="top to bottom direction",
+        layers=LayerAssignment(
+            element_layer_map={},
+            layer_0_actors=[],
+            layer_1_ext_ingest=[],
+            layer_2_packages=[],
+            layer_2_capabilities=[],
+            layer_3_ext_downstream=[],
+            layer_4_databases=[]
+        ),
+        formatted_arrows={},
+        hidden_alignment_edges=[],
+        dynamic_skinparams=[],
+        readability_metrics={
+            "visual_density": 0.95,  # Too dense (penalty)
+            "average_edge_length": 5.0, # Too long (penalty)
+            "package_imbalance_warnings": ["imbalance1", "imbalance2", "imbalance3"] # 3 warnings -> package balance score = 40
+        }
+    )
 
     score_card = EnterpriseDiagramScorer.evaluate(
         diagram_type="component",
         plantuml_content=plantuml_content,
         grammar_res=grammar_res,
         arch_res=arch_res,
+        layout_result=bad_layout,
     )
 
     assert score_card.overall_score < 90.0

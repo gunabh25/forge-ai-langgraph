@@ -189,20 +189,27 @@ class GrammarValidator:
                         "score": 100,
                         "status": "passed",
                         "errors": [],
-                        "warnings": ["plantuml -syntax timed out; syntax verified via SVG render shortcut."],
+                        "warnings": ["Verified by successful rendering"],
                         "diagnostics": [],
                         "fixed_content": fixed_content,
                     }
                 else:
-                    logger.warning("Grammar Validation Unavailable (syntax check timed out). Continuing workflow.")
+                    logger.error("Grammar Validation Failed (syntax check timed out AND SVG rendering failed).")
                     return {
                         "validator": "Grammar Validator",
-                        "passed": True,
-                        "score": 100,
-                        "status": "timed_out",
-                        "errors": [],
-                        "warnings": ["Grammar Validation Unavailable (syntax check timed out). Continuing workflow."],
-                        "diagnostics": [],
+                        "passed": False,
+                        "score": 0,
+                        "status": "failed",
+                        "errors": ["PlantUML syntax check timed out, and SVG rendering failed. Diagram contains fatal syntax errors."],
+                        "warnings": [],
+                        "diagnostics": [
+                            ValidationDiagnostic(
+                                category=DiagnosticCategory.GRAMMAR,
+                                code="SYNTAX_ERROR",
+                                message="PlantUML syntax check timed out, and SVG rendering failed.",
+                                suggested_fix="Check syntax manually or fix any PlantUML syntax errors."
+                            ).to_dict()
+                        ],
                         "fixed_content": fixed_content,
                     }
             else:  # STRICT mode
@@ -335,7 +342,13 @@ class ArchitectureValidator:
         if not rel_result.is_valid:
             for r_err in rel_result.errors:
                 errors.append(r_err)
-                code = "SELF_LOOP_INTERACTION" if "Self-loop" in r_err else "RELATIONSHIP_INTEGRITY"
+                if "Self-loop" in r_err:
+                    code = "SELF_LOOP_INTERACTION"
+                elif "Identical duplicate" in r_err:
+                    code = "IDENTICAL_DUPLICATE_RELATIONSHIP"
+                else:
+                    code = "RELATIONSHIP_INTEGRITY"
+                    
                 fix = (
                     "Sequence diagrams model interactions. Self-loop messages represent internal computation. "
                     "Merge internal work into a single outgoing interaction or model separate approved participants."
@@ -351,12 +364,24 @@ class ArchitectureValidator:
                     ).to_dict()
                 )
 
+        warnings: List[str] = []
+        if getattr(rel_result, "warnings", None):
+            for r_warn in rel_result.warnings:
+                warnings.append(r_warn)
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        category=DiagnosticCategory.ARCHITECTURE,
+                        code="MULTIPLE_VALID_INTERACTIONS",
+                        message=r_warn,
+                        suggested_fix="No action required; interactions are semantically distinct"
+                    ).to_dict()
+                )
+
         # Isolated component diagnostics — classified by entity type severity
         # Fatal: business capabilities, databases, packages → trigger repair
         # Non-fatal: actors, external systems → warning only
         _WARNING_ONLY_TYPES = frozenset({"actor", "boundary", "control", "entity"})
         isolated = diagram.isolated_nodes()
-        warnings: List[str] = []
         fatal_isolated: List[Any] = []
 
         if isolated:

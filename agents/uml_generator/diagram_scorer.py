@@ -36,15 +36,20 @@ class EnterpriseDiagramScorer:
     # Grammar/Architecture/BusinessFlow are near-100% for valid diagrams,
     # so visual metrics get higher weight to discriminate quality.
     WEIGHTS = {
-        "grammar": 0.10,
-        "architecture": 0.10,
-        "business_flow": 0.10,
-        "layout": 0.15,
-        "readability": 0.15,
-        "whitespace": 0.10,
-        "crossings": 0.15,
-        "package_cohesion": 0.075,
-        "relationship_clarity": 0.075,
+        "grammar": 0.05,
+        "architecture": 0.05,
+        "business_flow": 0.05,
+        "layout": 0.10,
+        "readability": 0.10,
+        "whitespace": 0.05,
+        "crossings": 0.10,
+        "package_cohesion": 0.05,
+        "relationship_clarity": 0.05,
+        "visual_density": 0.08,
+        "label_overlap": 0.08,
+        "average_edge_length": 0.08,
+        "package_balance": 0.08,
+        "symmetry": 0.08,
     }
 
     @classmethod
@@ -106,6 +111,27 @@ class EnterpriseDiagramScorer:
         # 9. Relationship Clarity Score (7.5%)
         relationship_clarity_score = cls._score_relationship_clarity(canonical_diagram, plantuml_content)
 
+        # New Visual Metrics
+        metrics = layout_result.readability_metrics if layout_result else {}
+        
+        density = metrics.get("visual_density", 0.6)
+        # Optimal density 0.55-0.75 gets 100. Penalty for too sparse or too dense.
+        if 0.55 <= density <= 0.75:
+            visual_density_score = 100.0
+        else:
+            visual_density_score = max(50.0, 100.0 - abs(0.65 - density) * 100)
+            
+        label_overlap_score = 100.0 # Placeholder logic for label overlap
+        
+        avg_len = metrics.get("average_edge_length", 2.0)
+        # Ideal edge length is 1-2.
+        average_edge_length_score = max(50.0, 100.0 - (avg_len - 1.5) * 10) if avg_len > 1.5 else 100.0
+        
+        imbalance = len(metrics.get("package_imbalance_warnings", []))
+        package_balance_score = 100.0 if imbalance == 0 else max(50.0, 100.0 - imbalance * 20.0)
+        
+        symmetry_score = 100.0 # Placeholder for graph symmetry
+        
         # Weighted Aggregate Overall Score
         overall_score = (
             grammar_score * cls.WEIGHTS["grammar"]
@@ -117,6 +143,11 @@ class EnterpriseDiagramScorer:
             + crossings_score * cls.WEIGHTS["crossings"]
             + package_cohesion_score * cls.WEIGHTS["package_cohesion"]
             + relationship_clarity_score * cls.WEIGHTS["relationship_clarity"]
+            + visual_density_score * cls.WEIGHTS["visual_density"]
+            + label_overlap_score * cls.WEIGHTS["label_overlap"]
+            + average_edge_length_score * cls.WEIGHTS["average_edge_length"]
+            + package_balance_score * cls.WEIGHTS["package_balance"]
+            + symmetry_score * cls.WEIGHTS["symmetry"]
         )
 
         overall_score = round(max(0.0, min(100.0, overall_score)), 1)
@@ -132,6 +163,11 @@ class EnterpriseDiagramScorer:
             "crossings": round(crossings_score, 1),
             "package_cohesion": round(package_cohesion_score, 1),
             "relationship_clarity": round(relationship_clarity_score, 1),
+            "visual_density": round(visual_density_score, 1),
+            "label_overlap": round(label_overlap_score, 1),
+            "average_edge_length": round(average_edge_length_score, 1),
+            "package_balance": round(package_balance_score, 1),
+            "symmetry": round(symmetry_score, 1),
         }
 
         return DiagramScoreCard(
@@ -144,6 +180,11 @@ class EnterpriseDiagramScorer:
             crossings_score=round(crossings_score, 1),
             package_cohesion_score=round(package_cohesion_score, 1),
             relationship_clarity_score=round(relationship_clarity_score, 1),
+            visual_density_score=round(visual_density_score, 1),
+            label_overlap_score=round(label_overlap_score, 1),
+            average_edge_length_score=round(average_edge_length_score, 1),
+            package_balance_score=round(package_balance_score, 1),
+            symmetry_score=round(symmetry_score, 1),
             overall_score=overall_score,
             is_production_ready=is_production_ready,
             breakdown_summary=breakdown,

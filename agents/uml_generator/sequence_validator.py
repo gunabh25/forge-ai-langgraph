@@ -178,13 +178,17 @@ class SequenceValidator:
 class RelationshipValidationResult:
     is_valid: bool = True
     errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
 
 class RelationshipValidator:
     """Validates structural correctness of UML relationships."""
     
     def validate(self, diagram: UMLDiagram) -> RelationshipValidationResult:
         errors = []
+        warnings = []
         seen_edges = set()
+        seen_semantic_edges = set()
+        from core.business_normalizer import normalize_name
         
         for rel in diagram.relationships:
             src_node = diagram.resolve(rel.source)
@@ -200,10 +204,17 @@ class RelationshipValidator:
                 errors.append(f"Graph Error: Self-loop detected on '{src_node.display_name}'.")
                 
             if src_node and tgt_node:
-                edge = (src_node.normalized_name, tgt_node.normalized_name)
-                if edge in seen_edges:
-                    errors.append(f"Graph Error: Duplicate relationship detected from '{src_node.display_name}' to '{tgt_node.display_name}'. Combine multiple messages into a single labeled edge or remove duplicates.")
-                seen_edges.add(edge)
+                topology_edge = (src_node.normalized_name, tgt_node.normalized_name)
+                # Semantic edge uses direction (rel.type) and normalized label to distinguish multiple interactions
+                semantic_edge = (src_node.normalized_name, tgt_node.normalized_name, getattr(rel, "type", ""), normalize_name(rel.label or ""))
+                
+                if semantic_edge in seen_semantic_edges:
+                    errors.append(f"Graph Error: Identical duplicate relationship detected from '{src_node.display_name}' to '{tgt_node.display_name}'. Combine multiple messages into a single labeled edge or remove duplicates.")
+                elif topology_edge in seen_edges:
+                    warnings.append(f"Multiple valid interactions detected from '{src_node.display_name}' to '{tgt_node.display_name}'. (Informational)")
+                
+                seen_semantic_edges.add(semantic_edge)
+                seen_edges.add(topology_edge)
             
         isolated = diagram.isolated_nodes()
         for iso in isolated:
@@ -211,5 +222,6 @@ class RelationshipValidator:
             
         return RelationshipValidationResult(
             is_valid=len(errors) == 0,
-            errors=errors
+            errors=errors,
+            warnings=warnings
         )

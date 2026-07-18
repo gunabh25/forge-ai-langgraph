@@ -29,7 +29,7 @@ def test_grammar_validator_best_effort_timeout_svg_shortcut(mock_run):
 
     assert res["passed"] is True
     assert res["status"] == "passed"
-    assert "SVG render shortcut" in res["warnings"][0]
+    assert "Verified by successful rendering" in res["warnings"][0]
 
 
 @patch("subprocess.run")
@@ -40,9 +40,9 @@ def test_grammar_validator_best_effort_timeout_fallback(mock_run):
     validator = GrammarValidator(mode="BEST_EFFORT", timeout=5)
     res = validator.validate("component", "@startuml\ncomponent A\n@enduml")
 
-    assert res["passed"] is True
-    assert res["status"] == "timed_out"
-    assert "Grammar Validation Unavailable" in res["warnings"][0]
+    assert res["passed"] is False
+    assert res["status"] == "failed"
+    assert "PlantUML syntax check timed out, and SVG rendering failed" in res["errors"][0]
 
 
 @patch("subprocess.run")

@@ -129,8 +129,14 @@ class ExecutionDashboardAgent(BaseAgent):
             details.append({
                 "diagram_id": diag_id,
                 "type": s.get("diagram_type", "unknown"),
-                "status": status,
+                "generation_status": status,  # Requested as generation_status
+                "status": status,             # Kept for backward compatibility
+                "provider": s.get("provider", "unknown"),
+                "model": s.get("model", "unknown-model"),
                 "grammar_status": grammar_st,
+                "architecture_status": s.get("architecture_status", "unknown"),
+                "business_flow_status": s.get("business_flow_status", "unknown"),
+                "render_status": s.get("render_status", "unknown"),
                 "grammar_display": grammar_display,
                 "repair_attempts": repair_attempts,
                 "failure_reason": failure_reason,
