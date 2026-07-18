@@ -296,14 +296,14 @@ class DeterministicLayoutEngine:
         """Compute dynamic spacing and enterprise styling skinparams based on diagram complexity."""
         num_elements = len(diagram.all_elements())
         if num_elements <= 6:
-            nodesep = 35
-            ranksep = 35
+            nodesep = 40
+            ranksep = 40
         elif num_elements <= 12:
-            nodesep = 50
-            ranksep = 50
+            nodesep = 60
+            ranksep = 60
         else:
-            nodesep = 70
-            ranksep = 70
+            nodesep = 80
+            ranksep = 80
 
         return [
             f"skinparam nodesep {nodesep}",

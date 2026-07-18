@@ -70,9 +70,10 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
         if diagram.metadata and diagram.metadata.title:
             lines.append(f"title {diagram.metadata.title}")
 
-        # Orientation & Skinparams
+        # Orientation & Skinparams (filtered through compatibility layer)
+        from agents.uml_generator.plantuml_compatibility import filter_skinparams
         lines.append(layout.direction_directive)
-        for param in sorted(layout.skinparams):
+        for param in sorted(filter_skinparams(layout.skinparams)):
             lines.append(param)
         lines.append("")
 

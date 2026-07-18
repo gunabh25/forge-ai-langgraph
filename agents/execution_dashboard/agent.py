@@ -147,7 +147,8 @@ class ExecutionDashboardAgent(BaseAgent):
 
         scores = [d.get("diagram_score", 100.0) for d in details if d.get("diagram_score") is not None]
         avg_score = round(sum(scores) / float(len(scores)), 1) if scores else 100.0
-        prod_ready_count = sum(1 for d in details if d.get("is_production_ready", True))
+        # Derive production-ready count directly from score threshold for consistency
+        prod_ready_count = sum(1 for d in details if float(d.get("diagram_score", 0)) >= 90.0)
 
         total_failed_needing_repair = repaired_successfully + permanently_failed
         repair_success_rate = (

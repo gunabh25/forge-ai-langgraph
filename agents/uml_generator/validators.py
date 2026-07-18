@@ -46,7 +46,7 @@ class GrammarValidator:
         except ValueError:
             self.mode = GrammarValidationMode.BEST_EFFORT
 
-        self.timeout = timeout if timeout is not None else getattr(settings, "GRAMMAR_VALIDATION_TIMEOUT", 5)
+        self.timeout = timeout if timeout is not None else getattr(settings, "GRAMMAR_VALIDATION_TIMEOUT", 3)
 
     def _auto_fix(self, content: str) -> str:
         """Automatically repair trivial formatting and duplicate issues."""
@@ -351,28 +351,56 @@ class ArchitectureValidator:
                     ).to_dict()
                 )
 
-        # Isolated component diagnostics
+        # Isolated component diagnostics — classified by entity type severity
+        # Fatal: business capabilities, databases, packages → trigger repair
+        # Non-fatal: actors, external systems → warning only
+        _WARNING_ONLY_TYPES = frozenset({"actor", "boundary", "control", "entity"})
         isolated = diagram.isolated_nodes()
+        warnings: List[str] = []
+        fatal_isolated: List[Any] = []
+
         if isolated:
             for iso in isolated:
-                msg = f"Disconnected component detected: '{iso.display_name}'"
-                errors.append(msg)
-                diagnostics.append(
-                    ValidationDiagnostic(
-                        category=DiagnosticCategory.ARCHITECTURE,
-                        code="DISCONNECTED_COMPONENT",
-                        message=msg,
-                        target_element=iso.display_name,
-                        suggested_fix="Connect component to workflow or remove if redundant"
-                    ).to_dict()
-                )
+                node_type = getattr(iso, "node_type", "component")
+                is_warning = node_type in _WARNING_ONLY_TYPES or node_type == "rectangle"
 
-        passed = val_result.is_traceable and rel_result.is_valid and not isolated
+                # External systems parsed as 'component' may have names suggesting external origin
+                display_lower = iso.display_name.lower() if iso.display_name else ""
+                if any(kw in display_lower for kw in ("external", "api", "gateway", "third-party", "3rd party")):
+                    is_warning = True
+
+                if is_warning:
+                    msg = f"Isolated optional element (warning): '{iso.display_name}'"
+                    warnings.append(msg)
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            category=DiagnosticCategory.ARCHITECTURE,
+                            code="DISCONNECTED_OPTIONAL",
+                            message=msg,
+                            target_element=iso.display_name,
+                            suggested_fix="Consider connecting to workflow or leave as optional"
+                        ).to_dict()
+                    )
+                else:
+                    msg = f"Disconnected component detected: '{iso.display_name}'"
+                    errors.append(msg)
+                    fatal_isolated.append(iso)
+                    diagnostics.append(
+                        ValidationDiagnostic(
+                            category=DiagnosticCategory.ARCHITECTURE,
+                            code="DISCONNECTED_COMPONENT",
+                            message=msg,
+                            target_element=iso.display_name,
+                            suggested_fix="Connect component to workflow or remove if redundant"
+                        ).to_dict()
+                    )
+
+        passed = val_result.is_traceable and rel_result.is_valid and not fatal_isolated
 
         # Calculate composite score
         traceability_score = val_result.score
         rel_score = 100 if rel_result.is_valid else max(0, 100 - len(rel_result.errors) * 10)
-        conn_score = 100 if not isolated else max(0, 100 - len(isolated) * 15)
+        conn_score = 100 if not fatal_isolated else max(0, 100 - len(fatal_isolated) * 15)
 
         combined_score = int((traceability_score * 0.5) + (rel_score * 0.3) + (conn_score * 0.2))
 
@@ -381,7 +409,7 @@ class ArchitectureValidator:
             "passed": passed,
             "score": combined_score,
             "errors": errors,
-            "warnings": [],
+            "warnings": warnings,
             "diagnostics": diagnostics,
             "traceability_metrics": getattr(val_result, "traceability_metrics", {})
         }

@@ -33,14 +33,16 @@ class EnterpriseDiagramScorer:
     """Quantitative scoring engine for UML diagrams."""
 
     # Metric Weighting Profile (sum = 1.0)
+    # Grammar/Architecture/BusinessFlow are near-100% for valid diagrams,
+    # so visual metrics get higher weight to discriminate quality.
     WEIGHTS = {
-        "grammar": 0.15,
-        "architecture": 0.15,
-        "business_flow": 0.15,
-        "layout": 0.10,
-        "readability": 0.10,
+        "grammar": 0.10,
+        "architecture": 0.10,
+        "business_flow": 0.10,
+        "layout": 0.15,
+        "readability": 0.15,
         "whitespace": 0.10,
-        "crossings": 0.10,
+        "crossings": 0.15,
         "package_cohesion": 0.075,
         "relationship_clarity": 0.075,
     }

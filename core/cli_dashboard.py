@@ -105,14 +105,32 @@ class CLIDashboard:
                 if summary_data:
                     if "total_repair_attempts" in summary_data:
                         self.repair_attempts = summary_data["total_repair_attempts"]
-                    if "production_ready_count" in summary_data:
-                        self.production_ready_count = summary_data["production_ready_count"]
                     if "successful_diagrams" in summary_data:
                         self.successful_diagrams = summary_data["successful_diagrams"]
                     if "failed_diagrams" in summary_data:
                         self.failed_diagrams = summary_data["failed_diagrams"]
                     if "average_diagram_score" in summary_data:
                         self.diagram_scores = [float(summary_data["average_diagram_score"])]
+                    # Derive production_ready_count from summary
+                    prod_ready_str = summary_data.get("production_ready_diagrams", "")
+                    if isinstance(prod_ready_str, str) and "/" in prod_ready_str:
+                        try:
+                            self.production_ready_count = int(prod_ready_str.split("/")[0])
+                        except ValueError:
+                            pass
+                    # Populate model/provider from summary if still unknown
+                    if self.model == "N/A" or self.model == "unknown-model":
+                        for detail in summary_data.get("diagram_details", []):
+                            score_card = detail.get("score_card") or {}
+                            # Model/provider may be embedded in agent_cost_metrics
+                        agent_costs = summary_data.get("agent_cost_metrics", {})
+                        for agent_name, metrics in agent_costs.items():
+                            m = metrics.get("model")
+                            p = metrics.get("provider")
+                            if m and m != "unknown-model":
+                                self.model = m
+                            if p and p != "N/A":
+                                self.provider = p
                 self._render_dashboard()
         except Exception as e:
             pass # Failsafe against rich formatting errors
