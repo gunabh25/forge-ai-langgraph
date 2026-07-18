@@ -37,6 +37,9 @@ logger = get_logger("agents.uml_repair")
 # Helpers
 # ---------------------------------------------------------------------------
 
+from agents.uml_generator.canonical_parser import CanonicalDiagramParser, CanonicalParseError
+
+
 def _extract_allowed_participants(diagram_plan: str) -> Dict[str, str]:
     """Parse the Planning JSON and return {normalized_name: original_name} for
     every approved participant across all four participant categories.
@@ -47,8 +50,8 @@ def _extract_allowed_participants(diagram_plan: str) -> Dict[str, str]:
     if not diagram_plan:
         return {}
     try:
-        plan_data = json.loads(diagram_plan)
-    except (json.JSONDecodeError, TypeError):
+        plan_data = CanonicalDiagramParser.parse(diagram_plan)
+    except (CanonicalParseError, json.JSONDecodeError, TypeError):
         logger.warning("diagram_plan is not valid JSON — traceability gate will be skipped.")
         return {}
 

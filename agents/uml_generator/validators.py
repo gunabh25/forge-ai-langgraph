@@ -17,6 +17,7 @@ from schemas.validation_feedback import (
     StructuredValidationFeedback,
 )
 
+from agents.uml_generator.canonical_parser import CanonicalDiagramParser, CanonicalParseError
 from enum import Enum
 from app.settings import settings
 
@@ -391,10 +392,10 @@ class BusinessFlowValidator:
         if not diagram_plan:
             return []
         try:
-            plan = json.loads(diagram_plan)
+            plan = CanonicalDiagramParser.parse(diagram_plan)
             actors = plan.get("actors", [])
             return [a if isinstance(a, str) else a.get("name", "") for a in actors if a]
-        except (json.JSONDecodeError, TypeError):
+        except (CanonicalParseError, json.JSONDecodeError, TypeError):
             return []
 
     @staticmethod
@@ -403,8 +404,8 @@ class BusinessFlowValidator:
         if not diagram_plan:
             return []
         try:
-            plan = json.loads(diagram_plan)
-        except (json.JSONDecodeError, TypeError):
+            plan = CanonicalDiagramParser.parse(diagram_plan)
+        except (CanonicalParseError, json.JSONDecodeError, TypeError):
             return []
 
         participants: List[str] = []

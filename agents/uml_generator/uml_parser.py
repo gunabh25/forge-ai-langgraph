@@ -204,7 +204,7 @@ class PlantUMLParser:
     )
     
     ARROW_PATTERN = re.compile(
-        r'(\*?o?<?[-=.]+(?:\[[^\]]*\]|(?:left|right|up|down|h|v))?[-=.]*(?:>|>>|o|x|\*)?)'
+        r'(\*?o?<?[-=.]+(?:\[[^\]]*\])?(?:left|right|up|down|h|v)?[-=.]*(?:>|>>|o|x|\*)?)'
     )
 
     @classmethod
@@ -232,13 +232,13 @@ class PlantUMLParser:
         for prefix in cls.DIRECTIVE_PREFIXES:
             if lower_clean.startswith(prefix):
                 return True
-        if lower_clean.startswith(('package', 'folder', 'frame', 'cloud', 'namespace')) and ('{' in clean or clean.endswith('{')):
-            return True
         return False
 
     @classmethod
     def _parse_declaration(cls, line: str) -> Optional[Tuple[str, str, Optional[str]]]:
         clean_line = re.sub(r'<<[^>]+>>', '', line).strip()
+        if clean_line.endswith('{'):
+            clean_line = clean_line[:-1].strip()
         if not clean_line or cls._is_directive(clean_line):
             return None
             

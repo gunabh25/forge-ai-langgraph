@@ -21,6 +21,9 @@ class SequenceValidationResult:
     def is_traceable(self) -> bool:
         return len(self.non_traceable_participants) == 0
 
+from agents.uml_generator.canonical_parser import CanonicalDiagramParser, CanonicalParseError
+
+
 class SequenceValidator:
     """Validator for business traceability in Sequence and Component Diagrams."""
     
@@ -39,14 +42,14 @@ class SequenceValidator:
             return approved
             
         try:
-            plan = json.loads(plan_json)
+            plan = CanonicalDiagramParser.parse(plan_json)
             for key in ["actors", "external_systems", "major_components", "major_data_stores"]:
                 for item in plan.get(key, []):
                     if isinstance(item, str):
                         approved.add(item)
                     elif isinstance(item, dict) and "name" in item:
                         approved.add(item["name"])
-        except json.JSONDecodeError:
+        except (CanonicalParseError, json.JSONDecodeError, TypeError):
             logger.error("Failed to parse diagram plan JSON for approved registry.")
             
         return approved

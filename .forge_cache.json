@@ -1347,6 +1347,278 @@
           "relationship_clarity": 100.0
         }
       }
+    },
+    "625d3122cd9fb5d6a96dc2860ac60f8f": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 88,
+        "errors": [
+          "Graph Error: Target node 'right-> cap_circular_parsing' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'down-> db_compliance_data_store' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'right-> db_organizational_compliance_profile_store' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'right-> db_raw_circulars_store' is used in a relationship but was never declared. (Dangling alias)"
+        ],
+        "warnings": [],
+        "diagnostics": [
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node 'right-> cap_circular_parsing' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node 'down-> db_compliance_data_store' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node 'right-> db_organizational_compliance_profile_store' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node 'right-> db_raw_circulars_store' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          }
+        ],
+        "traceability_metrics": {
+          "planned_components": 12,
+          "generated_components": 12,
+          "exact_matches": 12,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        },
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 20.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 78.9,
+          "overall_score": 86.4,
+          "is_production_ready": false,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 20.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 78.9
+          }
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 86.4,
+        "is_production_ready": false,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 20.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 78.9,
+          "overall_score": 86.4,
+          "is_production_ready": false,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 20.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 78.9
+          }
+        },
+        "architecture_score": 88
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Solution\nleft to right direction\nskinparam componentStyle uml2\nskinparam handwritten false\nskinparam linetype ortho\nskinparam packageStyle rectangle\nskinparam shadowing false\n\nactor \"Compliance Officer\" as actor_compliance_officer\n\ncomponent \"SEBI Regulator\" as ext_sebi_regulator <<External System>>\n\ncomponent \"Circular Parsing\" as cap_circular_parsing <<service>>\ncomponent \"Compliance Reporting\" as cap_compliance_reporting <<service>>\ncomponent \"Gap Analysis\" as cap_gap_analysis <<service>>\ncomponent \"Impact Assessment\" as cap_impact_assessment <<service>>\ncomponent \"Organizational Compliance Profile\" as cap_organizational_compliance_profile <<service>>\ncomponent \"Requirement Extraction\" as cap_requirement_extraction <<service>>\ncomponent \"SEBI Circular Ingestion\" as cap_sebi_circular_ingestion <<service>>\ndatabase \"Compliance Data Store\" as db_compliance_data_store\ndatabase \"Organizational Compliance Profile Store\" as db_organizational_compliance_profile_store\ndatabase \"Raw Circulars Store\" as db_raw_circulars_store\n\nactor_compliance_officer -right-> cap_compliance_reporting : Requests Reports\nactor_compliance_officer -right-> cap_gap_analysis : Reviews Gap Analysis\nactor_compliance_officer -right-> cap_impact_assessment : Reviews Impact Assessment\ncap_circular_parsing -down-> db_compliance_data_store : Stores Parsed Clauses\ncap_circular_parsing -down-> db_raw_circulars_store : Reads Raw Circulars\ncap_compliance_reporting -down-> db_compliance_data_store : Reads Compliance Data\ncap_compliance_reporting -down-> db_organizational_compliance_profile_store : Reads Org Profile\ncap_gap_analysis -down-> db_compliance_data_store : Reads Compliance Data\ncap_gap_analysis -down-> db_organizational_compliance_profile_store : Reads Org Profile\ncap_impact_assessment -down-> db_compliance_data_store : Reads Compliance Data\ncap_impact_assessment -down-> db_organizational_compliance_profile_store : Reads Org Profile\ncap_organizational_compliance_profile -down-> db_organizational_compliance_profile_store : Manages Profile Data\ncap_requirement_extraction -down-> db_compliance_data_store : Reads & Extracts Requirements\ncap_sebi_circular_ingestion -down-> db_raw_circulars_store : Stores Raw Circulars\next_sebi_regulator -left-> cap_sebi_circular_ingestion : Publishes Circulars\n\n' Layout Alignment Directives\nactor_compliance_officer -[hidden]right-> cap_circular_parsing\ncap_circular_parsing -[hidden]down-> db_compliance_data_store\ndb_compliance_data_store -[hidden]right-> db_organizational_compliance_profile_store\ndb_organizational_compliance_profile_store -[hidden]right-> db_raw_circulars_store\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped",
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 20.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 78.9,
+        "overall_score": 86.4,
+        "is_production_ready": false,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 20.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 78.9
+        }
+      }
+    },
+    "ed8da7f4abb370089e1fee9c5ff88796": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 88,
+        "errors": [
+          "Graph Error: Duplicate relationship detected from 'Compliance Management' to 'Circular Processing'. Combine multiple messages into a single labeled edge or remove duplicates.",
+          "Graph Error: Duplicate relationship detected from 'Circular Processing' to 'Raw Circular Storage'. Combine multiple messages into a single labeled edge or remove duplicates.",
+          "Graph Error: Duplicate relationship detected from 'Gap Analysis' to 'Compliance Data Store'. Combine multiple messages into a single labeled edge or remove duplicates.",
+          "Graph Error: Duplicate relationship detected from 'Impact Assessment' to 'Compliance Data Store'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "diagnostics": [
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Duplicate relationship detected from 'Compliance Management' to 'Circular Processing'. Combine multiple messages into a single labeled edge or remove duplicates.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Duplicate relationship detected from 'Circular Processing' to 'Raw Circular Storage'. Combine multiple messages into a single labeled edge or remove duplicates.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Duplicate relationship detected from 'Gap Analysis' to 'Compliance Data Store'. Combine multiple messages into a single labeled edge or remove duplicates.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Duplicate relationship detected from 'Impact Assessment' to 'Compliance Data Store'. Combine multiple messages into a single labeled edge or remove duplicates.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          }
+        ],
+        "traceability_metrics": {
+          "planned_components": 11,
+          "generated_components": 10,
+          "exact_matches": 10,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        },
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 20.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 87.0,
+          "is_production_ready": false,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 20.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 87.0,
+        "is_production_ready": false,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 20.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 87.0,
+          "is_production_ready": false,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 20.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 88
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Ingestion and Compliance Assessment\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nactor \"Compliance Monitoring System\" as actor_compliance_monitoring\nparticipant \"Compliance Management\" as cap_compliance_management\nparticipant \"SEBI\" as ext_sebi\nparticipant \"Circular Processing\" as cap_circular_processing\ndatabase \"Raw Circular Storage\" as db_raw_circular_storage\nparticipant \"Compliance Requirement Extraction\" as cap_compliance_extraction\ndatabase \"Compliance Data Store\" as db_compliance_data_store\nparticipant \"Gap Analysis\" as cap_gap_analysis\ndatabase \"Organizational Setup Data Store\" as db_org_setup_data_store\nparticipant \"Impact Assessment\" as cap_impact_assessment\n\nactor_compliance_monitoring -> cap_compliance_management : 1. Initiate Circular Ingestion\ncap_compliance_management -> ext_sebi : 1.1 Request Latest Circulars\next_sebi --> cap_compliance_management : 1.2 Provide Circular Documents\ncap_compliance_management -> cap_circular_processing : 1.3 Submit Circulars for Processing\ncap_circular_processing -> db_raw_circular_storage : 1.4 Store Raw Circulars\ncap_compliance_management -> cap_circular_processing : 2. Trigger Circular Parsing\ncap_circular_processing -> db_raw_circular_storage : 2.1 Retrieve Raw Circulars\ncap_circular_processing -> cap_compliance_extraction : 2.2 Forward Parsed Clauses\ncap_compliance_extraction -> db_compliance_data_store : 2.3 Store Extracted Requirements\ncap_compliance_management -> cap_gap_analysis : 3. Initiate Gap Analysis\ncap_gap_analysis -> db_compliance_data_store : 3.1 Retrieve New & Existing Requirements\ncap_gap_analysis -> db_org_setup_data_store : 3.2 Retrieve Organizational Profile\ncap_gap_analysis -> db_compliance_data_store : 3.3 Store Gap Analysis Results\ncap_compliance_management -> cap_impact_assessment : 4. Initiate Impact Assessment\ncap_impact_assessment -> db_compliance_data_store : 4.1 Retrieve Gap Analysis Results\ncap_impact_assessment -> db_org_setup_data_store : 4.2 Retrieve Organizational Profile Details\ncap_impact_assessment -> db_compliance_data_store : 4.3 Store Impact Assessment Report\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped",
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 20.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 87.0,
+        "is_production_ready": false,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 20.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
     }
   },
   "review": {}

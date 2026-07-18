@@ -1,0 +1,166 @@
+{
+  "scenario_id": "compliance_monitoring",
+  "name": "Compliance Monitoring System",
+  "prompt": "Build a compliance monitoring solution which pulls in latest SEBI circulars, parses them into clauses, extracts requirements, performs gap analysis, and assesses impact.",
+  "canonical_json": {
+    "metadata": {
+      "diagram_type": "component",
+      "title": "Compliance Monitoring Solution - Core Capabilities",
+      "description": "Core business capabilities for compliance monitoring."
+    },
+    "actors": [
+      {
+        "id": "actor_user",
+        "name": "User",
+        "stereotype": "actor"
+      }
+    ],
+    "external_systems": [
+      {
+        "id": "ext_sebi",
+        "name": "SEBI",
+        "technology": "External Regulator"
+      }
+    ],
+    "business_packages": [
+      {
+        "id": "pkg_compliance_core",
+        "name": "Compliance Monitoring Core",
+        "capability_ids": [
+          "cap_circular_ingestion",
+          "cap_document_parsing",
+          "cap_requirement_extraction",
+          "cap_gap_analysis",
+          "cap_impact_assessment",
+          "cap_reporting"
+        ]
+      }
+    ],
+    "business_capabilities": [
+      {
+        "id": "cap_circular_ingestion",
+        "name": "Circular Ingestion",
+        "stereotype": "service"
+      },
+      {
+        "id": "cap_document_parsing",
+        "name": "Document Parsing",
+        "stereotype": "service"
+      },
+      {
+        "id": "cap_requirement_extraction",
+        "name": "Requirement Extraction",
+        "stereotype": "service"
+      },
+      {
+        "id": "cap_gap_analysis",
+        "name": "Gap Analysis",
+        "stereotype": "service"
+      },
+      {
+        "id": "cap_impact_assessment",
+        "name": "Impact Assessment",
+        "stereotype": "service"
+      },
+      {
+        "id": "cap_reporting",
+        "name": "Reporting",
+        "stereotype": "service"
+      }
+    ],
+    "databases": [
+      {
+        "id": "db_raw_document_store",
+        "name": "Raw Document Store",
+        "db_type": "Document Store"
+      },
+      {
+        "id": "db_compliance_data_store",
+        "name": "Compliance Data Store",
+        "db_type": "Relational Database"
+      }
+    ],
+    "relationships": [
+      {
+        "source_id": "actor_user",
+        "target_id": "cap_reporting",
+        "direction": "-->",
+        "label": "Views reports"
+      },
+      {
+        "source_id": "ext_sebi",
+        "target_id": "cap_circular_ingestion",
+        "direction": "-->",
+        "label": "Provides circulars"
+      },
+      {
+        "source_id": "cap_circular_ingestion",
+        "target_id": "db_raw_document_store",
+        "direction": "-->",
+        "label": "Stores raw documents"
+      },
+      {
+        "source_id": "cap_circular_ingestion",
+        "target_id": "cap_document_parsing",
+        "direction": "-->",
+        "label": "Forwards for parsing"
+      },
+      {
+        "source_id": "cap_document_parsing",
+        "target_id": "db_raw_document_store",
+        "direction": "-->",
+        "label": "Reads documents"
+      },
+      {
+        "source_id": "cap_document_parsing",
+        "target_id": "cap_requirement_extraction",
+        "direction": "-->",
+        "label": "Extracts clauses"
+      },
+      {
+        "source_id": "cap_requirement_extraction",
+        "target_id": "db_compliance_data_store",
+        "direction": "-->",
+        "label": "Stores requirements"
+      },
+      {
+        "source_id": "cap_requirement_extraction",
+        "target_id": "cap_gap_analysis",
+        "direction": "-->",
+        "label": "Feeds requirements"
+      },
+      {
+        "source_id": "cap_gap_analysis",
+        "target_id": "db_compliance_data_store",
+        "direction": "-->",
+        "label": "Compares data"
+      },
+      {
+        "source_id": "cap_gap_analysis",
+        "target_id": "cap_impact_assessment",
+        "direction": "-->",
+        "label": "Provides gap findings"
+      },
+      {
+        "source_id": "cap_impact_assessment",
+        "target_id": "db_compliance_data_store",
+        "direction": "-->",
+        "label": "Accesses data"
+      },
+      {
+        "source_id": "cap_impact_assessment",
+        "target_id": "cap_reporting",
+        "direction": "-->",
+        "label": "Provides impact data"
+      },
+      {
+        "source_id": "cap_reporting",
+        "target_id": "db_compliance_data_store",
+        "direction": "-->",
+        "label": "Retrieves report data"
+      }
+    ]
+  },
+  "expected_validation_passed": true,
+  "expected_min_score": 90.0
+}
