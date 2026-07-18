@@ -82,32 +82,40 @@ class DeterministicLayoutEngine:
         # 6. Edge Routing
         routing_hints = EdgeRouter.route_edges(graph)
         
-        # Generate Hidden Alignment Edges to enforce coordinates (Phase 9.8)
+        max_layer = getattr(graph, "max_layer", 4)
+        
+        # Generate Hidden Alignment Edges to enforce coordinates (Phase 9.8 & 9.13)
         hidden_alignment_edges = []
-        for i in range(5):
-            layer_nodes = sorted([n for n in graph.get_layer_nodes(i) if n.node_type != "package"], key=lambda n: n.x)
+        for i in range(max_layer + 1):
+            layer_nodes = sorted([n for n in graph.get_layer_nodes(i) if n.node_type != "package"], key=lambda n: (n.x, n.id))
             for j in range(len(layer_nodes) - 1):
                 hidden_alignment_edges.append(f"{layer_nodes[j].id} -[hidden]right-> {layer_nodes[j+1].id}")
         
         # Force databases directly below their first consumer
-        for db in [n for n in graph.get_layer_nodes(4) if n.node_type == "database"]:
+        for db in [n for n in graph.nodes.values() if n.node_type == "database"]:
             in_edges = graph.get_in_edges(db.id)
             if in_edges:
                 hidden_alignment_edges.append(f"{in_edges[0].source_id} -[hidden]down-> {db.id}")
 
         # Convert internal graph layout state back to EngineLayoutResult
         layers = LayerAssignment(
-            layer_0_actors=[n.id for n in graph.get_layer_nodes(0) if n.node_type == "actor"],
-            layer_1_ext_ingest=[n.id for n in graph.get_layer_nodes(1) if n.node_type == "external_system"],
-            layer_2_packages=[n.id for n in graph.get_layer_nodes(2) if n.node_type == "package"],
-            layer_2_capabilities=[n.id for n in graph.get_layer_nodes(2) if n.node_type == "capability"],
-            layer_3_ext_downstream=[n.id for n in graph.get_layer_nodes(3) if n.node_type == "external_system"],
-            layer_4_databases=[n.id for n in graph.get_layer_nodes(4) if n.node_type == "database"],
+            layer_0_actors=[n.id for n in sorted([node for node in graph.nodes.values() if node.node_type == "actor"], key=lambda x: (x.layer, x.x, x.id))],
+            layer_1_ext_ingest=[n.id for n in sorted([node for node in graph.nodes.values() if node.node_type == "external_system" and len(graph.get_out_edges(node.id)) >= len(graph.get_in_edges(node.id))], key=lambda x: (x.layer, x.x, x.id))],
+            layer_2_packages=[n.id for n in sorted([node for node in graph.nodes.values() if node.node_type == "package"], key=lambda x: (x.layer, x.x, x.id))],
+            layer_2_capabilities=[n.id for n in sorted([node for node in graph.nodes.values() if node.node_type == "capability"], key=lambda x: (x.layer, x.order, x.id))],
+            layer_3_ext_downstream=[n.id for n in sorted([node for node in graph.nodes.values() if node.node_type == "external_system" and len(graph.get_out_edges(node.id)) < len(graph.get_in_edges(node.id))], key=lambda x: (x.layer, x.x, x.id))],
+            layer_4_databases=[n.id for n in sorted([node for node in graph.nodes.values() if node.node_type == "database"], key=lambda x: (x.layer, x.x, x.id))],
             element_layer_map={n.id: n.layer for n in graph.nodes.values()}
         )
         
         # Provide readability params
         ranksep, nodesep = ReadabilityOptimizer.compute_adaptive_spacing(diagram)
+        
+        # Readability pass
+        metrics = ReadabilityOptimizer.optimize(diagram, graph=graph)
+        metrics["layout_cost"] = cls._calculate_layout_cost(graph)
+        metrics["total_relationships"] = len(diagram.relationships)
+        
         dynamic_skinparams = [
             f"skinparam nodesep {nodesep}",
             f"skinparam ranksep {ranksep}",
@@ -116,11 +124,6 @@ class DeterministicLayoutEngine:
             "skinparam ArrowThickness 1.5",
             "skinparam defaultTextAlignment center",
         ]
-        
-        metrics = {
-            "layout_cost": cls._calculate_layout_cost(graph),
-            "total_relationships": len(diagram.relationships),
-        }
         
         return EngineLayoutResult(
             direction_directive="top to bottom direction",
@@ -133,9 +136,29 @@ class DeterministicLayoutEngine:
 
     @classmethod
     def _calculate_layout_cost(cls, graph: DirectedGraph) -> float:
-        """Evaluate Workstream 10 layout cost function."""
-        layers_map = {i: graph.get_layer_nodes(i) for i in range(5)}
+        """Evaluate Workstream 10 & Phase 9.13 layout cost function."""
+        max_layer = getattr(graph, "max_layer", 4)
+        layers_map = {i: graph.get_layer_nodes(i) for i in range(max_layer + 1)}
+        
+        # 1. Edge Crossings x 5
         crossings = CrossingOptimizer.count_crossings(graph, layers_map)
         
-        cost = (10 * crossings)
+        # 2. Average Edge Length x 3
+        total_len = sum(abs(graph.nodes[e.target_id].y - graph.nodes[e.source_id].y) for e in graph.edges if e.source_id in graph.nodes and e.target_id in graph.nodes)
+        avg_len = total_len / max(1, len(graph.edges))
+        
+        # 3. Business Flow Continuity x 10 (inverse to maximize continuity)
+        # Ideally backbone nodes are contiguous.
+        continuity_penalty = 0
+        from agents.uml_generator.business_flow_layout import BusinessFlowAnalyzer
+        primary_path = BusinessFlowAnalyzer.compute_primary_path(graph)
+        for i in range(len(primary_path) - 1):
+            src = graph.get_node(primary_path[i])
+            tgt = graph.get_node(primary_path[i+1])
+            if src and tgt:
+                diff = abs(tgt.layer - src.layer)
+                if diff > 1:
+                    continuity_penalty += (diff - 1)
+        
+        cost = (10 * continuity_penalty) + (5 * crossings) + (3 * avg_len)
         return float(cost)

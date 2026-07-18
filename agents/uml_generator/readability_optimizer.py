@@ -147,7 +147,45 @@ class ReadabilityOptimizer:
         return inferred
 
     @classmethod
-    def optimize(cls, diagram: ComponentDiagramCanonical) -> Dict[str, Any]:
+    def compute_business_flow_readability(cls, diagram: ComponentDiagramCanonical, graph: Optional[Any] = None) -> float:
+        """Compute visual readability metric (0-100) based on Phase 9.13 requirements."""
+        if not graph:
+            return 80.0
+            
+        score = 100.0
+        
+        # Check Entry Visibility
+        actors = [n for n in graph.nodes.values() if n.node_type == "actor"]
+        if actors:
+            if not all(a.layer == 0 for a in actors):
+                score -= 10.0
+                
+        # Check Database Placement
+        dbs = [n for n in graph.nodes.values() if n.node_type == "database"]
+        for db in dbs:
+            # Databases shouldn't be at X=20 (backbone center)
+            if abs(db.x - 20.0) < 1.0:
+                score -= 5.0
+                
+        # Check Primary Flow Continuity
+        from agents.uml_generator.business_flow_layout import BusinessFlowAnalyzer
+        primary_path = BusinessFlowAnalyzer.compute_primary_path(graph)
+        
+        continuity_broken = False
+        for i in range(len(primary_path) - 1):
+            src = graph.get_node(primary_path[i])
+            tgt = graph.get_node(primary_path[i+1])
+            if src and tgt and abs(tgt.layer - src.layer) > 1:
+                continuity_broken = True
+                break
+                
+        if continuity_broken:
+            score -= 20.0
+            
+        return max(0.0, score)
+
+    @classmethod
+    def optimize(cls, diagram: ComponentDiagramCanonical, graph: Optional[Any] = None) -> Dict[str, Any]:
         """Run full readability optimization pass. Returns readability metrics."""
         density = cls.compute_visual_density(diagram)
         imbalance_warnings = cls.detect_package_imbalance(diagram)
@@ -160,6 +198,8 @@ class ReadabilityOptimizer:
 
         ranksep, nodesep = cls.compute_adaptive_spacing(diagram)
         inferred_packages = cls.infer_render_time_packages(diagram)
+        
+        business_flow_score = cls.compute_business_flow_readability(diagram, graph)
 
         metrics = {
             "visual_density": density,
@@ -168,6 +208,7 @@ class ReadabilityOptimizer:
             "adaptive_ranksep": ranksep,
             "adaptive_nodesep": nodesep,
             "inferred_packages": inferred_packages,
+            "business_flow_readability": business_flow_score,
         }
 
         if imbalance_warnings:

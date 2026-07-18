@@ -63,37 +63,46 @@ def test_graph_layout_optimizer_reduces_cost(complex_diagram: ComponentDiagramCa
     graph = DirectedGraph(complex_diagram)
     LayerAssigner.assign_layers(graph)
     
-    layers = {i: graph.get_layer_nodes(i) for i in range(5)}
+    layers = {i: graph.get_layer_nodes(i) for i in range(graph.max_layer + 1)}
     baseline_crossings = CrossingOptimizer.count_crossings(graph, layers)
     
     CrossingOptimizer.optimize_crossings(graph)
     
-    layers = {i: graph.get_layer_nodes(i) for i in range(5)}
+    layers = {i: graph.get_layer_nodes(i) for i in range(graph.max_layer + 1)}
     optimized_crossings = CrossingOptimizer.count_crossings(graph, layers)
     
     assert optimized_crossings <= baseline_crossings
 
 
 def test_database_placement_layer(complex_diagram: ComponentDiagramCanonical):
-    """Test that databases are strictly assigned to Layer 4 (Workstream 6)."""
+    """Test that databases are correctly positioned relative to their capability (Phase 9.13)."""
     optimized_result = DeterministicLayoutEngine.compute_component_layout(complex_diagram)
     layers = optimized_result.layers
     
     assert "db_main" in layers.layer_4_databases
     assert "db_analytics" in layers.layer_4_databases
     
-    # Verify they are only in Layer 4
-    assert layers.element_layer_map["db_main"] == 4
-    assert layers.element_layer_map["db_analytics"] == 4
+    # Verify databases are placed strictly below their owner
+    cap_a_layer = layers.element_layer_map["cap_a"]
+    db_main_layer = layers.element_layer_map["db_main"]
+    assert db_main_layer == cap_a_layer + 1
+    
+    cap_d_layer = layers.element_layer_map["cap_d"]
+    db_analytics_layer = layers.element_layer_map["db_analytics"]
+    assert db_analytics_layer == cap_d_layer + 1
 
 
 def test_external_system_optimization(complex_diagram: ComponentDiagramCanonical):
-    """Test that external systems are dynamically assigned to Layer 1 or Layer 3 (Workstream 7)."""
+    """Test that external systems are dynamically assigned based on flow (Phase 9.13)."""
     optimized_result = DeterministicLayoutEngine.compute_component_layout(complex_diagram)
     layers = optimized_result.layers
     
     # ext_ingest should be Layer 1 (Left) because it receives traffic from Actor (Layer 0)
     assert layers.element_layer_map["ext_ingest"] == 1
     
-    # ext_downstream should be Layer 3 (Right) because it receives traffic from Layer 2
-    assert layers.element_layer_map["ext_downstream"] == 3
+    # ext_downstream should be placed at the very end (max layer)
+    ext_layer = layers.element_layer_map["ext_downstream"]
+    all_layers = layers.element_layer_map.values()
+    max_l = max(all_layers)
+    assert ext_layer == max_l
+

@@ -21,9 +21,10 @@ class CrossingOptimizer:
     def optimize_crossings(cls, graph: DirectedGraph, max_iterations: int = 4) -> None:
         """Run barycenter heuristic across layers to minimize crossings."""
         layers = cls._group_nodes_by_layer(graph)
+        max_layer = getattr(graph, "max_layer", 4)
         
         # Initialize with deterministic alphabetical sort for baseline
-        for i in range(5):
+        for i in range(max_layer + 1):
             layers[i].sort(key=lambda n: (n.parent_package_id or "", n.id))
             for order, node in enumerate(layers[i]):
                 node.order = order
@@ -36,12 +37,12 @@ class CrossingOptimizer:
 
         for iteration in range(max_iterations):
             # Forward sweep
-            for i in range(1, 5):
+            for i in range(1, max_layer + 1):
                 cls._sweep_layer(graph, layers[i], layers[i - 1], direction="forward")
                 cls._adjacent_exchange(graph, layers, i)
 
             # Backward sweep
-            for i in range(3, -1, -1):
+            for i in range(max_layer - 1, -1, -1):
                 cls._sweep_layer(graph, layers[i], layers[i + 1], direction="backward")
                 cls._adjacent_exchange(graph, layers, i)
 
@@ -117,9 +118,10 @@ class CrossingOptimizer:
     def count_crossings(cls, graph: DirectedGraph, layers: Dict[int, List[GraphNode]]) -> int:
         """Count total edge crossings between adjacent layers."""
         crossings = 0
-        for i in range(4):
-            layer_upper = layers[i]
-            layer_lower = layers[i+1]
+        max_layer = getattr(graph, "max_layer", 4)
+        for i in range(max_layer):
+            layer_upper = layers.get(i, [])
+            layer_lower = layers.get(i+1, [])
             
             upper_pos = {n.id: idx for idx, n in enumerate(layer_upper)}
             lower_pos = {n.id: idx for idx, n in enumerate(layer_lower)}
@@ -146,9 +148,10 @@ class CrossingOptimizer:
 
     @classmethod
     def _group_nodes_by_layer(cls, graph: DirectedGraph) -> Dict[int, List[GraphNode]]:
-        layers = {i: [] for i in range(5)}
+        max_layer = getattr(graph, "max_layer", 4)
+        layers = {i: [] for i in range(max_layer + 1)}
         for n in graph.nodes.values():
-            if 0 <= n.layer <= 4:
+            if 0 <= n.layer <= max_layer:
                 layers[n.layer].append(n)
         return layers
 
