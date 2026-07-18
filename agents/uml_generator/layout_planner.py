@@ -1,13 +1,13 @@
 """Layout Planner.
 
 Sits between Canonical Diagram JSON validation and the PlantUML builder.
-Computes layout rules, participant ordering, skinparams, and arrow directions
-to ensure deterministic, clean PlantUML output independent of LLM behavior.
+Computes layout rules, participant ordering, skinparams, arrow directions,
+and hidden alignment edges to ensure deterministic, clean PlantUML output.
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from pydantic import BaseModel, Field
 
 from schemas.canonical_diagram import (
@@ -34,6 +34,7 @@ class PlannedComponentLayout(BaseModel):
             "skinparam shadowing false",
             "skinparam packageStyle rectangle",
             "skinparam handwritten false",
+            "skinparam linetype ortho",
         ]
     )
     package_order: List[str] = Field(default_factory=list, description="Ordered package IDs")
@@ -41,6 +42,10 @@ class PlannedComponentLayout(BaseModel):
     formatted_arrows: Dict[Tuple[str, str], str] = Field(
         default_factory=dict,
         description="Map of (source_id, target_id) -> formatted PlantUML arrow string (e.g. '-down->', '-right->')"
+    )
+    hidden_alignment_edges: List[str] = Field(
+        default_factory=list,
+        description="List of hidden alignment edge strings (e.g. 'pkg_1 -[hidden]right-> pkg_2')"
     )
 
 
@@ -81,23 +86,28 @@ class LayoutPlanner:
         else:
             direction_directive = "top to bottom direction"
 
-        # Organize package order
-        package_order = [pkg.id for pkg in diagram.business_packages]
+        # Organize package order deterministically by package ID
+        packages_sorted = sorted(diagram.business_packages, key=lambda p: p.id)
+        package_order = [pkg.id for pkg in packages_sorted]
 
         # Gather standalone elements (not contained in any package)
-        packaged_ids = set()
+        packaged_ids: Set[str] = set()
         for pkg in diagram.business_packages:
             packaged_ids.update(pkg.capability_ids)
 
-        standalone_ids = [
+        standalone_ids = sorted([
             elem.id for elem in diagram.all_elements()
             if elem.id not in packaged_ids
-        ]
+        ])
 
         # Formatted arrows for relationships
         formatted_arrows: Dict[Tuple[str, str], str] = {}
-        for rel in diagram.relationships:
+        connected_pairs: Set[Tuple[str, str]] = set()
+
+        for rel in sorted(diagram.relationships, key=lambda r: (r.source_id, r.target_id)):
             pair = (rel.source_id, rel.target_id)
+            connected_pairs.add(pair)
+            connected_pairs.add((rel.target_id, rel.source_id))
             direction_str = rel.direction.strip()
             # If default '-->', apply smart layout direction
             if direction_str in ("-->", "->"):
@@ -115,11 +125,28 @@ class LayoutPlanner:
             else:
                 formatted_arrows[pair] = direction_str
 
+        # Compute hidden alignment edges between adjacent packages
+        hidden_alignment_edges: List[str] = []
+        if len(package_order) > 1:
+            align_dir = "right" if direction_directive == "left to right direction" else "down"
+            for i in range(len(package_order) - 1):
+                p1, p2 = package_order[i], package_order[i + 1]
+                hidden_alignment_edges.append(f"{p1} -[hidden]{align_dir}-> {p2}")
+
+        # Compute hidden alignment edges between un-connected databases
+        databases_sorted = sorted(diagram.databases, key=lambda d: d.id)
+        if len(databases_sorted) > 1:
+            for i in range(len(databases_sorted) - 1):
+                db1, db2 = databases_sorted[i].id, databases_sorted[i + 1].id
+                if (db1, db2) not in connected_pairs:
+                    hidden_alignment_edges.append(f"{db1} -[hidden]right-> {db2}")
+
         return PlannedComponentLayout(
             direction_directive=direction_directive,
             package_order=package_order,
             standalone_element_order=standalone_ids,
             formatted_arrows=formatted_arrows,
+            hidden_alignment_edges=hidden_alignment_edges,
         )
 
     @staticmethod
@@ -128,24 +155,23 @@ class LayoutPlanner:
         # 1. Determine participant order left-to-right:
         #    Actors -> External Systems -> Business Capabilities -> Databases
         if diagram.participants:
-            # Respect LLM explicit participant ordering if provided and complete
             all_ids = diagram.all_element_ids()
             ordered_participant_ids = [p_id for p_id in diagram.participants if p_id in all_ids]
-            # Add any missing element IDs
-            missing = [e.id for e in diagram.all_elements() if e.id not in set(ordered_participant_ids)]
+            missing = sorted([e.id for e in diagram.all_elements() if e.id not in set(ordered_participant_ids)])
             ordered_participant_ids.extend(missing)
         else:
-            # Compute canonical left-to-right order by element type
-            actors = [e.id for e in diagram.actors]
-            ext_systems = [e.id for e in diagram.external_systems]
-            capabilities = [e.id for e in diagram.business_capabilities]
-            databases = [e.id for e in diagram.databases]
+            actors = sorted([e.id for e in diagram.actors])
+            ext_systems = sorted([e.id for e in diagram.external_systems])
+            capabilities = sorted([e.id for e in diagram.business_capabilities])
+            databases = sorted([e.id for e in diagram.databases])
             ordered_participant_ids = actors + ext_systems + capabilities + databases
 
-        # 2. Order relationships by step_number if present
+        # 2. Order relationships deterministically by step_number or source_id/target_id
         rels = list(diagram.relationships)
         if any(r.step_number is not None for r in rels):
-            rels.sort(key=lambda r: (r.step_number if r.step_number is not None else 9999))
+            rels.sort(key=lambda r: (r.step_number if r.step_number is not None else 9999, r.source_id, r.target_id))
+        else:
+            rels.sort(key=lambda r: (r.source_id, r.target_id))
 
         return PlannedSequenceLayout(
             participant_order=ordered_participant_ids,
@@ -160,7 +186,6 @@ class LayoutPlanner:
         elif isinstance(diagram, SequenceDiagramCanonical):
             layout = cls.plan_sequence_layout(diagram)
         else:
-            # Fallback
             if hasattr(diagram, "business_packages"):
                 layout = cls.plan_component_layout(diagram)  # type: ignore[arg-type]
             else:

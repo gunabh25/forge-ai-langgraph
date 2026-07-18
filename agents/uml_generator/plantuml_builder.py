@@ -1,13 +1,13 @@
 """PlantUML Builder Factory and Per-Diagram Builders.
 
 Translates canonical diagram models (with stable IDs) into syntactically valid,
-deterministic PlantUML syntax using Layout Planner directives.
+100% deterministic PlantUML syntax using Layout Planner directives and hidden alignment edges.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from schemas.canonical_diagram import (
     BaseCanonicalDiagram,
@@ -53,7 +53,6 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
 
     def build(self, diagram: BaseCanonicalDiagram, layout: Optional[Any] = None) -> str:
         if not isinstance(diagram, ComponentDiagramCanonical):
-            # Attempt to convert or cast
             if hasattr(diagram, "business_capabilities"):
                 diagram = ComponentDiagramCanonical.model_validate(diagram.model_dump())
             else:
@@ -65,22 +64,23 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
         lines: List[str] = ["@startuml"]
 
         # Title
-        if diagram.metadata.title:
+        if diagram.metadata and diagram.metadata.title:
             lines.append(f"title {diagram.metadata.title}")
 
         # Orientation & Skinparams
         lines.append(layout.direction_directive)
-        for param in layout.skinparams:
+        for param in sorted(layout.skinparams):
             lines.append(param)
         lines.append("")
 
-        # Track elements declared in packages to prevent double declaration
-        declared_ids = set()
+        declared_ids: Set[str] = set()
 
-        # 1. Render Packages & Contained Capabilities/Databases
-        for pkg in diagram.business_packages:
-            lines.append(f'package "{pkg.name}" {{')
-            for cap_id in pkg.capability_ids:
+        # 1. Render Packages & Contained Capabilities/Databases (Sorted deterministically)
+        packages_sorted = sorted(diagram.business_packages, key=lambda p: p.id)
+        for pkg in packages_sorted:
+            lines.append(f'package "{pkg.name}" as {pkg.id} {{')
+            contained_ids_sorted = sorted(pkg.capability_ids)
+            for cap_id in contained_ids_sorted:
                 elem = diagram.get_element_by_id(cap_id)
                 if elem:
                     lines.append(self._format_element_declaration(elem, indent="  "))
@@ -88,42 +88,54 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
             lines.append("}")
             lines.append("")
 
-        # 2. Render Actors
-        for actor in diagram.actors:
+        # 2. Render Standalone Actors (Sorted by ID)
+        actors_sorted = sorted(diagram.actors, key=lambda a: a.id)
+        for actor in actors_sorted:
             if actor.id not in declared_ids:
                 lines.append(f'actor "{actor.name}" as {actor.id}')
                 declared_ids.add(actor.id)
-        if diagram.actors:
+        if actors_sorted:
             lines.append("")
 
-        # 3. Render External Systems
-        for sys_elem in diagram.external_systems:
+        # 3. Render Standalone External Systems (Sorted by ID)
+        ext_sorted = sorted(diagram.external_systems, key=lambda e: e.id)
+        for sys_elem in ext_sorted:
             if sys_elem.id not in declared_ids:
                 stereo = f" <<{sys_elem.technology}>>" if sys_elem.technology else " <<External System>>"
                 lines.append(f'component "{sys_elem.name}" as {sys_elem.id}{stereo}')
                 declared_ids.add(sys_elem.id)
-        if diagram.external_systems:
+        if ext_sorted:
             lines.append("")
 
-        # 4. Render Standalone Capabilities
-        for cap in diagram.business_capabilities:
+        # 4. Render Standalone Capabilities (Sorted by ID)
+        caps_sorted = sorted(diagram.business_capabilities, key=lambda c: c.id)
+        for cap in caps_sorted:
             if cap.id not in declared_ids:
                 lines.append(self._format_element_declaration(cap))
                 declared_ids.add(cap.id)
 
-        # 5. Render Standalone Databases
-        for db in diagram.databases:
+        # 5. Render Standalone Databases (Sorted by ID)
+        dbs_sorted = sorted(diagram.databases, key=lambda d: d.id)
+        for db in dbs_sorted:
             if db.id not in declared_ids:
                 lines.append(self._format_element_declaration(db))
                 declared_ids.add(db.id)
         lines.append("")
 
-        # 6. Render Relationships
-        for rel in diagram.relationships:
+        # 6. Render Relationships (Sorted by source_id, target_id)
+        rels_sorted = sorted(diagram.relationships, key=lambda r: (r.source_id, r.target_id, r.label or ""))
+        for rel in rels_sorted:
             pair = (rel.source_id, rel.target_id)
             arrow = layout.formatted_arrows.get(pair, rel.direction or "-->")
             label_str = f" : {rel.label}" if rel.label else ""
             lines.append(f"{rel.source_id} {arrow} {rel.target_id}{label_str}")
+
+        # 7. Render Hidden Alignment Edges for spatial grid layout
+        if layout.hidden_alignment_edges:
+            lines.append("")
+            lines.append("' Layout Alignment Directives")
+            for edge in sorted(layout.hidden_alignment_edges):
+                lines.append(edge)
 
         lines.append("@enduml")
         return "\n".join(lines)
@@ -166,24 +178,24 @@ class SequencePlantUMLBuilder(BasePlantUMLBuilder):
         lines: List[str] = ["@startuml"]
 
         # Title
-        if diagram.metadata.title:
+        if diagram.metadata and diagram.metadata.title:
             lines.append(f"title {diagram.metadata.title}")
 
         # Autonumber & Skinparams
         if layout.autonumber:
             lines.append("autonumber")
-        for param in layout.skinparams:
+        for param in sorted(layout.skinparams):
             lines.append(param)
         lines.append("")
 
-        # 1. Render Participant Declarations in explicit left-to-right order
+        # 1. Render Participant Lifelines in explicit ordered sequence
         for p_id in layout.participant_order:
             elem = diagram.get_element_by_id(p_id)
             if elem:
                 lines.append(self._format_participant_declaration(elem))
         lines.append("")
 
-        # 2. Render Sequence Interactions in step order
+        # 2. Render Sequence Interactions in ordered sequence
         for rel in layout.ordered_relationships:
             arrow = rel.direction if rel.direction in ("->", "-->", "->>", "-->>", "<-", "<--") else "->"
             label_str = rel.label or "Call"
