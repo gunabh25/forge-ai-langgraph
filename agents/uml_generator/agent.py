@@ -211,6 +211,16 @@ class UMLGeneratorAgent(BaseAgent):
             )
             metrics.planning_calls += 1
             diagram_llm_calls += 1
+            
+            # Extract traceability
+            if diagram_plan:
+                try:
+                    plan_data = json.loads(diagram_plan)
+                    if "traceability" in plan_data and plan_data["traceability"]:
+                        state_traceability_metrics[diag_id] = plan_data["traceability"]
+                except Exception as e:
+                    logger.warning("Could not extract traceability from diagram plan: %s", e)
+
 
             # -- Step 2: Generation ----------------------------------------------
             system_prompt, user_prompt = self.prompt_builder.build_prompt(
@@ -500,13 +510,16 @@ class UMLGeneratorAgent(BaseAgent):
             f"Produce a concise, structured architectural plan for this diagram.\n"
             f"Extract BUSINESS CAPABILITIES, not implementation services.\n\n"
             f"## Rules\n"
-            f"1. **Business Capabilities Only**: `major_components` must be capabilities (e.g. 'Claim Submission', 'Inventory Management'). Do NOT use implementation suffixes (Service, Backend, API, Controller, Microservice, Manager, Provider).\n"
-            f"2. **Never Invent Infrastructure**: Do not invent API Gateways, Auth Services, Message Queues, Load Balancers, Caches, or Repositories unless explicitly required.\n"
-            f"3. **Maximum Components**: Max 8 `major_components`. Merge related capabilities if there are more (e.g. 'Document Upload' + 'Document Storage' -> 'Document Management').\n"
-            f"4. **Business Flow**: `business_flow` must be an array of short steps (3-6 words each, e.g. ['Submit Claim', 'Verify Documents', 'Process Payment']). NO paragraphs.\n"
-            f"5. **External Systems**: Only systems outside the product boundary.\n"
-            f"6. **Actors**: Only human actors or external initiating systems.\n"
-            f"7. **Generalization**: Make no domain-specific assumptions.\n\n"
+            f"1. **Abstraction Budget**: Target MAX 3 actors, 3 external systems, 8 major_components, 3 major_data_stores. Group entities to stay within these limits.\n"
+            f"2. **Actor Consolidation**: Represent user personas as logical architectural actor groups (e.g. 'Compliance Users', 'System Administrator').\n"
+            f"3. **Data Store Consolidation**: Group related data stores into architectural repositories when appropriate (e.g. 'Regulatory Repository', 'Assessment Repository').\n"
+            f"4. **Capability Grouping**: Group related micro-capabilities into larger bounded contexts.\n"
+            f"5. **Traceability**: You must maintain a `traceability` map from the new grouped names to the original elements (e.g. {{\"Compliance Repository\": [\"db_requirements\", \"db_setup\"]}}).\n"
+            f"6. **Business Capabilities Only**: `major_components` must be capabilities (e.g. 'Claim Submission', 'Inventory Management'). Do NOT use implementation suffixes.\n"
+            f"7. **Never Invent Infrastructure**: Do not invent API Gateways, Auth Services, Message Queues, Load Balancers, Caches, or Repositories unless explicitly required.\n"
+            f"8. **Business Flow**: `business_flow` must be an array of short steps (3-6 words each). NO paragraphs.\n"
+            f"9. **External Systems**: Only systems outside the product boundary.\n"
+            f"10. **Simplicity**: Limit the component diagram to the minimum set of architectural elements required to explain the system.\n\n"
             f"Respond with ONLY valid JSON in exactly this structure — no markdown fences, no commentary. Target under 500 characters whenever possible:\n"
             f"{{\n"
             f'  "actors": [],\n'
@@ -515,6 +528,7 @@ class UMLGeneratorAgent(BaseAgent):
             f'  "major_data_stores": [],\n'
             f'  "business_flow": [],\n'
             f'  "explicitly_excluded": [],\n'
+            f'  "traceability": {{"Grouped Name": ["Original 1", "Original 2"]}},\n'
             f'  "diagram_scope": "One sentence stating what this diagram shows and what it excludes"\n'
             f"}}\n"
         )
@@ -573,13 +587,14 @@ class UMLGeneratorAgent(BaseAgent):
             f"## Normalization Task\n\n"
             f"Review and normalize the JSON plan above according to these exact rules. "
             f"You must return ONLY the normalized JSON with the exact same keys.\n\n"
-            f"**1. Business Capability Normalization**: Every component must map directly to an explicitly stated business capability or an unavoidable one. Never invent intermediate architectural layers (e.g., Workflow Orchestration, Portal Backend). Prefer the most business-oriented capability (e.g. Document Upload + Document Storage -> Document Management).\n"
-            f"**2. Duplicate Detection**: Detect and merge semantically equivalent capabilities (e.g. Claim Assessment + Claim Evaluation -> Claim Evaluation). Never allow duplicate concepts.\n"
-            f"**3. Business Capability Priority**: Prefer nouns representing business functions (e.g. Claim Submission, Fraud Detection). Avoid technical abstractions.\n"
-            f"**4. External System Priority**: If a capability already exists as an external system (e.g. Payment Gateway), do not create an internal abstraction (e.g. Payment Integration).\n"
-            f"**5. Component Count Optimization**: Target 5-7 business components. Absolute maximum 8.\n"
-            f"**6. Final Validation**: Verify that no orchestration layers or invented infrastructure exist. Ensure only business capability names remain.\n\n"
-            f"Respond with ONLY valid JSON — no markdown fences, no commentary.\n"
+            f"**1. Business Capability Normalization**: Every component must map directly to an explicitly stated business capability or an unavoidable one. Never invent intermediate architectural layers.\n"
+            f"**2. Duplicate Detection**: Detect and merge semantically equivalent capabilities. Never allow duplicate concepts.\n"
+            f"**3. Visual Complexity Budget**: Ensure actors (max 3), external systems (max 3), capabilities (max 8), and data stores (max 3) are strictly adhered to. Group them if necessary.\n"
+            f"**4. Long Label Normalization**: Replace excessively long labels with concise architectural names (e.g. 'Compliance Requirement Identification' -> 'Requirement Analysis').\n"
+            f"**5. External System Priority**: If a capability already exists as an external system, do not create an internal abstraction.\n"
+            f"**6. Traceability Preservation**: Map any grouped or renamed elements to their original names in the `traceability` dictionary.\n"
+            f"**7. Final Validation**: Verify that no orchestration layers or invented infrastructure exist. Ensure only business capability names remain.\n\n"
+            f"Respond with ONLY valid JSON — no markdown fences, no commentary. Ensure the `traceability` key exists if groupings occurred.\n"
         )
 
         messages = [
