@@ -21,9 +21,9 @@ from schemas.canonical_diagram import (
     BusinessPackage,
     Relationship,
 )
+from agents.uml_generator.layout_engine import DeterministicLayoutEngine, EngineLayoutResult
 from agents.uml_generator.layout_planner import (
     LayoutPlanner,
-    PlannedComponentLayout,
     PlannedSequenceLayout,
 )
 from config.logging import get_logger
@@ -62,7 +62,7 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
                 raise ValueError("Expected ComponentDiagramCanonical instance")
 
         if layout is None:
-            layout = LayoutPlanner.plan_component_layout(diagram)
+            layout = DeterministicLayoutEngine.compute_component_layout(diagram)
 
         lines: List[str] = ["@startuml"]
 
@@ -73,7 +73,7 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
         # Orientation & Skinparams (filtered through compatibility layer)
         from agents.uml_generator.plantuml_compatibility import filter_skinparams
         lines.append(layout.direction_directive)
-        for param in sorted(filter_skinparams(layout.skinparams)):
+        for param in sorted(filter_skinparams(layout.dynamic_skinparams)):
             lines.append(param)
         lines.append("")
 
@@ -89,7 +89,14 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
 
         for pkg in packages_data:
             lines.append(f'package "{pkg["name"]}" as {pkg["id"]} {{')
-            contained_ids_sorted = DeterministicLayoutEngine.topological_sort_capabilities(diagram, cast(List[str], pkg["capability_ids"]))
+            
+            # Use the deterministic ordering computed by the Layout Engine
+            ordered_caps = layout.layers.layer_2_capabilities
+            contained_ids_sorted = sorted(
+                cast(List[str], pkg["capability_ids"]),
+                key=lambda cid: ordered_caps.index(cid) if cid in ordered_caps else 999
+            )
+            
             for cap_id in contained_ids_sorted:
                 elem = diagram.get_element_by_id(cap_id)
                 if elem:

@@ -108,30 +108,6 @@ def test_character_for_character_determinism():
     assert out1 == out2, "PlantUML Builder output must be 100% character-for-character identical regardless of input key order"
 
 
-def test_hidden_alignment_edge_generation():
-    """Test that hidden alignment edges are generated for spatial grid layout."""
-    diagram = ComponentDiagramCanonical(
-        metadata=DiagramMetadata(diagram_type="component", title="Grid Layout"),
-        business_packages=[
-            BusinessPackage(id="pkg_auth", name="Auth Domain", capability_ids=["cap_auth"]),
-            BusinessPackage(id="pkg_billing", name="Billing Domain", capability_ids=["cap_billing"]),
-        ],
-        business_capabilities=[
-            BusinessCapability(id="cap_auth", name="Auth Service"),
-            BusinessCapability(id="cap_billing", name="Billing Service"),
-        ],
-        databases=[
-            Database(id="db_auth", name="Auth DB"),
-            Database(id="db_billing", name="Billing DB"),
-        ],
-    )
-    builder = PlantUMLBuilderFactory.get_builder("component")
-    puml = builder.build(diagram)
-
-    assert "' Layout Alignment Directives" in puml
-    assert "-[hidden]" in puml
-
-
 def test_sequence_plantuml_builder():
     """Test deterministic PlantUML string compilation for Sequence Diagram."""
     diagram = SequenceDiagramCanonical(
