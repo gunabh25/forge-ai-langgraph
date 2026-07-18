@@ -116,54 +116,24 @@ def _render_profile_template(
 
 _SYSTEM_RULES = (
     "CRITICAL RULES:\n"
-    "1. Generate EXACTLY ONE Canonical Diagram JSON matching the schema for the requested diagram type.\n"
-    "2. Respond ONLY with valid JSON (or markdown ```json block). Never output raw PlantUML directly.\n"
-    "3. Use ONLY components, participants, and relationships explicitly present in the Architecture Summary or Diagram Plan.\n"
-    "4. Every generated component must use a stable lowercase string identifier (e.g. 'actor_customer', 'cap_order_service', 'db_order_db').\n"
-    "5. All relationships MUST reference entities strictly by 'source_id' and 'target_id'.\n"
-    "6. No business capability may be renamed, merged, split, invented, or removed.\n"
-    "7. **Audience**: Architecture Review Board. Think like a Principal Software Architect.\n"
-    "8. **Priority**: Emphasize Business Capabilities over Implementation details.\n"
-    "9. **Avoid**: Implementation classes, Frameworks, Infrastructure, Controllers, Repositories, Middleware, Internal orchestration, Helper modules.\n"
-    "10. **No Orchestration Layers**: Do not introduce intermediate orchestration layers unless explicitly present.\n"
-    "11. **No Splitting**: Never split one business capability into multiple components.\n"
-    "12. **Omission**: Prefer omission over invention. If uncertain, do not generate the component."
+    "1. Output EXACTLY ONE Canonical Diagram JSON matching the target schema. Respond ONLY with raw JSON (or wrapped in ```json).\n"
+    "2. Use ONLY entities and relationships explicitly defined in the provided architecture plan or summary.\n"
+    "3. Assign stable lowercase string IDs (`actor_user`, `cap_order`, `sys_payment`, `db_order`). Relationships MUST reference entities by `source_id` and `target_id`.\n"
+    "4. Never rename, merge, split, invent, or drop business capabilities.\n"
+    "5. Focus on Bounded Contexts and Domain Services for an Architecture Review Board. Avoid implementation details (Repositories, Controllers, Middleware, Loggers).\n"
+    "6. Prefer omission over invention. If uncertain, do not generate unverified components."
 )
 
 _FEW_SHOT_COMPONENT = """
 ## Few-Shot Example
-
-**GOOD example:**
-Requirement: Online Food Delivery
-Component Diagram:
-- Customer
-- Restaurant
-- Order Service
-- Payment Service
-- Delivery Service
-
-**BAD example (Implementation Leakage):**
-- OrderRepository
-- JWT Middleware
-- Logger
-- Redis Cache
-- Auth Controller
+GOOD (Domain Focus): Customer, Restaurant, Order Service, Payment Service, Delivery Service
+BAD (Implementation Leakage): OrderRepository, JWT Middleware, Redis Cache, Logger, Auth Controller
 """
 
 _FEW_SHOT_SEQUENCE = """
 ## Few-Shot Example
-
-**GOOD example:**
-- Customer -> Order Service: Place Order
-- Order Service -> Payment Service: Process Payment
-- Payment Service --> Order Service: Payment Confirmed
-- Order Service -> Restaurant: Send Order
-
-**BAD example (Implementation Leakage):**
-- Auth Controller -> JWT Middleware: Validate Token
-- JWT Middleware -> Redis Cache: Check Session
-- Order Service -> OrderRepository: save(order)
-- OrderRepository -> Logger: log("saved")
+GOOD (Business Flow): Customer -> Order Service: Place Order; Order Service -> Payment Service: Authorize Payment
+BAD (Internal Leakage): Auth Controller -> JWT Middleware: Check Token; Order Service -> OrderRepository: save(order)
 """
 
 

@@ -9,7 +9,7 @@ logger = logging.getLogger("agents.uml_generator.knowledge_loader")
 _KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 _CACHE: Dict[str, List[str]] = {}
 
-def get_grammar_examples(diagram_type: str, max_examples: int = 3, max_chars: int = 700) -> str:
+def get_grammar_examples(diagram_type: str, max_examples: int = 3, max_chars: int = 250) -> str:
     """Load grammar examples for a specific diagram type, caching them in memory.
     
     Reads from agents/uml_generator/knowledge/{diagram_type}_examples.md
