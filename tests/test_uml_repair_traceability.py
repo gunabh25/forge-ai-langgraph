@@ -205,7 +205,7 @@ class TestBuildStructuredFeedback(unittest.TestCase):
     def test_traceability_error_produces_structured_block(self):
         raw = "Non-traceable (invented) participants found: Scheduler"
         feedback = _build_structured_feedback(raw, self.allowed)
-        self.assertIn("Validation Layer  : Architecture", feedback)
+        self.assertIn("Validation Category : Traceability", feedback)
         self.assertIn("Traceability", feedback)
         self.assertIn("Compliance Reporting", feedback)  # approved participant listed
         self.assertIn("Required Fix", feedback)
@@ -213,7 +213,7 @@ class TestBuildStructuredFeedback(unittest.TestCase):
     def test_graph_error_produces_structured_block(self):
         raw = "Graph Error: Duplicate relationship detected from 'A' to 'B'."
         feedback = _build_structured_feedback(raw, self.allowed)
-        self.assertIn("Relationship Integrity", feedback)
+        self.assertIn("RELATIONSHIP_INTEGRITY", feedback)
 
     def test_syntax_error_passthrough(self):
         raw = "Syntax error on line 3: unexpected token"

@@ -11,6 +11,11 @@ from schemas.canonical_diagram import (
     ComponentDiagramCanonical,
     SequenceDiagramCanonical,
 )
+from schemas.validation_feedback import (
+    DiagnosticCategory,
+    ValidationDiagnostic,
+    StructuredValidationFeedback,
+)
 
 __all__ = [
     "BaseElement",
@@ -24,4 +29,7 @@ __all__ = [
     "BaseCanonicalDiagram",
     "ComponentDiagramCanonical",
     "SequenceDiagramCanonical",
+    "DiagnosticCategory",
+    "ValidationDiagnostic",
+    "StructuredValidationFeedback",
 ]

@@ -71,41 +71,106 @@ def _format_allowed_participants_block(allowed: Dict[str, str]) -> str:
 
 
 def _build_structured_feedback(compiler_stderr: str, allowed: Dict[str, str]) -> str:
-    """Convert raw compiler/validation stderr into structured, actionable feedback.
+    """Convert validation diagnostics into categorized, actionable feedback for repair.
 
-    For generic syntax errors the raw text is kept.
-    For Architecture Validator traceability failures a structured block is produced.
+    Categorizes feedback into Grammar, Architecture, Business Flow, Layout, Readability, and Traceability.
     """
     if not compiler_stderr:
         return "(No specific validation feedback available.)"
 
-    lower = compiler_stderr.lower()
     allowed_block = _format_allowed_participants_block(allowed)
+    
+    # Try parsing structured JSON feedback if passed
+    diagnostics_list = []
+    if compiler_stderr.strip().startswith("{") and compiler_stderr.strip().endswith("}"):
+        try:
+            parsed_json = json.loads(compiler_stderr)
+            diagnostics_list = parsed_json.get("diagnostics", [])
+        except Exception:
+            pass
 
-    # Detect an Architecture / traceability failure from ArchitectureValidator
-    if "non-traceable" in lower or "invented" in lower or "traceability" in lower:
+    if diagnostics_list:
+        blocks = []
+        for diag in diagnostics_list:
+            cat = diag.get("category", "Architecture")
+            code = diag.get("code", "DIAGNOSTIC_ERROR")
+            msg = diag.get("message", "")
+            target = diag.get("target_element", "")
+            fix = diag.get("suggested_fix", "")
+            
+            target_str = f"\nTarget Element    : {target}" if target else ""
+            fix_str = f"\nRequired Fix      : {fix}" if fix else ""
+            
+            blocks.append(
+                f"Validation Category : {cat}\n"
+                f"Diagnostic Code     : {code}\n"
+                f"Message             : {msg}"
+                f"{target_str}"
+                f"{fix_str}"
+            )
+        
+        if any(d.get("category") == "Traceability" for d in diagnostics_list):
+            blocks.append(
+                "Approved Participants (the ONLY names you may use):\n"
+                f"{allowed_block}"
+            )
+            
+        return "\n\n".join(blocks)
+
+    lower = compiler_stderr.lower()
+
+    # Fallback string rule categorization for un-parsed text feedback
+    if "non-traceable" in lower or "invented" in lower or "traceability" in lower or "hallucinated" in lower:
         return (
-            "Validation Layer  : Architecture\n"
-            "Rule Violated     : Traceability\n"
-            f"Raw Feedback      : {compiler_stderr.strip()}\n\n"
+            "Validation Category : Traceability\n"
+            "Diagnostic Code     : HALLUCINATED_COMPONENT\n"
+            f"Message             : {compiler_stderr.strip()}\n\n"
             "Approved Participants (the ONLY names you may use):\n"
             f"{allowed_block}\n\n"
             "Required Fix: Remove every participant that is NOT in the approved list above.\n"
             "Do NOT add any new participant to compensate. Reuse the existing approved ones."
         )
 
-    # Detect relationship / graph errors
-    if "graph error" in lower or "dangling" in lower or "duplicate" in lower or "self-loop" in lower:
+    if "graph error" in lower or "dangling" in lower or "duplicate" in lower or "self-loop" in lower or "disconnected" in lower:
         return (
-            "Validation Layer  : Architecture\n"
-            "Rule Violated     : Relationship Integrity\n"
-            f"Raw Feedback      : {compiler_stderr.strip()}\n\n"
-            "Required Fix: Fix only the relationship issue described above.\n"
+            "Validation Category : Architecture\n"
+            "Diagnostic Code     : RELATIONSHIP_INTEGRITY\n"
+            f"Message             : {compiler_stderr.strip()}\n\n"
+            "Required Fix: Fix only the relationship or connectivity issue described above.\n"
             "Do NOT add or rename participants."
         )
 
-    # Default: pass through for syntax errors
-    return compiler_stderr.strip()
+    if "actor" in lower or "entry" in lower or "flow" in lower or "step" in lower:
+        return (
+            "Validation Category : Business Flow\n"
+            "Diagnostic Code     : MISSING_ACTOR_ENTRY\n"
+            f"Message             : {compiler_stderr.strip()}\n\n"
+            "Required Fix: Ensure workflow begins with an approved actor entry point and follows sequential steps."
+        )
+
+    if "layout" in lower or "database" in lower or "package" in lower or "overlap" in lower:
+        return (
+            "Validation Category : Layout\n"
+            "Diagnostic Code     : DATABASE_MISPLACED\n"
+            f"Message             : {compiler_stderr.strip()}\n\n"
+            "Required Fix: Ensure databases are aligned at the bottom and packages are cleanly balanced."
+        )
+
+    if "readability" in lower or "complexity" in lower or "label" in lower:
+        return (
+            "Validation Category : Readability\n"
+            "Diagnostic Code     : VISUAL_COMPLEXITY\n"
+            f"Message             : {compiler_stderr.strip()}\n\n"
+            "Required Fix: Simplify message labels and remove redundant visual clutter."
+        )
+
+    # Default: Grammar / Syntax
+    return (
+        "Validation Category : Grammar\n"
+        "Diagnostic Code     : SYNTAX_ERROR\n"
+        f"Message             : {compiler_stderr.strip()}\n\n"
+        "Required Fix: Repair PlantUML syntax error near the line specified."
+    )
 
 
 def _check_traceability(
