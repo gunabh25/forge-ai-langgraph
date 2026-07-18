@@ -1,87 +1,84 @@
-# Component Diagram Prompt
+# Component Diagram Canonical Prompt
 
 ## Objective
 
-Generate a **high-level Component Diagram** that communicates the system's architectural structure at a glance. This diagram will be used in architecture review sessions and technical documentation.
+Generate a **Canonical Component Diagram JSON** representation that captures the system's architectural structure at a glance.
+The layout rendering will be handled deterministically by a compiler — you are responsible ONLY for architectural reasoning, component identification, and stable ID assignment.
 
 {grammar_examples}
 
 {context_block}
 
-## Diagram Requirements & Human Readability Guidelines
+## Diagram Requirements & Traceability Guidelines
 
 ### Scope, Focus, and Traceability (CRITICAL)
-- **Preserve Traceability**: The generated PlantUML must preserve the exact business capabilities, participants, and relationships produced by the architecture plan.
-- **Never Alter Architecture**: You must NEVER rename business capabilities (except for omitting redundant suffixes as allowed below), merge business capabilities, split business capabilities, invent packages/services, remove relationships, or add relationships.
-- Show ONLY architecturally significant services, modules, and external systems.
-- Each component must represent a **bounded context**, **domain service**, or **external integration** — not an implementation class.
-- Target a **maximum of 8 components**. Group related capabilities into packages if necessary.
-- **Optimize for Human Understanding**: Never optimize for fewer lines of code. Optimize for faster human understanding. Allow generous spacing and whitespace.
+- **Preserve Traceability**: The generated JSON must preserve the exact business capabilities, participants, and relationships produced by the architecture plan.
+- **Never Alter Architecture**: You must NEVER rename business capabilities, merge business capabilities, split business capabilities, invent packages/services, remove relationships, or add unapproved relationships.
+- Each capability must represent a **bounded context**, **domain service**, or **external integration** — not an implementation class.
+- Target a **maximum of 8 components**. Group related capabilities into packages using `business_packages`.
+- **Stable IDs**: Assign unique, stable lowercase identifiers to every element (e.g., `actor_customer`, `sys_payment_gateway`, `cap_order_service`, `db_order_db`, `pkg_core`). All relationships MUST reference entities strictly by `source_id` and `target_id`.
 
-### Component Labels & Naming
-- **Concise Presentation Labels**: Prefer concise labels. Do not abbreviate business terminology (e.g. use "Impact Assessment", not "Impact Assess."). Maintain clarity over brevity.
-- **Remove Suffix Redundancies**: Preserve the business capability name exactly, but omit redundant suffixes such as `Service`, `Component`, `Module`, `System`, `Manager`, or `Engine` where doing so improves readability without changing the underlying meaning.
+## Output Format Specification
 
-### Component Placement & Layer Layout
-- **Flexible Component Layout**: Preferred layout (not mandatory):
-  - **Actors** -> Place on the Left.
-  - **Business Capabilities** -> Place in the Center.
-  - **External Systems** -> Place on the Left or Right depending on interaction (choose whichever minimizes edge crossings).
-  - **Databases** -> Place at the Bottom.
-  - Let the layout engine select whichever layout minimizes edge crossings for that specific architecture.
-- **Directional Flexibility**: Do not force a single direction (`left to right direction` vs. default top-to-bottom) universally. Select the layout direction that minimizes edge crossings and produces the most readable layout.
-  - Prefer **left-to-right** (`left to right direction`) for pipeline architectures.
-  - Prefer **top-to-bottom** (default PlantUML ranksep layout) for workflow architectures.
+Respond STRICTLY with raw JSON (or wrapped in ```json) matching the following Canonical Component Diagram schema. Do NOT output raw PlantUML code.
 
-### Business Domain Clustering & Package Guidelines
-- **Domain Clustering**: Before generating, cluster business capabilities into logical domains representing actual business responsibilities (e.g. `Document Processing`, `Assessment`, `Compliance`, `Reporting`).
-  - Maximize internal relationships (cohesion) within packages and minimize relationships crossing package boundaries (coupling).
-  - Do not create arbitrary package names (e.g. `Package 1`, `Services`, `Miscellaneous`).
-  - Create packages only when they improve readability. If the diagram contains fewer than six business components, do not introduce packages unnecessarily.
-  - Preferred package count: **2-4 packages**. Avoid deeply nested packages or package-inside-package layouts. Each package should contain **2-4 related components**.
-
-### Database & Actor Placement
-- **Actor Unity**: Actors should appear only once.
-- **Dedicated Data Layer**: Databases must appear in a dedicated data layer at the bottom. Never scatter databases throughout the diagram. Align related databases horizontally and place them directly beneath the business package or service that owns them.
-
-### Relationship Readability
-- Minimize edge crossings, avoid zig-zag arrows, and avoid unnecessary diagonal edges.
-- Keep arrows orthogonal whenever PlantUML supports it. Use directional arrows (e.g., `-right->`, `-left->`, `-down->`, `-up->`) to guide layouts if it reduces crossings.
-- Reduce many-to-one edge convergence.
-
-### Default PlantUML Styling
-Use the following skinparams as defaults unless they would reduce readability for the current diagram (giving the model flexibility to adjust spacing if the layout requires it):
-```plantuml
-skinparam shadowing false
-skinparam componentStyle rectangle
-skinparam packageStyle rectangle
-skinparam linetype ortho
-skinparam dpi 180
-skinparam ArrowThickness 2
-skinparam nodesep 70
-skinparam ranksep 90
-skinparam defaultFontSize 14
-skinparam wrapWidth 180
+```json
+{
+  "metadata": {
+    "diagram_type": "component",
+    "title": "<System Component Architecture>",
+    "description": "<Summary of component architecture>"
+  },
+  "actors": [
+    {
+      "id": "actor_customer",
+      "name": "Customer",
+      "stereotype": "actor"
+    }
+  ],
+  "external_systems": [
+    {
+      "id": "sys_payment",
+      "name": "Payment Gateway",
+      "technology": "REST API"
+    }
+  ],
+  "business_packages": [
+    {
+      "id": "pkg_order_domain",
+      "name": "Order Management Domain",
+      "capability_ids": ["cap_order_service"]
+    }
+  ],
+  "business_capabilities": [
+    {
+      "id": "cap_order_service",
+      "name": "Order Service",
+      "stereotype": "service"
+    }
+  ],
+  "databases": [
+    {
+      "id": "db_order_db",
+      "name": "Order Database",
+      "db_type": "PostgreSQL"
+    }
+  ],
+  "relationships": [
+    {
+      "source_id": "actor_customer",
+      "target_id": "cap_order_service",
+      "direction": "-->",
+      "label": "Places order"
+    },
+    {
+      "source_id": "cap_order_service",
+      "target_id": "db_order_db",
+      "direction": "-->",
+      "label": "Persists order"
+    }
+  ]
+}
 ```
-Do not introduce custom color themes or aggressive background coloring. Maintain a clean, professional, enterprise-grade appearance.
-
-### Internal Layout Pass & Readability Self-Check
-Before generating the final PlantUML block, you must internally perform a layout planning step and a readability self-check:
-1. **Layout Planning Step**:
-   - Determine Business domains and package groupings (maximizing cohesion, minimizing coupling).
-   - Determine layer ordering (Actors, Business capabilities, External systems, Databases).
-   - Determine layout direction (left-to-right vs. top-to-bottom).
-   - Determine horizontal/vertical relationship routing to minimize crossings.
-2. **Readability Self-Check**:
-   - ✓ Can the architecture be understood within 10 seconds?
-   - ✓ Are related capabilities grouped?
-   - ✓ Are actors clearly separated and unique?
-   - ✓ Are databases aligned at the bottom under their owner?
-   - ✓ Are edge crossings minimized and arrows orthogonal?
-   - ✓ Is whitespace sufficient?
-   - ✓ Are labels concise without abbreviations or redundant suffixes?
-   - ✓ Does the diagram resemble enterprise architecture documentation?
-
-Only emit the final PlantUML block once all checks pass. Do not expose your layout planning or self-check reasoning outside the `@startuml` ... `@enduml` block.
 
 {few_shot}

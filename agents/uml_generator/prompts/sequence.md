@@ -1,60 +1,89 @@
-# Sequence Diagram Prompt
+# Sequence Diagram Canonical Prompt
 
 ## Objective
 
-Generate a **Sequence Diagram** that captures the **primary business flow** of the system. This diagram will be used to communicate runtime behaviour in architecture reviews and onboarding documentation — precision and readability are essential.
+Generate a **Canonical Sequence Diagram JSON** representation capturing the **primary business flow** of the system.
+The layout rendering and participant ordering will be handled deterministically by a compiler — you are responsible ONLY for architectural reasoning, participant identification, stable ID assignment, and flow sequence steps.
 
 {grammar_examples}
 
 {context_block}
 
-## Diagram Requirements & Human Readability Guidelines
+## Diagram Requirements & Traceability Guidelines
 
 ### Scope, Focus, and Traceability (CRITICAL)
-- **Preserve Traceability**: The generated PlantUML must preserve the exact business capabilities, participants, and relationships produced by the architecture plan.
-- **Never Alter Architecture**: You must NEVER rename business capabilities (except for omitting redundant suffixes as allowed below), merge business capabilities, split business capabilities, invent packages/services, remove relationships, or add relationships.
+- **Preserve Traceability**: The generated JSON must preserve the exact business capabilities, participants, and relationships produced by the architecture plan.
+- **Never Alter Architecture**: You must NEVER rename business capabilities, merge business capabilities, split business capabilities, invent participants, remove relationships, or add unapproved relationships.
 - Model **only the primary business flow** (the main success scenario / happy path).
 - The diagram must contain a **maximum of 10 participants** and a **maximum of 15 meaningful messages**.
-- Every participant should actively contribute to the business flow. Avoid participants that only send or receive one trivial message.
-- **Optimize for Human Understanding**: Never optimize for fewer lines of code. Optimize for faster human understanding.
+- **Stable IDs & Participants**: Assign unique, stable lowercase identifiers to every element (e.g., `actor_customer`, `sys_payment_gateway`, `cap_order_service`, `db_order_db`). Provide an explicit ordered array `participants` containing element IDs from left to right.
+- All relationships MUST reference entities strictly by `source_id` and `target_id`.
 
-### Participant Labels & Naming
-- **Concise Presentation Labels**: Prefer concise labels. Do not abbreviate business terminology (e.g. use "Impact Assessment", not "Impact Assess."). Maintain clarity over brevity.
-- **Remove Suffix Redundancies**: Preserve the business capability name exactly, but omit redundant suffixes such as `Service`, `Component`, `Module`, `System`, `Manager`, or `Engine` where doing so improves readability without changing the underlying meaning.
+## Output Format Specification
 
-### Flow Layout & Readability (Task 11)
-- **Left-to-Right Flow**: Sequence participants must be ordered from left to right following the natural direction of the workflow. Order participants left-to-right explicitly.
-- **Limit Participants**: Restrict participants to meaningful business entities.
-- **No Unnecessary Acks**: Avoid redundant acknowledgement messages or repeated response arrows (e.g., `Service --> Actor: Ack/OK` or repeated return arrows unless critical to understanding).
-- **Logical Groupings**: Group logical steps using `group`, `alt`, or `opt` only where they significantly improve human understanding. Keep message labels concise.
-- **Balanced Aspect Ratio**: Avoid excessively wide sequence diagrams. Ensure it fits comfortably on a laptop screen.
+Respond STRICTLY with raw JSON (or wrapped in ```json) matching the following Canonical Sequence Diagram schema. Do NOT output raw PlantUML code.
 
-### Default PlantUML Styling
-Use the following skinparams as defaults unless they would reduce readability for the current diagram (giving the model flexibility to adjust spacing if the layout requires it):
-```plantuml
-skinparam shadowing false
-skinparam linetype ortho
-skinparam dpi 180
-skinparam ArrowThickness 2
-skinparam defaultFontSize 14
-skinparam wrapWidth 180
+```json
+{
+  "metadata": {
+    "diagram_type": "sequence",
+    "title": "<Primary Workflow Sequence>",
+    "description": "<Summary of sequence flow>"
+  },
+  "actors": [
+    {
+      "id": "actor_customer",
+      "name": "Customer"
+    }
+  ],
+  "external_systems": [
+    {
+      "id": "sys_payment",
+      "name": "Payment Gateway"
+    }
+  ],
+  "business_capabilities": [
+    {
+      "id": "cap_order_service",
+      "name": "Order Service"
+    }
+  ],
+  "databases": [
+    {
+      "id": "db_order_db",
+      "name": "Order Database"
+    }
+  ],
+  "participants": [
+    "actor_customer",
+    "cap_order_service",
+    "sys_payment",
+    "db_order_db"
+  ],
+  "relationships": [
+    {
+      "source_id": "actor_customer",
+      "target_id": "cap_order_service",
+      "direction": "->",
+      "label": "Place Order",
+      "step_number": 1
+    },
+    {
+      "source_id": "cap_order_service",
+      "target_id": "sys_payment",
+      "direction": "->",
+      "label": "Authorize Payment",
+      "step_number": 2
+    },
+    {
+      "source_id": "cap_order_service",
+      "target_id": "db_order_db",
+      "direction": "->",
+      "label": "Store Order Record",
+      "step_number": 3
+    }
+  ]
+}
 ```
-Do not introduce custom color themes or aggressive background coloring. Maintain a clean, professional, enterprise-grade appearance.
-
-### Internal Layout Pass & Readability Self-Check
-Before generating the final PlantUML block, you must internally perform a layout planning step and a readability self-check:
-1. **Layout Planning Step**:
-   - Determine sequence participants and order them logically from left to right (Actors on left, core services in center, external/data stores towards the right).
-   - Plan flow messages to ensure left-to-right progress.
-   - Plan logical grouping blocks (`group`, `alt`, `opt`) for readability.
-2. **Readability Self-Check**:
-   - ✓ Can the flow be understood within 10 seconds?
-   - ✓ Are actors separated from services?
-   - ✓ Are unnecessary response/ack arrows avoided?
-   - ✓ Is the diagram width balanced (not excessively wide)?
-   - ✓ Are labels concise without abbreviations or redundant suffixes?
-   - ✓ Does the diagram resemble enterprise architecture documentation?
-
-Only emit the final PlantUML block once all checks pass. Do not expose your layout planning or self-check reasoning outside the `@startuml` ... `@enduml` block.
 
 {few_shot}

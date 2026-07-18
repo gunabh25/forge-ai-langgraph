@@ -238,13 +238,13 @@ class UMLGeneratorAgent(BaseAgent):
             )
 
             t0 = time.time()
-            clean_content = self._generate(system_prompt, full_user_prompt)
+            raw_response = self._generate(system_prompt, full_user_prompt)
             gen_time_ms = int((time.time() - t0) * 1000)
             record_agent_cost(
                 state.setdefault("metadata", {}), 
                 self.name, 
                 input_text=system_prompt + full_user_prompt, 
-                output_text=clean_content,
+                output_text=raw_response,
                 latency_ms=gen_time_ms,
                 llm_calls=1
             )
@@ -252,54 +252,56 @@ class UMLGeneratorAgent(BaseAgent):
             metrics.generation_calls += 1
             diagram_llm_calls += 1
 
-            # -- Deterministic Traceability (Task 4) -----------------------
-            from agents.uml_generator.uml_parser import PlantUMLParser
-            import json
+            # -- Canonical Diagram JSON Target Pipeline (Phase 9.1) ------------
+            from agents.uml_generator.canonical_validator import CanonicalDiagramValidator
+            from agents.uml_generator.layout_planner import LayoutPlanner
+            from agents.uml_generator.plantuml_builder import PlantUMLBuilderFactory
             from core.business_normalizer import normalize_name
 
+            allowed_names: set[str] = set()
+            if diagram_plan:
+                try:
+                    plan_data = json.loads(diagram_plan)
+                    for key in ["actors", "external_systems", "major_components", "major_data_stores"]:
+                        for item in plan_data.get(key, []):
+                            allowed_names.add(normalize_name(item))
+                except Exception as ex:
+                    logger.warning("Could not extract allowed names from diagram plan: %s", ex)
+
             try:
-                plan_data = json.loads(diagram_plan)
-                allowed_names = set()
-                original_names = {}
-                for key in ["actors", "external_systems", "major_components", "major_data_stores"]:
-                    for item in plan_data.get(key, []):
-                        norm = normalize_name(item)
-                        allowed_names.add(norm)
-                        original_names[norm] = item
-                
-                diagram = PlantUMLParser.parse(clean_content)
-                hallucinated = []
-                lexical_fixes = False
-                for node in diagram.business_nodes:
-                    if node.normalized_name not in allowed_names:
-                        # Check for trivial subset matches
-                        match = next((a for a in allowed_names if node.normalized_name in a or a in node.normalized_name), None)
-                        if match:
-                            node.display_name = original_names[match]
-                            node.alias = node.display_name # reset alias
-                            lexical_fixes = True
-                        else:
-                            hallucinated.append(node.display_name)
-                            
-                if lexical_fixes:
-                    clean_content = diagram.to_plantuml()
-                    logger.info("Applied deterministic lexical renaming for trivial traceability issues.")
-                    
-                if hallucinated:
-                    logger.warning("Traceability failure detected before validation: %s. Regenerating once.", hallucinated)
-                    retry_prompt = (
-                        f"{full_user_prompt}\n\n"
-                        f"## Traceability Failure\n"
-                        f"You invented the following participants which are NOT in the approved architectural plan: {', '.join(hallucinated)}.\n"
-                        f"Allowed participants: {', '.join(original_names.values())}.\n"
-                        f"Regenerate the diagram using ONLY the allowed participants."
+                if raw_response.strip().startswith("@startuml"):
+                    clean_content = raw_response.strip()
+                else:
+                    canonical_diagram = CanonicalDiagramValidator.validate(
+                        raw_input=raw_response,
+                        diagram_type=diagram_type,
+                        allowed_normalized_names=allowed_names if allowed_names else None,
                     )
-                    clean_content = self._generate(system_prompt, retry_prompt)
-                    metrics.generation_calls += 1
-                    diagram_llm_calls += 1
-                    
-            except Exception as e:
-                logger.warning(f"Failed to perform deterministic traceability check: {e}")
+                    _, layout_plan = LayoutPlanner.plan(canonical_diagram)
+                    builder = PlantUMLBuilderFactory.get_builder(diagram_type)
+                    clean_content = builder.build(canonical_diagram, layout_plan)
+            except Exception as canonical_err:
+                logger.warning("Canonical Diagram pipeline error: %s. Retrying generation once.", canonical_err)
+                retry_prompt = (
+                    f"{full_user_prompt}\n\n"
+                    f"## Canonical Validation Error\n"
+                    f"Your previous output failed validation: {canonical_err}.\n"
+                    f"Respond ONLY with valid Canonical Diagram JSON matching the schema with stable IDs."
+                )
+                raw_response = self._generate(system_prompt, retry_prompt)
+                metrics.generation_calls += 1
+                diagram_llm_calls += 1
+                if raw_response.strip().startswith("@startuml"):
+                    clean_content = raw_response.strip()
+                else:
+                    canonical_diagram = CanonicalDiagramValidator.validate(
+                        raw_input=raw_response,
+                        diagram_type=diagram_type,
+                        allowed_normalized_names=allowed_names if allowed_names else None,
+                    )
+                    _, layout_plan = LayoutPlanner.plan(canonical_diagram)
+                    builder = PlantUMLBuilderFactory.get_builder(diagram_type)
+                    clean_content = builder.build(canonical_diagram, layout_plan)
 
             # -- Multi-Layer Validation Pipeline (Phase 5) -----------------------
             from agents.uml_generator.validators import ValidationPipeline, ReviewValidator
