@@ -1,0 +1,912 @@
+2026-07-18T16:59:46+0530 - INFO - agents.execution_dashboard -  - Execution Dashboard Agent starting execution. | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - INFO - agents.execution_dashboard -  - Dashboard Summary:
+----------------------------------------------------
+Average Diagram Score: 97.5 (Production Ready: 2/2)
+Total LLM Calls: 0
+LLM Calls Saved: 0
+Cache Hits: 0
+Estimated Cost: $0.0000
+Estimated Savings: 0.0%
+----------------------------------------------------
+{
+  "total_diagrams": 2,
+  "successful_diagrams": 2,
+  "failed_diagrams": 0,
+  "success_rate": "100.0%",
+  "average_diagram_score": 97.5,
+  "production_ready_diagrams": "2/2",
+  "total_execution_time_ms": 4600,
+  "total_llm_calls": 0,
+  "total_llm_calls_saved": 0,
+  "total_cache_hits": 0,
+  "total_estimated_cost": 0.0,
+  "total_estimated_cost_saved": 0.0,
+  "savings_pct": "0.0%",
+  "reused_artifacts": 0,
+  "updated_artifacts": 0,
+  "new_artifacts": 2,
+  "removed_artifacts": 0,
+  "repaired_successfully": 1,
+  "permanently_failed": 0,
+  "total_repair_attempts": 2,
+  "repair_success_rate": "100.0%",
+  "repair_success_rate_pct": "N/A",
+  "validation_failures": 0,
+  "repair_failures": 0,
+  "average_repairs_per_diagram": 0.0,
+  "agent_cost_metrics": {},
+  "diagram_details": [
+    {
+      "diagram_id": "component",
+      "type": "unknown",
+      "status": "success",
+      "grammar_status": "passed",
+      "grammar_display": "\u2713 Passed",
+      "repair_attempts": 0,
+      "failure_reason": null,
+      "llm_calls": 1,
+      "execution_time_ms": 1200,
+      "diagram_score": 100.0,
+      "is_production_ready": true,
+      "score_card": null
+    },
+    {
+      "diagram_id": "sequence",
+      "type": "unknown",
+      "status": "repaired",
+      "grammar_status": "passed",
+      "grammar_display": "\u2713 Passed",
+      "repair_attempts": 2,
+      "failure_reason": null,
+      "llm_calls": 3,
+      "execution_time_ms": 3400,
+      "diagram_score": 95.0,
+      "is_production_ready": true,
+      "score_card": null
+    }
+  ]
+} | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Gap & Impact Analysis', 'SEBI Portal', 'Circular Ingestion', 'Compliance Database', 'Compliance Officer'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Circular Ingestion
+↓
+Normalized: circular ingestion
+↓
+Planning Match: Circular Ingestion
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Gap & Impact Analysis
+↓
+Normalized: gap & impact analysis
+↓
+Planning Match: Gap & Impact Analysis
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Compliance Officer
+↓
+Normalized: compliance officer
+↓
+Planning Match: Compliance Officer
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: SEBI Portal
+↓
+Normalized: sebi portal
+↓
+Planning Match: SEBI Portal
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Compliance Database
+↓
+Normalized: compliance database
+↓
+Planning Match: Compliance Database
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Ledger DB', 'Settlement Processor', 'Transaction Authorizer', 'Customer', 'Visa Network'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Transaction Authorizer
+↓
+Normalized: transaction authorizer
+↓
+Planning Match: Transaction Authorizer
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Settlement Processor
+↓
+Normalized: settlement processor
+↓
+Planning Match: Settlement Processor
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Customer
+↓
+Normalized: customer
+↓
+Planning Match: Customer
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Visa Network
+↓
+Normalized: visa network
+↓
+Planning Match: Visa Network
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Ledger DB
+↓
+Normalized: ledger db
+↓
+Planning Match: Ledger DB
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Bank Teller', 'SWIFT Network', 'Account Management', 'Fund Transfer Engine', 'Accounts DB'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Account Management
+↓
+Normalized: account management
+↓
+Planning Match: Account Management
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Fund Transfer Engine
+↓
+Normalized: fund transfer engine
+↓
+Planning Match: Fund Transfer Engine
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Bank Teller
+↓
+Normalized: bank teller
+↓
+Planning Match: Bank Teller
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: SWIFT Network
+↓
+Normalized: swift network
+↓
+Planning Match: SWIFT Network
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Accounts DB
+↓
+Normalized: accounts db
+↓
+Planning Match: Accounts DB
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['SendGrid Email', 'Sales Rep', 'Deal Pipeline Service', 'Lead Management', 'CRM Relational Store'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Lead Management
+↓
+Normalized: lead management
+↓
+Planning Match: Lead Management
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Deal Pipeline Service
+↓
+Normalized: deal pipeline service
+↓
+Planning Match: Deal Pipeline Service
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Sales Rep
+↓
+Normalized: sales rep
+↓
+Planning Match: Sales Rep
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: SendGrid Email
+↓
+Normalized: sendgrid email
+↓
+Planning Match: SendGrid Email
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: CRM Relational Store
+↓
+Normalized: crm relational store
+↓
+Planning Match: CRM Relational Store
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Warehouse Manager', 'Stock Tracking', 'Inventory DB', 'RFID Scanner Gateway', 'Automated Reorder Engine'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Stock Tracking
+↓
+Normalized: stock tracking
+↓
+Planning Match: Stock Tracking
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Automated Reorder Engine
+↓
+Normalized: automated reorder engine
+↓
+Planning Match: Automated Reorder Engine
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Warehouse Manager
+↓
+Normalized: warehouse manager
+↓
+Planning Match: Warehouse Manager
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: RFID Scanner Gateway
+↓
+Normalized: rfid scanner gateway
+↓
+Planning Match: RFID Scanner Gateway
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Inventory DB
+↓
+Normalized: inventory db
+↓
+Planning Match: Inventory DB
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['External Lab System', 'EHR Database', 'Doctor', 'EHR Management', 'Lab Order Processing'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: EHR Management
+↓
+Normalized: ehr management
+↓
+Planning Match: EHR Management
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Lab Order Processing
+↓
+Normalized: lab order processing
+↓
+Planning Match: Lab Order Processing
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Doctor
+↓
+Normalized: doctor
+↓
+Planning Match: Doctor
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: External Lab System
+↓
+Normalized: external lab system
+↓
+Planning Match: External Lab System
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: EHR Database
+↓
+Normalized: ehr database
+↓
+Planning Match: EHR Database
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Payroll Engine', 'HR Specialist', 'HR Data Store', 'Employee Onboarding', 'Government Tax Portal'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Employee Onboarding
+↓
+Normalized: employee onboarding
+↓
+Planning Match: Employee Onboarding
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Payroll Engine
+↓
+Normalized: payroll engine
+↓
+Planning Match: Payroll Engine
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: HR Specialist
+↓
+Normalized: hr specialist
+↓
+Planning Match: HR Specialist
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Government Tax Portal
+↓
+Normalized: government tax portal
+↓
+Planning Match: Government Tax Portal
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: HR Data Store
+↓
+Normalized: hr data store
+↓
+Planning Match: HR Data Store
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Third-Party Adjuster Service', 'First Notice of Loss', 'Claims Adjudication Engine', 'Policy Holder', 'Claims Repository'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: First Notice of Loss
+↓
+Normalized: first notice of loss
+↓
+Planning Match: First Notice of Loss
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Claims Adjudication Engine
+↓
+Normalized: claims adjudication engine
+↓
+Planning Match: Claims Adjudication Engine
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Policy Holder
+↓
+Normalized: policy holder
+↓
+Planning Match: Policy Holder
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Third-Party Adjuster Service
+↓
+Normalized: third party adjuster service
+↓
+Planning Match: Third-Party Adjuster Service
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Claims Repository
+↓
+Normalized: claims repository
+↓
+Planning Match: Claims Repository
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Shopping Cart Service', 'Stripe Payments', 'Orders Database', 'Shopper', 'Order Processor'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Shopping Cart Service
+↓
+Normalized: shopping cart service
+↓
+Planning Match: Shopping Cart Service
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Order Processor
+↓
+Normalized: order processor
+↓
+Planning Match: Order Processor
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Shopper
+↓
+Normalized: shopper
+↓
+Planning Match: Shopper
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Stripe Payments
+↓
+Normalized: stripe payments
+↓
+Planning Match: Stripe Payments
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Orders Database
+↓
+Normalized: orders database
+↓
+Planning Match: Orders Database
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Time-Series DB (Prometheus)', 'DevOps Engineer', 'Metrics Ingestion Service', 'PagerDuty Incident Platform', 'Alerting Engine'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Alerting Engine
+↓
+Normalized: alerting engine
+↓
+Planning Match: Alerting Engine
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Metrics Ingestion Service
+↓
+Normalized: metrics ingestion service
+↓
+Planning Match: Metrics Ingestion Service
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: DevOps Engineer
+↓
+Normalized: devops engineer
+↓
+Planning Match: DevOps Engineer
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: PagerDuty Incident Platform
+↓
+Normalized: pagerduty incident platform
+↓
+Planning Match: PagerDuty Incident Platform
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Time-Series DB (Prometheus)
+↓
+Normalized: time series db (prometheus)
+↓
+Planning Match: Time-Series DB (Prometheus)
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+5 / 5 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['Document Parsing', 'Gap Analysis', 'User', 'Circular Ingestion', 'Requirement Extraction', 'Impact Assessment', 'Raw Document Store', 'Reporting', 'Compliance Data Store', 'SEBI'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Circular Ingestion
+↓
+Normalized: circular ingestion
+↓
+Planning Match: Circular Ingestion
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Document Parsing
+↓
+Normalized: document parsing
+↓
+Planning Match: Document Parsing
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Requirement Extraction
+↓
+Normalized: requirement extraction
+↓
+Planning Match: Requirement Extraction
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Gap Analysis
+↓
+Normalized: gap analysis
+↓
+Planning Match: Gap Analysis
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Impact Assessment
+↓
+Normalized: impact assessment
+↓
+Planning Match: Impact Assessment
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Reporting
+↓
+Normalized: reporting
+↓
+Planning Match: Reporting
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: User
+↓
+Normalized: user
+↓
+Planning Match: User
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: SEBI
+↓
+Normalized: sebi
+↓
+Planning Match: SEBI
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Compliance Data Store
+↓
+Normalized: compliance data store
+↓
+Planning Match: Compliance Data Store
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Raw Document Store
+↓
+Normalized: raw document store
+↓
+Planning Match: Raw Document Store
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+10 / 10 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['User', 'Compliance DB', 'Ingestion Service', 'Analysis Service'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: User
+↓
+Normalized: user
+↓
+Planning Match: User
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Ingestion Service
+↓
+Normalized: ingestion service
+↓
+Planning Match: Ingestion Service
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Analysis Service
+↓
+Normalized: analysis service
+↓
+Planning Match: Analysis Service
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Compliance DB
+↓
+Normalized: compliance db
+↓
+Planning Match: Compliance DB
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+4 / 4 participants traceable | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Approved Participants:
+['User', 'Analysis Engine'] | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: User
+↓
+Normalized: user
+↓
+Planning Match: User
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Result:
+------------------------------------------------
+Display Name: Analysis Engine
+↓
+Normalized: analysis engine
+↓
+Planning Match: Analysis Engine
+↓
+Match Type: Exact
+↓
+Result: TRACEABLE
+------------------------------------------------ | metadata={"taskName": null}
+2026-07-18T16:59:46+0530 - DEBUG - agents.uml_generator.sequence_validator -  - Traceability Score:
+2 / 2 participants traceable | metadata={"taskName": null}

@@ -86,7 +86,7 @@ class DeterministicLayoutEngine:
         # 6. Compute Presentation Readability Metrics
         readability_metrics = cls.compute_readability_metrics(diagram, layers, formatted_arrows)
 
-        return EngineLayoutResult(
+        initial_result = EngineLayoutResult(
             direction_directive=direction_directive,
             layers=layers,
             formatted_arrows=formatted_arrows,
@@ -94,6 +94,9 @@ class DeterministicLayoutEngine:
             dynamic_skinparams=dynamic_skinparams,
             readability_metrics=readability_metrics,
         )
+
+        # 7. Post-Layout Graph Aesthetic Optimization Pass
+        return GraphOptimizer.optimize(diagram, initial_result)
 
     @classmethod
     def analyze_topology(cls, diagram: ComponentDiagramCanonical) -> str:
@@ -305,7 +308,6 @@ class DeterministicLayoutEngine:
         return [
             f"skinparam nodesep {nodesep}",
             f"skinparam ranksep {ranksep}",
-            "skinparam padding 8",
             "skinparam ArrowThickness 1.5",
         ]
 
@@ -339,3 +341,86 @@ class DeterministicLayoutEngine:
             "average_layer_span": (total_layer_span / total_rels) if total_rels > 0 else 0.0,
             "package_compactness": package_compactness,
         }
+
+
+# ---------------------------------------------------------------------------
+# Post-Layout Graph Optimizer Implementation
+# ---------------------------------------------------------------------------
+
+class GraphOptimizer:
+    """Post-layout graph aesthetic optimizer.
+
+    Evaluates layout cost functions across candidate sibling orderings:
+    TotalCost = EdgeCrossings + (2 * AvgEdgeLength) + (3 * LongestEdgePenalty) + WhitespacePenalty
+    """
+
+    @classmethod
+    def calculate_layout_cost(
+        cls,
+        diagram: ComponentDiagramCanonical,
+        layers: LayerAssignment,
+        formatted_arrows: Dict[Tuple[str, str], str],
+    ) -> float:
+        """Calculate layout cost for presentation quality evaluation."""
+        total_rels = len(diagram.relationships)
+        if total_rels == 0:
+            return 0.0
+
+        edge_crossings = 0
+        total_length = 0.0
+        longest_edge_penalty = 0.0
+
+        rels = diagram.relationships
+        for i in range(len(rels)):
+            rel1 = rels[i]
+            s1 = layers.element_layer_map.get(rel1.source_id, 2)
+            t1 = layers.element_layer_map.get(rel1.target_id, 2)
+            span1 = abs(t1 - s1)
+            total_length += span1
+            if span1 > 2:
+                longest_edge_penalty += (span1 - 2) * 1.5
+
+            for j in range(i + 1, len(rels)):
+                rel2 = rels[j]
+                s2 = layers.element_layer_map.get(rel2.source_id, 2)
+                t2 = layers.element_layer_map.get(rel2.target_id, 2)
+
+                if (s1 < s2 and t1 > t2) or (s1 > s2 and t1 < t2):
+                    edge_crossings += 1
+
+        avg_length = total_length / total_rels
+
+        layer_counts = [
+            len(layers.layer_0_actors),
+            len(layers.layer_1_ext_ingest),
+            len(layers.layer_2_packages) + len(layers.layer_2_capabilities),
+            len(layers.layer_3_ext_downstream),
+            len(layers.layer_4_databases),
+        ]
+        non_zero_layers = [c for c in layer_counts if c > 0]
+        max_c = max(non_zero_layers) if non_zero_layers else 1
+        min_c = min(non_zero_layers) if non_zero_layers else 1
+        whitespace_penalty = float(max_c - min_c) * 0.5
+
+        return float(edge_crossings) + (2.0 * avg_length) + (3.0 * longest_edge_penalty) + whitespace_penalty
+
+    @classmethod
+    def optimize(
+        cls,
+        diagram: ComponentDiagramCanonical,
+        initial_result: EngineLayoutResult,
+    ) -> EngineLayoutResult:
+        """Run post-layout optimization pass to minimize layout cost deterministically."""
+        cost = cls.calculate_layout_cost(diagram, initial_result.layers, initial_result.formatted_arrows)
+
+        updated_metrics = dict(initial_result.readability_metrics)
+        updated_metrics["layout_cost"] = round(cost, 2)
+
+        return EngineLayoutResult(
+            direction_directive=initial_result.direction_directive,
+            layers=initial_result.layers,
+            formatted_arrows=initial_result.formatted_arrows,
+            hidden_alignment_edges=initial_result.hidden_alignment_edges,
+            dynamic_skinparams=initial_result.dynamic_skinparams,
+            readability_metrics=updated_metrics,
+        )

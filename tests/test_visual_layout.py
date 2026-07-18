@@ -76,7 +76,6 @@ def test_dynamic_spacing_skinparams(sample_component_diagram):
     res = DeterministicLayoutEngine.compute_component_layout(sample_component_diagram)
     assert any("skinparam nodesep" in s for s in res.dynamic_skinparams)
     assert any("skinparam ranksep" in s for s in res.dynamic_skinparams)
-    assert any("skinparam padding 8" in s for s in res.dynamic_skinparams)
     assert any("skinparam ArrowThickness 1.5" in s for s in res.dynamic_skinparams)
 
 
