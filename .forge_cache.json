@@ -1147,6 +1147,206 @@
       "architecture_status": "passed",
       "business_flow_status": "passed",
       "llm_invoked": false
+    },
+    "28210a63898b9bb31d62b5a0d97e39c6": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 88,
+        "errors": [
+          "Graph Error: Source node 'title Compliance Monitoring Solution' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node 'Core Capabilities' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node '[hidden]right-> cap_compliance_data_management' is used in a relationship but was never declared. (Dangling alias)",
+          "Graph Error: Target node '[hidden]down-> db_compliance_repository' is used in a relationship but was never declared. (Dangling alias)"
+        ],
+        "warnings": [],
+        "diagnostics": [
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Source node 'title Compliance Monitoring Solution' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node 'Core Capabilities' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node '[hidden]right-> cap_compliance_data_management' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node '[hidden]down-> db_compliance_repository' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          }
+        ],
+        "traceability_metrics": {
+          "planned_components": 8,
+          "generated_components": 8,
+          "exact_matches": 8,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        },
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 20.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 83.3,
+          "overall_score": 86.7,
+          "is_production_ready": false,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 20.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 83.3
+          }
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 86.7,
+        "is_production_ready": false,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 20.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 83.3,
+          "overall_score": 86.7,
+          "is_production_ready": false,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 20.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 83.3
+          }
+        },
+        "architecture_score": 88
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle Compliance Monitoring Solution - Core Capabilities\nleft to right direction\nskinparam componentStyle uml2\nskinparam handwritten false\nskinparam linetype ortho\nskinparam packageStyle rectangle\nskinparam shadowing false\n\nactor \"User\" as actor_user\n\ncomponent \"SEBI\" as ext_sebi <<Regulatory Data Feed>>\n\ncomponent \"Compliance Data Management\" as cap_compliance_data_management <<service>>\ncomponent \"Compliance Gap Analysis\" as cap_compliance_gap_analysis <<service>>\ncomponent \"Compliance Requirement Identification\" as cap_compliance_requirement_identification <<service>>\ncomponent \"Organizational Impact Assessment\" as cap_organizational_impact_assessment <<service>>\ncomponent \"Regulatory Circular Processing\" as cap_regulatory_circular_processing <<service>>\ndatabase \"Compliance Repository\" as db_compliance_repository <<Database>>\n\nactor_user -right-> cap_organizational_impact_assessment : Views Impact Assessment\nactor_user -right-> cap_regulatory_circular_processing : Initiates Process\ncap_compliance_data_management -down-> db_compliance_repository : Manages Data In\ncap_compliance_gap_analysis -down-> cap_compliance_data_management : Accesses Existing Compliance Data\ncap_compliance_gap_analysis -down-> cap_organizational_impact_assessment : Sends Gap Analysis Results\ncap_compliance_requirement_identification -down-> cap_compliance_data_management : Stores Requirements\ncap_compliance_requirement_identification -down-> cap_compliance_gap_analysis : Identifies New Requirements\ncap_organizational_impact_assessment -down-> cap_compliance_data_management : Stores Assessment\ncap_regulatory_circular_processing -down-> cap_compliance_requirement_identification : Sends Parsed Data\next_sebi -left-> cap_regulatory_circular_processing : Provides Circulars\n\n' Layout Alignment Directives\nactor_user -[hidden]right-> cap_compliance_data_management\ncap_compliance_data_management -[hidden]down-> db_compliance_repository\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped",
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 20.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 83.3,
+        "overall_score": 86.7,
+        "is_production_ready": false,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 20.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 83.3
+        }
+      }
+    },
+    "e5ad7dbb6dc81b73140deec2bb2b3252": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 98.5,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 95.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 98.5,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 95.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Analysis and Compliance Impact Assessment\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nactor \"Compliance Analyst\" as actor_compliance_analyst\nparticipant \"Regulatory Document Management\" as cap_regulatory_document_management\nparticipant \"SEBI\" as sys_sebi\nparticipant \"Compliance Requirement Extraction\" as cap_compliance_requirement_extraction\nparticipant \"Compliance Profile Management\" as cap_compliance_profile_management\nparticipant \"Compliance Gap Analysis\" as cap_compliance_gap_analysis\nparticipant \"Compliance Impact Assessment\" as cap_compliance_impact_assessment\n\nactor_compliance_analyst -> cap_regulatory_document_management : 1. Initiate SEBI Circular Analysis\ncap_regulatory_document_management -> sys_sebi : 2. Request Latest Circulars\nsys_sebi --> cap_regulatory_document_management : 3. Provide Circulars\ncap_regulatory_document_management -> cap_compliance_requirement_extraction : 4. Process & Extract Requirements\ncap_compliance_requirement_extraction -> cap_compliance_profile_management : 5. Retrieve Existing Compliance Profile\ncap_compliance_profile_management --> cap_compliance_requirement_extraction : 6. Provide Compliance Profile\ncap_compliance_requirement_extraction -> cap_compliance_gap_analysis : 7. Submit New Requirements & Profile for Gap Analysis\ncap_compliance_gap_analysis -> cap_compliance_impact_assessment : 8. Submit Gap Analysis Results for Impact Assessment\ncap_compliance_impact_assessment --> actor_compliance_analyst : 9. Present Compliance Impact Report\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 95.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 98.5,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 95.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
     }
   },
   "review": {}

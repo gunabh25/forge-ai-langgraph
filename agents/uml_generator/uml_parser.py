@@ -196,8 +196,16 @@ class PlantUMLParser:
     LAYOUT_NODES = {
         'package', 'frame', 'folder', 'cloud', 'rectangle', 'node', 'collections', 'queue', 'storage', 'artifact'
     }
+
+    DIRECTIVE_PREFIXES = (
+        "title", "header", "footer", "skinparam", "top to bottom", "left to right",
+        "direction", "hide", "show", "remove", "scale", "page", "legend", "end legend",
+        "note", "end note"
+    )
     
-    ARROW_PATTERN = re.compile(r'([-=.]+(?:left|right|up|down)?[-=.]*(?:>|>>|o|x)?|<[-=.]+(?:left|right|up|down)?[-=.]*(?:>|>>|o|x)?|[-=.]+|o[-=.]+>|x[-=.]+>)')
+    ARROW_PATTERN = re.compile(
+        r'(\*?o?<?[-=.]+(?:\[[^\]]*\]|(?:left|right|up|down|h|v))?[-=.]*(?:>|>>|o|x|\*)?)'
+    )
 
     @classmethod
     def _parse_arrow_type(cls, arrow_str: str) -> ArrowType:
@@ -216,9 +224,22 @@ class PlantUMLParser:
         return ArrowType.UNKNOWN
 
     @classmethod
+    def _is_directive(cls, line: str) -> bool:
+        clean = line.strip()
+        if not clean or clean.startswith("'") or clean.startswith("@") or clean in ("{", "}"):
+            return True
+        lower_clean = clean.lower()
+        for prefix in cls.DIRECTIVE_PREFIXES:
+            if lower_clean.startswith(prefix):
+                return True
+        if lower_clean.startswith(('package', 'folder', 'frame', 'cloud', 'namespace')) and ('{' in clean or clean.endswith('{')):
+            return True
+        return False
+
+    @classmethod
     def _parse_declaration(cls, line: str) -> Optional[Tuple[str, str, Optional[str]]]:
         clean_line = re.sub(r'<<[^>]+>>', '', line).strip()
-        if not clean_line:
+        if not clean_line or cls._is_directive(clean_line):
             return None
             
         node_type = None
@@ -268,10 +289,13 @@ class PlantUMLParser:
 
     @classmethod
     def _parse_relationship(cls, line: str) -> Optional[UMLRelationship]:
-        in_quotes = False
+        clean_line = line.strip()
+        if cls._is_directive(clean_line):
+            return None
+
         arrow_match = None
-        for m in cls.ARROW_PATTERN.finditer(line):
-            before = line[:m.start()]
+        for m in cls.ARROW_PATTERN.finditer(clean_line):
+            before = clean_line[:m.start()]
             if before.count('"') % 2 == 0:
                 arrow_match = m
                 break
@@ -279,11 +303,10 @@ class PlantUMLParser:
         if not arrow_match:
             return None
             
-        source_str = line[:arrow_match.start()].strip()
-        rest = line[arrow_match.end():].strip()
+        source_str = clean_line[:arrow_match.start()].strip()
+        rest = clean_line[arrow_match.end():].strip()
         
         label = None
-        # Check for inline label in the arrow: e.g. A -- "label" --> B
         inline_label_match = re.match(r'^"([^"]*)"\s*([-=.]*(?:>|>>|o|x)?)(.*)', rest)
         if inline_label_match and inline_label_match.group(2):
             label = inline_label_match.group(1).strip()
@@ -301,8 +324,11 @@ class PlantUMLParser:
             if trailing_label:
                 label = trailing_label
             
-        source = source_str.strip('"')
-        target = target_str.strip('"')
+        source = source_str.strip('" ')
+        target = target_str.strip('" ')
+
+        source = re.sub(r'^(?:left|right|up|down)\s+', '', source, flags=re.IGNORECASE).strip()
+        target = re.sub(r'^(?:left|right|up|down)\s+', '', target, flags=re.IGNORECASE).strip()
         
         if not source or not target:
             return None
@@ -319,7 +345,7 @@ class PlantUMLParser:
         
         for line in lines:
             line = line.strip()
-            if not line or line.startswith("'") or line.startswith("@"):
+            if not line or cls._is_directive(line):
                 continue
                 
             parsed = cls._parse_declaration(line)
@@ -348,7 +374,7 @@ class PlantUMLParser:
                     
         for line in lines:
             line = line.strip()
-            if not line or line.startswith("'") or line.startswith("@"):
+            if not line or cls._is_directive(line):
                 continue
                 
             if cls._parse_declaration(line):
