@@ -1,8 +1,8 @@
 """Layout Planner.
 
 Sits between Canonical Diagram JSON validation and the PlantUML builder.
-Computes layout rules, participant ordering, skinparams, arrow directions,
-and hidden alignment edges to ensure deterministic, clean PlantUML output.
+Delegates spatial placement, topology analysis, layer routing, and hidden alignment edges
+to DeterministicLayoutEngine.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from schemas.canonical_diagram import (
     SequenceDiagramCanonical,
     Relationship,
 )
+from agents.uml_generator.layout_engine import DeterministicLayoutEngine
 from config.logging import get_logger
 
 logger = get_logger("agents.uml_generator.layout_planner")
@@ -78,75 +79,15 @@ class LayoutPlanner:
 
     @staticmethod
     def plan_component_layout(diagram: ComponentDiagramCanonical) -> PlannedComponentLayout:
-        """Compute layout plan for Component Diagram."""
-        total_elements = len(diagram.all_elements())
-        # Select orientation based on diagram breadth vs depth
-        if len(diagram.business_packages) > 2 or total_elements > 6:
-            direction_directive = "left to right direction"
-        else:
-            direction_directive = "top to bottom direction"
-
-        # Organize package order deterministically by package ID
-        packages_sorted = sorted(diagram.business_packages, key=lambda p: p.id)
-        package_order = [pkg.id for pkg in packages_sorted]
-
-        # Gather standalone elements (not contained in any package)
-        packaged_ids: Set[str] = set()
-        for pkg in diagram.business_packages:
-            packaged_ids.update(pkg.capability_ids)
-
-        standalone_ids = sorted([
-            elem.id for elem in diagram.all_elements()
-            if elem.id not in packaged_ids
-        ])
-
-        # Formatted arrows for relationships
-        formatted_arrows: Dict[Tuple[str, str], str] = {}
-        connected_pairs: Set[Tuple[str, str]] = set()
-
-        for rel in sorted(diagram.relationships, key=lambda r: (r.source_id, r.target_id)):
-            pair = (rel.source_id, rel.target_id)
-            connected_pairs.add(pair)
-            connected_pairs.add((rel.target_id, rel.source_id))
-            direction_str = rel.direction.strip()
-            # If default '-->', apply smart layout direction
-            if direction_str in ("-->", "->"):
-                source_elem = diagram.get_element_by_id(rel.source_id)
-                target_elem = diagram.get_element_by_id(rel.target_id)
-                
-                # Rule: Actors connect to capabilities rightward or downward
-                if source_elem and source_elem.__class__.__name__ == "Actor":
-                    formatted_arrows[pair] = "-right->" if direction_directive == "left to right direction" else "-down->"
-                # Rule: Capabilities connect to Databases downward
-                elif target_elem and target_elem.__class__.__name__ == "Database":
-                    formatted_arrows[pair] = "-down->"
-                else:
-                    formatted_arrows[pair] = "-down->" if direction_directive == "top to bottom direction" else "-right->"
-            else:
-                formatted_arrows[pair] = direction_str
-
-        # Compute hidden alignment edges between adjacent packages
-        hidden_alignment_edges: List[str] = []
-        if len(package_order) > 1:
-            align_dir = "right" if direction_directive == "left to right direction" else "down"
-            for i in range(len(package_order) - 1):
-                p1, p2 = package_order[i], package_order[i + 1]
-                hidden_alignment_edges.append(f"{p1} -[hidden]{align_dir}-> {p2}")
-
-        # Compute hidden alignment edges between un-connected databases
-        databases_sorted = sorted(diagram.databases, key=lambda d: d.id)
-        if len(databases_sorted) > 1:
-            for i in range(len(databases_sorted) - 1):
-                db1, db2 = databases_sorted[i].id, databases_sorted[i + 1].id
-                if (db1, db2) not in connected_pairs:
-                    hidden_alignment_edges.append(f"{db1} -[hidden]right-> {db2}")
+        """Compute layout plan for Component Diagram via DeterministicLayoutEngine."""
+        res = DeterministicLayoutEngine.compute_component_layout(diagram)
 
         return PlannedComponentLayout(
-            direction_directive=direction_directive,
-            package_order=package_order,
-            standalone_element_order=standalone_ids,
-            formatted_arrows=formatted_arrows,
-            hidden_alignment_edges=hidden_alignment_edges,
+            direction_directive=res.direction_directive,
+            package_order=res.layers.layer_2_packages,
+            standalone_element_order=res.layers.layer_2_capabilities,
+            formatted_arrows=res.formatted_arrows,
+            hidden_alignment_edges=res.hidden_alignment_edges,
         )
 
     @staticmethod
