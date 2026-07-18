@@ -117,11 +117,21 @@ class ExecutionDashboardAgent(BaseAgent):
 
             score_card = s.get("score_card") or metrics.get("score_card")
 
+            grammar_st = s.get("grammar_status", "passed")
+            if grammar_st == "passed":
+                grammar_display = "✓ Passed"
+            elif grammar_st in ("timed_out", "warning"):
+                grammar_display = "⚠ Timed Out"
+            else:
+                grammar_display = "✗ Failed"
+
             # Task 6 — rich per-diagram row
             details.append({
                 "diagram_id": diag_id,
                 "type": s.get("diagram_type", "unknown"),
                 "status": status,
+                "grammar_status": grammar_st,
+                "grammar_display": grammar_display,
                 "repair_attempts": repair_attempts,
                 "failure_reason": failure_reason,
                 "llm_calls": llm_calls,

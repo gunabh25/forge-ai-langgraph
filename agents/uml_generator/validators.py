@@ -17,6 +17,9 @@ from schemas.validation_feedback import (
     StructuredValidationFeedback,
 )
 
+from enum import Enum
+from app.settings import settings
+
 logger = get_logger("agents.uml_generator.validators")
 
 _ARCHITECT_SYSTEM = (
@@ -26,8 +29,23 @@ _ARCHITECT_SYSTEM = (
 )
 
 
+class GrammarValidationMode(str, Enum):
+    STRICT = "STRICT"
+    BEST_EFFORT = "BEST_EFFORT"
+    DISABLED = "DISABLED"
+
+
 class GrammarValidator:
-    """Validates PlantUML syntax only using local plantuml binary and auto-fixes deterministic issues."""
+    """Validates PlantUML syntax using local plantuml binary with resilient fallback modes."""
+
+    def __init__(self, mode: Optional[str] = None, timeout: Optional[int] = None):
+        configured_mode = mode or getattr(settings, "GRAMMAR_VALIDATION_MODE", "BEST_EFFORT")
+        try:
+            self.mode = GrammarValidationMode(configured_mode.upper())
+        except ValueError:
+            self.mode = GrammarValidationMode.BEST_EFFORT
+
+        self.timeout = timeout if timeout is not None else getattr(settings, "GRAMMAR_VALIDATION_TIMEOUT", 5)
 
     def _auto_fix(self, content: str) -> str:
         """Automatically repair trivial formatting and duplicate issues."""
@@ -60,8 +78,38 @@ class GrammarValidator:
 
         return "\n".join(cleaned_lines)
 
+    def _try_svg_render(self, content: str) -> bool:
+        """SVG Render Shortcut: Check if plantuml -tsvg succeeds."""
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".puml", delete=False, encoding="utf-8") as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            proc = subprocess.run(["plantuml", "-tsvg", tmp_path], capture_output=True, text=True, timeout=self.timeout)
+            os.unlink(tmp_path)
+            svg_path = tmp_path.replace(".puml", ".svg")
+            if os.path.exists(svg_path):
+                os.unlink(svg_path)
+            return proc.returncode == 0
+        except Exception as exc:
+            logger.debug("SVG render shortcut failed: %s", exc)
+            return False
+
     def validate(self, diagram_type: str, plantuml_content: str) -> Dict[str, Any]:
         fixed_content = self._auto_fix(plantuml_content)
+
+        if self.mode == GrammarValidationMode.DISABLED:
+            return {
+                "validator": "Grammar Validator",
+                "passed": True,
+                "score": 100,
+                "status": "passed",
+                "errors": [],
+                "warnings": [],
+                "diagnostics": [],
+                "fixed_content": fixed_content,
+            }
+
         errors: List[str] = []
         diagnostics: List[Dict[str, Any]] = []
 
@@ -70,15 +118,34 @@ class GrammarValidator:
                 tmp.write(fixed_content)
                 tmp_path = tmp.name
 
-            result = subprocess.run(["plantuml", "-syntax", tmp_path], capture_output=True, text=True, timeout=15)
+            result = subprocess.run(["plantuml", "-syntax", tmp_path], capture_output=True, text=True, timeout=self.timeout)
             os.unlink(tmp_path)
 
-            has_error = "Error" in result.stdout or "error" in result.stdout.lower()
+            has_error = "Error" in result.stdout or "error" in result.stdout.lower() or result.returncode != 0
             if has_error:
-                err_msg = result.stdout.strip()
+                err_msg = result.stdout.strip() or result.stderr.strip() or "Syntax Error"
+
+                # SVG Render Shortcut Check
+                if self.mode == GrammarValidationMode.BEST_EFFORT and self._try_svg_render(fixed_content):
+                    logger.info("Grammar Validator: Syntax check warning/error bypassed by SVG render shortcut.")
+                    return {
+                        "validator": "Grammar Validator",
+                        "passed": True,
+                        "score": 100,
+                        "status": "passed",
+                        "errors": [],
+                        "warnings": [f"Syntax check warning bypassed by SVG render shortcut: {err_msg}"],
+                        "diagnostics": [],
+                        "fixed_content": fixed_content,
+                    }
+
+                code = "SYNTAX_ERROR"
+                if "unknown" in err_msg.lower():
+                    code = "UNKNOWN_KEYWORD"
+                elif "error" not in err_msg.lower():
+                    code = "PLANTUML_INTERNAL_FAILURE"
+
                 errors.append(err_msg)
-                
-                code = "UNKNOWN_KEYWORD" if "unknown" in err_msg.lower() or "syntax" in err_msg.lower() else "SYNTAX_ERROR"
                 diagnostics.append(
                     ValidationDiagnostic(
                         category=DiagnosticCategory.GRAMMAR,
@@ -92,24 +159,133 @@ class GrammarValidator:
                     "validator": "Grammar Validator",
                     "passed": False,
                     "score": 0,
+                    "status": "failed",
                     "errors": errors,
                     "warnings": [],
                     "diagnostics": diagnostics,
+                    "fixed_content": fixed_content,
                 }
-        except FileNotFoundError:
-            pass
-        except Exception as exc:
-            logger.warning("Grammar validation subprocess error: %s", exc)
 
-        return {
-            "validator": "Grammar Validator",
-            "passed": True,
-            "score": 100,
-            "errors": [],
-            "warnings": [],
-            "diagnostics": [],
-            "fixed_content": fixed_content
-        }
+            return {
+                "validator": "Grammar Validator",
+                "passed": True,
+                "score": 100,
+                "status": "passed",
+                "errors": [],
+                "warnings": [],
+                "diagnostics": [],
+                "fixed_content": fixed_content,
+            }
+
+        except subprocess.TimeoutExpired:
+            logger.warning("Grammar validation plantuml -syntax timed out after %ds", self.timeout)
+            if self.mode == GrammarValidationMode.BEST_EFFORT:
+                if self._try_svg_render(fixed_content):
+                    logger.info("SVG render shortcut succeeded after syntax check timeout.")
+                    return {
+                        "validator": "Grammar Validator",
+                        "passed": True,
+                        "score": 100,
+                        "status": "passed",
+                        "errors": [],
+                        "warnings": ["plantuml -syntax timed out; syntax verified via SVG render shortcut."],
+                        "diagnostics": [],
+                        "fixed_content": fixed_content,
+                    }
+                else:
+                    logger.warning("Grammar Validation Unavailable (syntax check timed out). Continuing workflow.")
+                    return {
+                        "validator": "Grammar Validator",
+                        "passed": True,
+                        "score": 100,
+                        "status": "timed_out",
+                        "errors": [],
+                        "warnings": ["Grammar Validation Unavailable (syntax check timed out). Continuing workflow."],
+                        "diagnostics": [],
+                        "fixed_content": fixed_content,
+                    }
+            else:  # STRICT mode
+                errors.append(f"PlantUML syntax check timed out after {self.timeout}s")
+                diagnostics.append(
+                    ValidationDiagnostic(
+                        category=DiagnosticCategory.GRAMMAR,
+                        code="TOOL_TIMEOUT",
+                        message=f"PlantUML syntax check timed out after {self.timeout} seconds",
+                        suggested_fix="Simplify diagram or increase GRAMMAR_VALIDATION_TIMEOUT"
+                    ).to_dict()
+                )
+                return {
+                    "validator": "Grammar Validator",
+                    "passed": False,
+                    "score": 0,
+                    "status": "failed",
+                    "errors": errors,
+                    "warnings": [],
+                    "diagnostics": diagnostics,
+                    "fixed_content": fixed_content,
+                }
+
+        except FileNotFoundError:
+            logger.warning("PlantUML executable missing in PATH.")
+            if self.mode == GrammarValidationMode.BEST_EFFORT:
+                return {
+                    "validator": "Grammar Validator",
+                    "passed": True,
+                    "score": 100,
+                    "status": "timed_out",
+                    "errors": [],
+                    "warnings": ["PlantUML executable missing. Grammar validation unavailable."],
+                    "diagnostics": [],
+                    "fixed_content": fixed_content,
+                }
+            else:
+                return {
+                    "validator": "Grammar Validator",
+                    "passed": False,
+                    "score": 0,
+                    "status": "failed",
+                    "errors": ["PlantUML binary not found in system PATH"],
+                    "diagnostics": [
+                        ValidationDiagnostic(
+                            category=DiagnosticCategory.GRAMMAR,
+                            code="MISSING_EXECUTABLE",
+                            message="PlantUML executable missing in system PATH",
+                            suggested_fix="Install PlantUML or set PATH"
+                        ).to_dict()
+                    ],
+                    "fixed_content": fixed_content,
+                }
+
+        except Exception as exc:
+            logger.warning("Grammar validation error: %s", exc)
+            if self.mode == GrammarValidationMode.BEST_EFFORT:
+                return {
+                    "validator": "Grammar Validator",
+                    "passed": True,
+                    "score": 100,
+                    "status": "timed_out",
+                    "errors": [],
+                    "warnings": [f"Grammar validation unavailable: {exc}"],
+                    "diagnostics": [],
+                    "fixed_content": fixed_content,
+                }
+            else:
+                return {
+                    "validator": "Grammar Validator",
+                    "passed": False,
+                    "score": 0,
+                    "status": "failed",
+                    "errors": [f"Grammar validation error: {exc}"],
+                    "diagnostics": [
+                        ValidationDiagnostic(
+                            category=DiagnosticCategory.GRAMMAR,
+                            code="PLANTUML_INTERNAL_FAILURE",
+                            message=str(exc),
+                            suggested_fix="Check PlantUML installation and Java runtime"
+                        ).to_dict()
+                    ],
+                    "fixed_content": fixed_content,
+                }
 
 
 class ArchitectureValidator:

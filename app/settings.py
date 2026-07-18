@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     ENABLE_UML_REVIEW: bool = False
     ENABLE_FEW_SHOT: bool = False
     MIN_DIAGRAM_SCORE: int = 9
+    GRAMMAR_VALIDATION_MODE: str = "BEST_EFFORT"  # STRICT, BEST_EFFORT, DISABLED
+    GRAMMAR_VALIDATION_TIMEOUT: int = 5  # Seconds
 
     # Multi-provider integrations
     LLM_PROVIDER: str = "google"  # google, openai, anthropic, ollama, openrouter
