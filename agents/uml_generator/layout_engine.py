@@ -96,8 +96,8 @@ class DeterministicLayoutEngine:
         )
 
         # 7. Post-Layout Graph Aesthetic Optimization Pass
-        return GraphOptimizer.optimize(diagram, initial_result)
-
+        from agents.uml_generator.graph_layout_optimizer import GraphLayoutOptimizer
+        return GraphLayoutOptimizer.optimize(diagram, initial_result)
     @classmethod
     def analyze_topology(cls, diagram: ComponentDiagramCanonical) -> str:
         """Analyze graph depth vs breadth ratio to select layout orientation."""
@@ -315,8 +315,8 @@ class DeterministicLayoutEngine:
     @classmethod
     def compute_dynamic_skinparams(cls, diagram: ComponentDiagramCanonical) -> List[str]:
         """Compute dynamic spacing and enterprise styling skinparams based on diagram complexity."""
-        from agents.uml_generator.diagram_readability_optimizer import DiagramReadabilityOptimizer
-        ranksep, nodesep = DiagramReadabilityOptimizer.compute_adaptive_spacing(diagram)
+        from agents.uml_generator.readability_optimizer import ReadabilityOptimizer
+        ranksep, nodesep = ReadabilityOptimizer.compute_adaptive_spacing(diagram)
 
         return [
             f"skinparam nodesep {nodesep}",
@@ -358,125 +358,4 @@ class DeterministicLayoutEngine:
         }
 
 
-# ---------------------------------------------------------------------------
-# Post-Layout Graph Optimizer Implementation
-# ---------------------------------------------------------------------------
 
-class GraphOptimizer:
-    """Post-layout graph aesthetic optimizer.
-
-    Evaluates layout cost functions across candidate sibling orderings:
-    TotalCost = EdgeCrossings + (2 * AvgEdgeLength) + (3 * LongestEdgePenalty) + WhitespacePenalty
-    """
-
-    @classmethod
-    def calculate_layout_cost(
-        cls,
-        diagram: ComponentDiagramCanonical,
-        layers: LayerAssignment,
-        formatted_arrows: Dict[Tuple[str, str], str],
-    ) -> float:
-        """Calculate layout cost for presentation quality evaluation."""
-        total_rels = len(diagram.relationships)
-        if total_rels == 0:
-            return 0.0
-
-        edge_crossings = 0
-        total_length = 0.0
-        longest_edge_penalty = 0.0
-
-        rels = diagram.relationships
-        for i in range(len(rels)):
-            rel1 = rels[i]
-            s1 = layers.element_layer_map.get(rel1.source_id, 2)
-            t1 = layers.element_layer_map.get(rel1.target_id, 2)
-            span1 = abs(t1 - s1)
-            total_length += span1
-            if span1 > 2:
-                longest_edge_penalty += (span1 - 2) * 1.5
-
-            for j in range(i + 1, len(rels)):
-                rel2 = rels[j]
-                s2 = layers.element_layer_map.get(rel2.source_id, 2)
-                t2 = layers.element_layer_map.get(rel2.target_id, 2)
-
-                if (s1 < s2 and t1 > t2) or (s1 > s2 and t1 < t2):
-                    edge_crossings += 1
-
-        avg_length = total_length / total_rels
-
-        layer_counts = [
-            len(layers.layer_0_actors),
-            len(layers.layer_1_ext_ingest),
-            len(layers.layer_2_packages) + len(layers.layer_2_capabilities),
-            len(layers.layer_3_ext_downstream),
-            len(layers.layer_4_databases),
-        ]
-        non_zero_layers = [c for c in layer_counts if c > 0]
-        max_c = max(non_zero_layers) if non_zero_layers else 1
-        min_c = min(non_zero_layers) if non_zero_layers else 1
-        whitespace_penalty = float(max_c - min_c) * 0.5
-        
-        # Package Dispersion: heavily penalized if too many packages
-        package_dispersion = len(diagram.business_packages) * 2.0
-
-        return float(edge_crossings) + (2.0 * avg_length) + (3.0 * longest_edge_penalty) + whitespace_penalty + package_dispersion
-
-    @classmethod
-    def optimize(
-        cls,
-        diagram: ComponentDiagramCanonical,
-        initial_result: EngineLayoutResult,
-    ) -> EngineLayoutResult:
-        """Run post-layout optimization pass to minimize layout cost deterministically."""
-        best_cost = cls.calculate_layout_cost(diagram, initial_result.layers, initial_result.formatted_arrows)
-        best_layers = initial_result.layers
-        best_arrows = initial_result.formatted_arrows
-        best_hidden = initial_result.hidden_alignment_edges
-
-        # Generate candidates for deterministic sibling reordering
-        import copy
-        candidates = []
-        
-        # Candidate 2: Alphabetical ordering
-        layers_alpha = copy.deepcopy(initial_result.layers)
-        layers_alpha.layer_0_actors.sort()
-        layers_alpha.layer_1_ext_ingest.sort()
-        layers_alpha.layer_2_packages.sort()
-        layers_alpha.layer_2_capabilities.sort()
-        layers_alpha.layer_3_ext_downstream.sort()
-        layers_alpha.layer_4_databases.sort()
-        candidates.append(layers_alpha)
-
-        # Candidate 3: Reverse flow-based ordering
-        layers_rev = copy.deepcopy(initial_result.layers)
-        layers_rev.layer_0_actors.reverse()
-        layers_rev.layer_1_ext_ingest.reverse()
-        layers_rev.layer_2_packages.reverse()
-        layers_rev.layer_2_capabilities.reverse()
-        layers_rev.layer_3_ext_downstream.reverse()
-        layers_rev.layer_4_databases.reverse()
-        candidates.append(layers_rev)
-        
-        for cand_layers in candidates:
-            # compute cost
-            cand_cost = cls.calculate_layout_cost(diagram, cand_layers, initial_result.formatted_arrows)
-            if cand_cost < best_cost:
-                best_cost = cand_cost
-                best_layers = cand_layers
-                # recompute arrows and alignment if we picked a new candidate
-                # We can do this here because they are in the same module
-                best_arrows = DeterministicLayoutEngine.compute_routing_hints(diagram, best_layers, initial_result.direction_directive)
-                best_hidden = DeterministicLayoutEngine.compute_alignment_edges(diagram, best_layers, initial_result.direction_directive)
-
-        updated_metrics = dict(initial_result.readability_metrics)
-        updated_metrics["layout_cost"] = round(best_cost, 2)
-
-        return EngineLayoutResult(
-            direction_directive=initial_result.direction_directive,
-            layers=best_layers,
-            formatted_arrows=best_arrows,
-            hidden_alignment_edges=best_hidden,
-            dynamic_skinparams=initial_result.dynamic_skinparams,
-            readability_metrics=updated_metrics,
-        )

@@ -2,7 +2,8 @@
 
 import pytest
 from schemas.canonical_diagram import ComponentDiagramCanonical
-from agents.uml_generator.layout_engine import DeterministicLayoutEngine, GraphOptimizer
+from agents.uml_generator.layout_engine import DeterministicLayoutEngine
+from agents.uml_generator.graph_layout_optimizer import GraphLayoutOptimizer
 from agents.uml_generator.plantuml_builder import PlantUMLBuilderFactory
 
 
@@ -48,7 +49,7 @@ def sample_component_diagram():
 def test_layout_cost_calculation(sample_component_diagram):
     """Verify layout cost is computed deterministically."""
     res = DeterministicLayoutEngine.compute_component_layout(sample_component_diagram)
-    cost = GraphOptimizer.calculate_layout_cost(sample_component_diagram, res.layers, res.formatted_arrows)
+    cost = GraphLayoutOptimizer.calculate_layout_cost(sample_component_diagram, res.layers, res.formatted_arrows)
 
     assert cost >= 0.0
     assert "layout_cost" in res.readability_metrics
@@ -56,7 +57,7 @@ def test_layout_cost_calculation(sample_component_diagram):
 
 
 def test_graph_optimizer_pass_preserves_architecture(sample_component_diagram):
-    """Verify GraphOptimizer pass preserves canonical diagram elements and IDs byte-for-byte."""
+    """Verify GraphLayoutOptimizer pass preserves canonical diagram elements and IDs byte-for-byte."""
     builder = PlantUMLBuilderFactory.get_builder("component")
     puml = builder.build(sample_component_diagram)
 

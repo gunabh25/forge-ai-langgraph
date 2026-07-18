@@ -134,11 +134,11 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
 
         # 6. Render Relationships (Sorted by source_id, target_id)
         rels_sorted = sorted(diagram.relationships, key=lambda r: (r.source_id, r.target_id, r.label or ""))
-        from agents.uml_generator.diagram_readability_optimizer import DiagramReadabilityOptimizer
+        from agents.uml_generator.readability_optimizer import ReadabilityOptimizer
         for rel in rels_sorted:
             pair = (rel.source_id, rel.target_id)
             arrow = layout.formatted_arrows.get(pair, rel.direction or "-->")
-            wrapped_label = DiagramReadabilityOptimizer.wrap_label(rel.label) if rel.label else ""
+            wrapped_label = ReadabilityOptimizer.wrap_label(rel.label) if rel.label else ""
             label_str = f" : {wrapped_label}" if wrapped_label else ""
             lines.append(f"{rel.source_id} {arrow} {rel.target_id}{label_str}")
 
