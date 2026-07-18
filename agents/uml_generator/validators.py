@@ -335,12 +335,19 @@ class ArchitectureValidator:
         if not rel_result.is_valid:
             for r_err in rel_result.errors:
                 errors.append(r_err)
+                code = "SELF_LOOP_INTERACTION" if "Self-loop" in r_err else "RELATIONSHIP_INTEGRITY"
+                fix = (
+                    "Sequence diagrams model interactions. Self-loop messages represent internal computation. "
+                    "Merge internal work into a single outgoing interaction or model separate approved participants."
+                    if code == "SELF_LOOP_INTERACTION"
+                    else "Fix relationship target or remove duplicate edge"
+                )
                 diagnostics.append(
                     ValidationDiagnostic(
                         category=DiagnosticCategory.ARCHITECTURE,
-                        code="RELATIONSHIP_INTEGRITY",
+                        code=code,
                         message=r_err,
-                        suggested_fix="Fix relationship target or remove duplicate edge"
+                        suggested_fix=fix
                     ).to_dict()
                 )
 

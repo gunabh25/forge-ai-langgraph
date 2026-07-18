@@ -123,6 +123,14 @@ def _build_structured_feedback(compiler_stderr: str, allowed: Dict[str, str]) ->
     lower = compiler_stderr.lower()
 
     # Fallback string rule categorization for un-parsed text feedback
+    if "self-loop" in lower:
+        return (
+            "Validation Category : Architecture\n"
+            "Diagnostic Code     : SELF_LOOP_INTERACTION\n"
+            f"Message             : {compiler_stderr.strip()}\n\n"
+            "Required Fix: Remove the self-loop relationship where source_id == target_id.\n"
+            "Preserve overall business flow and reuse existing approved capabilities without inventing new participants."
+        )
     if "non-traceable" in lower or "invented" in lower or "traceability" in lower or "hallucinated" in lower:
         return (
             "Validation Category : Traceability\n"

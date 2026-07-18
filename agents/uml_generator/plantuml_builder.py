@@ -31,6 +31,9 @@ from config.logging import get_logger
 logger = get_logger("agents.uml_generator.plantuml_builder")
 
 
+from agents.uml_generator.layout_engine import DeterministicLayoutEngine
+
+
 # ---------------------------------------------------------------------------
 # Abstract Base Builder
 # ---------------------------------------------------------------------------
@@ -75,11 +78,11 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
 
         declared_ids: Set[str] = set()
 
-        # 1. Render Packages & Contained Capabilities/Databases (Sorted deterministically)
+        # 1. Render Packages & Contained Capabilities/Databases (Sorted topologically by flow)
         packages_sorted = sorted(diagram.business_packages, key=lambda p: p.id)
         for pkg in packages_sorted:
             lines.append(f'package "{pkg.name}" as {pkg.id} {{')
-            contained_ids_sorted = sorted(pkg.capability_ids)
+            contained_ids_sorted = DeterministicLayoutEngine.topological_sort_capabilities(diagram, pkg.capability_ids)
             for cap_id in contained_ids_sorted:
                 elem = diagram.get_element_by_id(cap_id)
                 if elem:

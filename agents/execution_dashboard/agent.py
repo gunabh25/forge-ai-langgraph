@@ -12,7 +12,7 @@ from core.utils import generate_timestamp
 logger = get_logger("agents.execution_dashboard")
 
 # Statuses that count as successfully completed diagrams.
-_SUCCESS_STATUSES = frozenset({"rendered", "success", "UNCHANGED"})
+_SUCCESS_STATUSES = frozenset({"rendered", "success", "repaired", "UNCHANGED"})
 # Statuses that indicate the diagram was repaired before succeeding.
 _REPAIRED_STATUSES = frozenset({"repaired"})
 # Terminal failure statuses.

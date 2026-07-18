@@ -102,8 +102,17 @@ class CLIDashboard:
             elif event_type == EventTypes.WORKFLOW_COMPLETED:
                 self.end_time = payload.get("timestamp", time.time())
                 summary_data = payload.get("summary", {})
-                if summary_data and "average_diagram_score" in summary_data:
-                    self.diagram_scores = [float(summary_data["average_diagram_score"])]
+                if summary_data:
+                    if "total_repair_attempts" in summary_data:
+                        self.repair_attempts = summary_data["total_repair_attempts"]
+                    if "production_ready_count" in summary_data:
+                        self.production_ready_count = summary_data["production_ready_count"]
+                    if "successful_diagrams" in summary_data:
+                        self.successful_diagrams = summary_data["successful_diagrams"]
+                    if "failed_diagrams" in summary_data:
+                        self.failed_diagrams = summary_data["failed_diagrams"]
+                    if "average_diagram_score" in summary_data:
+                        self.diagram_scores = [float(summary_data["average_diagram_score"])]
                 self._render_dashboard()
         except Exception as e:
             pass # Failsafe against rich formatting errors

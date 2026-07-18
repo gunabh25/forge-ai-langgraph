@@ -13,7 +13,7 @@ Layer 4 (Bottom / Right): Databases (Data Layer)
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from pydantic import BaseModel, Field
 
 from schemas.canonical_diagram import (
@@ -54,6 +54,8 @@ class EngineLayoutResult(BaseModel):
     layers: LayerAssignment
     formatted_arrows: Dict[Tuple[str, str], str] = Field(default_factory=dict, description="Map of (src, tgt) -> formatted arrow hint")
     hidden_alignment_edges: List[str] = Field(default_factory=list, description="Hidden alignment edges for spatial grid")
+    dynamic_skinparams: List[str] = Field(default_factory=list, description="Dynamic PlantUML skinparams for spacing")
+    readability_metrics: Dict[str, Any] = Field(default_factory=dict, description="Presentation readability metrics")
 
 
 # ---------------------------------------------------------------------------
@@ -78,11 +80,19 @@ class DeterministicLayoutEngine:
         # 4. Compute Hidden Alignment Edges for spatial grid alignment
         hidden_alignment_edges = cls.compute_alignment_edges(diagram, layers, direction_directive)
 
+        # 5. Compute Dynamic PlantUML Spacing Skinparams
+        dynamic_skinparams = cls.compute_dynamic_skinparams(diagram)
+
+        # 6. Compute Presentation Readability Metrics
+        readability_metrics = cls.compute_readability_metrics(diagram, layers, formatted_arrows)
+
         return EngineLayoutResult(
             direction_directive=direction_directive,
             layers=layers,
             formatted_arrows=formatted_arrows,
             hidden_alignment_edges=hidden_alignment_edges,
+            dynamic_skinparams=dynamic_skinparams,
+            readability_metrics=readability_metrics,
         )
 
     @classmethod
@@ -121,13 +131,13 @@ class DeterministicLayoutEngine:
         ext_downstream: List[str] = []
 
         for ext in sorted(diagram.external_systems, key=lambda e: e.id):
-            # Check if external system receives input from actors
-            connected_to_actor = any(
+            # Check if external system is an inbound source (initiates relationships or connects to actor)
+            is_inbound_source = any(r.source_id == ext.id for r in diagram.relationships) or any(
                 r.source_id in actor_ids or r.target_id in actor_ids
                 for r in diagram.relationships
                 if r.source_id == ext.id or r.target_id == ext.id
             )
-            if connected_to_actor:
+            if is_inbound_source:
                 ext_ingest.append(ext.id)
                 element_layer_map[ext.id] = 1
             else:
@@ -240,3 +250,92 @@ class DeterministicLayoutEngine:
                 hidden_edges.append(f"{db1} -[hidden]right-> {db2}")
 
         return sorted(hidden_edges)
+
+    @classmethod
+    def topological_sort_capabilities(
+        cls,
+        diagram: ComponentDiagramCanonical,
+        capability_ids: List[str],
+    ) -> List[str]:
+        """Order capabilities inside packages based on interaction flow topology."""
+        cap_set = set(capability_ids)
+        if len(cap_set) <= 1:
+            return sorted(capability_ids)
+
+        in_degree: Dict[str, int] = {c: 0 for c in cap_set}
+        adj: Dict[str, List[str]] = {c: [] for c in cap_set}
+
+        for rel in diagram.relationships:
+            if rel.source_id in cap_set and rel.target_id in cap_set and rel.source_id != rel.target_id:
+                adj[rel.source_id].append(rel.target_id)
+                in_degree[rel.target_id] += 1
+
+        # Kahn's algorithm with deterministic tie-breaking (sorted IDs)
+        queue = sorted([c for c in cap_set if in_degree[c] == 0])
+        sorted_caps: List[str] = []
+
+        while queue:
+            curr = queue.pop(0)
+            sorted_caps.append(curr)
+            for neighbor in adj[curr]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+            queue.sort()
+
+        # Append any remaining capabilities if cycles exist
+        remaining = sorted([c for c in cap_set if c not in set(sorted_caps)])
+        sorted_caps.extend(remaining)
+        return sorted_caps
+
+    @classmethod
+    def compute_dynamic_skinparams(cls, diagram: ComponentDiagramCanonical) -> List[str]:
+        """Compute dynamic spacing and enterprise styling skinparams based on diagram complexity."""
+        num_elements = len(diagram.all_elements())
+        if num_elements <= 6:
+            nodesep = 35
+            ranksep = 35
+        elif num_elements <= 12:
+            nodesep = 50
+            ranksep = 50
+        else:
+            nodesep = 70
+            ranksep = 70
+
+        return [
+            f"skinparam nodesep {nodesep}",
+            f"skinparam ranksep {ranksep}",
+            "skinparam padding 8",
+            "skinparam ArrowThickness 1.5",
+        ]
+
+    @classmethod
+    def compute_readability_metrics(
+        cls,
+        diagram: ComponentDiagramCanonical,
+        layers: LayerAssignment,
+        formatted_arrows: Dict[Tuple[str, str], str],
+    ) -> Dict[str, Any]:
+        """Compute presentation readability metrics."""
+        total_rels = len(diagram.relationships)
+        backward_edges = 0
+        total_layer_span = 0
+
+        for rel in diagram.relationships:
+            src_layer = layers.element_layer_map.get(rel.source_id, 2)
+            tgt_layer = layers.element_layer_map.get(rel.target_id, 2)
+            span = abs(tgt_layer - src_layer)
+            total_layer_span += span
+            if src_layer > tgt_layer:
+                backward_edges += 1
+
+        total_caps = len(diagram.business_capabilities)
+        packaged_caps = sum(len(p.capability_ids) for p in diagram.business_packages)
+        package_compactness = (packaged_caps / total_caps) if total_caps > 0 else 1.0
+
+        return {
+            "total_relationships": total_rels,
+            "backward_edges": backward_edges,
+            "average_layer_span": (total_layer_span / total_rels) if total_rels > 0 else 0.0,
+            "package_compactness": package_compactness,
+        }

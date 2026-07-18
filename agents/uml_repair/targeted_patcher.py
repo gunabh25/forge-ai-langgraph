@@ -118,6 +118,13 @@ class TargetedPatcher:
                 rel_dict[(rep_rel.source_id, rep_rel.target_id)] = rep_rel.model_dump()
             data["relationships"] = list(rel_dict.values())
 
+        # 6. Sanitize Sequence self-loop relationships
+        if isinstance(diagram, SequenceDiagramCanonical) and "relationships" in data:
+            data["relationships"] = [
+                r for r in data["relationships"]
+                if r.get("source_id") != r.get("target_id")
+            ]
+
         # Re-instantiate model
         if isinstance(diagram, ComponentDiagramCanonical):
             return ComponentDiagramCanonical.model_validate(data)

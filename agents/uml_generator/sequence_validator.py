@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import List, Set, Any, Dict
+from typing import List, Set, Any, Dict, Optional
 from config.logging import get_logger
 
 from agents.uml_generator.uml_parser import UMLDiagram
@@ -109,11 +109,12 @@ class SequenceValidator:
             display_name = node.display_name
             normalized = node.normalized_name
             
-            detail = {
+            planning_match: Optional[str] = None
+            detail: Dict[str, Any] = {
                 "traceable": False,
                 "display_name": display_name,
                 "normalized_name": normalized,
-                "planning_match": None,
+                "planning_match": planning_match,
                 "match_type": "None"
             }
             

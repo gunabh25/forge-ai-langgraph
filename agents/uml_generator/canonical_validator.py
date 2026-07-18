@@ -90,11 +90,16 @@ class CanonicalDiagramValidator:
                     if cap_id not in defined_ids:
                         missing_refs.append(f"Package '{pkg.name}' references non-existent capability ID '{cap_id}'")
 
-        # Check Sequence diagram participant references
+        # Check Sequence diagram participant references & self-loops
         if isinstance(diagram, SequenceDiagramCanonical):
             for part_id in diagram.participants:
                 if part_id not in defined_ids:
                     missing_refs.append(f"Sequence participant list contains non-existent element ID '{part_id}'")
+            for rel in diagram.relationships:
+                if rel.source_id == rel.target_id:
+                    elem = diagram.get_element_by_id(rel.source_id)
+                    elem_name = elem.name if elem else rel.source_id
+                    missing_refs.append(f"Self-loop interaction detected on '{elem_name}'. Sequence diagrams model communication between distinct participants; self-loops must be removed or merged.")
 
         if missing_refs:
             error_msg = "; ".join(missing_refs)

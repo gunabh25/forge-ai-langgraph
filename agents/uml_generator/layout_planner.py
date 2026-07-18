@@ -34,7 +34,6 @@ class PlannedComponentLayout(BaseModel):
             "skinparam componentStyle uml2",
             "skinparam shadowing false",
             "skinparam packageStyle rectangle",
-            "skinparam handwritten false",
             "skinparam linetype ortho",
         ]
     )
@@ -82,13 +81,16 @@ class LayoutPlanner:
         """Compute layout plan for Component Diagram via DeterministicLayoutEngine."""
         res = DeterministicLayoutEngine.compute_component_layout(diagram)
 
-        return PlannedComponentLayout(
+        layout = PlannedComponentLayout(
             direction_directive=res.direction_directive,
             package_order=res.layers.layer_2_packages,
             standalone_element_order=res.layers.layer_2_capabilities,
             formatted_arrows=res.formatted_arrows,
             hidden_alignment_edges=res.hidden_alignment_edges,
         )
+        if res.dynamic_skinparams:
+            layout.skinparams.extend(res.dynamic_skinparams)
+        return layout
 
     @staticmethod
     def plan_sequence_layout(diagram: SequenceDiagramCanonical) -> PlannedSequenceLayout:

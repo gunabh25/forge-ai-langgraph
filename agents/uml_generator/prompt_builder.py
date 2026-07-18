@@ -121,7 +121,8 @@ _SYSTEM_RULES = (
     "3. Assign stable lowercase string IDs (`actor_user`, `cap_order`, `sys_payment`, `db_order`). Relationships MUST reference entities by `source_id` and `target_id`.\n"
     "4. Never rename, merge, split, invent, or drop business capabilities.\n"
     "5. Focus on Bounded Contexts and Domain Services for an Architecture Review Board. Avoid implementation details (Repositories, Controllers, Middleware, Loggers).\n"
-    "6. Prefer omission over invention. If uncertain, do not generate unverified components."
+    "6. Prefer omission over invention. If uncertain, do not generate unverified components.\n"
+    "7. Sequence diagrams model communication BETWEEN distinct participants. Do NOT generate self-loop relationships (`source_id == target_id`)."
 )
 
 _FEW_SHOT_COMPONENT = """

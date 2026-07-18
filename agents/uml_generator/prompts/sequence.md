@@ -5,6 +5,7 @@ Generate a **Canonical Sequence Diagram JSON** capturing the primary happy-path 
 {context_block}
 
 ## Guidelines
+- **No Self-Loops**: Sequence diagrams model communication between distinct participants. Do NOT generate self-loop relationships where `source_id == target_id`. Internal operations within a capability must be modeled as interactions between separate approved capabilities or merged into outgoing interactions.
 - **Traceability**: Model primary interaction flow using exact entities from input context. Do not invent or split entities.
 - **Participants**: Provide explicit ordered array `participants` containing element IDs from left to right.
 - **Stable IDs**: Use lowercase identifiers (`actor_user`, `sys_payment`, `cap_order`, `db_order`). Relationships MUST use `source_id` and `target_id`.

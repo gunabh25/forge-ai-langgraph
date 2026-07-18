@@ -1619,6 +1619,822 @@
           "relationship_clarity": 100.0
         }
       }
+    },
+    "a5543032312e994aea507e061b79a4a7": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 97.9,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 72.2,
+          "overall_score": 97.9,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 72.2
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Solution\nleft to right direction\nskinparam componentStyle uml2\nskinparam handwritten false\nskinparam linetype ortho\nskinparam packageStyle rectangle\nskinparam shadowing false\n\npackage \"Compliance Domain\" as pkg_compliance_domain {\n  component \"Circular Ingestion\" as cap_circular_ingestion <<service>>\n  component \"Compliance Analysis\" as cap_compliance_analysis <<service>>\n  component \"Document Parsing\" as cap_document_parsing <<service>>\n  component \"Impact Assessment\" as cap_impact_assessment <<service>>\n  component \"Reporting\" as cap_reporting <<service>>\n  component \"Requirement Extraction\" as cap_requirement_extraction <<service>>\n}\n\nactor \"Compliance Officer\" as actor_compliance_officer\n\ncomponent \"SEBI\" as ext_sebi <<External API>>\n\ndatabase \"Assessments\" as db_assessments <<Database>>\ndatabase \"Existing Compliance\" as db_existing_compliance <<Database>>\ndatabase \"Parsed Clauses\" as db_parsed_clauses <<Database>>\ndatabase \"Raw Circulars\" as db_raw_circulars <<Database>>\n\nactor_compliance_officer -right-> cap_reporting : Views reports\ncap_circular_ingestion -down-> db_raw_circulars : Stores raw circulars\ncap_compliance_analysis -down-> cap_impact_assessment : Provides gap analysis\ncap_document_parsing -down-> db_parsed_clauses : Stores parsed clauses\ncap_impact_assessment -down-> db_assessments : Stores assessment results\ncap_reporting -down-> db_assessments : Retrieves assessments\ncap_reporting -down-> db_existing_compliance : Retrieves existing compliance details\ncap_reporting -down-> db_parsed_clauses : Retrieves clause details\ncap_requirement_extraction -down-> cap_compliance_analysis : Feeds new requirements\ndb_existing_compliance -left-> cap_compliance_analysis : Reads existing compliance\ndb_parsed_clauses -left-> cap_requirement_extraction : Reads parsed clauses\ndb_raw_circulars -left-> cap_document_parsing : Reads raw circulars\next_sebi -left-> cap_circular_ingestion : Provides circulars\n\n' Layout Alignment Directives\nactor_compliance_officer -[hidden]right-> pkg_compliance_domain\ndb_assessments -[hidden]right-> db_existing_compliance\ndb_existing_compliance -[hidden]right-> db_parsed_clauses\ndb_parsed_clauses -[hidden]right-> db_raw_circulars\npkg_compliance_domain -[hidden]down-> db_assessments\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 72.2,
+        "overall_score": 97.9,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 72.2
+        }
+      }
+    },
+    "65adbbab584f7c2d0d4a5738b6435707": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 97,
+        "errors": [
+          "Graph Error: Duplicate relationship detected from 'Circular Content Processing' to 'Compliance Data Store'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "diagnostics": [
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Duplicate relationship detected from 'Circular Content Processing' to 'Compliance Data Store'. Combine multiple messages into a single labeled edge or remove duplicates.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          }
+        ],
+        "traceability_metrics": {
+          "planned_components": 9,
+          "generated_components": 9,
+          "exact_matches": 9,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        },
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 80.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 85.7,
+          "overall_score": 95.9,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 80.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 85.7
+          }
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 95.9,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 80.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 85.7,
+          "overall_score": 95.9,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 80.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 85.7
+          }
+        },
+        "architecture_score": 97
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Compliance Monitoring Solution\nleft to right direction\nskinparam componentStyle uml2\nskinparam handwritten false\nskinparam linetype ortho\nskinparam packageStyle rectangle\nskinparam shadowing false\n\nactor \"User\" as actor_user\n\ncomponent \"SEBI\" as ext_sebi <<External API>>\n\ncomponent \"Circular Content Processing\" as cap_circular_content_processing <<service>>\ncomponent \"Existing Compliance Management\" as cap_existing_compliance_management <<service>>\ncomponent \"Gap Analysis\" as cap_gap_analysis <<service>>\ncomponent \"Impact Assessment\" as cap_impact_assessment <<service>>\ncomponent \"SEBI Circular Ingestion\" as cap_sebi_circular_ingestion <<service>>\ncomponent \"User Interface\" as cap_user_interface <<service>>\ndatabase \"Compliance Data Store\" as db_compliance_data_store <<Relational Database>>\n\nactor_user -right-> cap_user_interface : Interacts with\ncap_circular_content_processing -down-> cap_gap_analysis : Provides New Requirements\ncap_circular_content_processing -down-> db_compliance_data_store : Stores Parsed Content\ncap_existing_compliance_management -down-> cap_gap_analysis : Provides Existing Setup\ncap_gap_analysis -down-> cap_impact_assessment : Feeds Gaps\ncap_gap_analysis -down-> db_compliance_data_store : Stores Gap Analysis\ncap_impact_assessment -down-> db_compliance_data_store : Stores Impact Assessment\ncap_sebi_circular_ingestion -down-> cap_circular_content_processing : Feeds Raw Content\ncap_user_interface -down-> cap_existing_compliance_management : Views Compliance Status\ncap_user_interface -down-> cap_gap_analysis : Views Gaps\ncap_user_interface -down-> cap_impact_assessment : Views Impact\next_sebi -left-> cap_sebi_circular_ingestion : Provides Circulars\n\n' Layout Alignment Directives\nactor_user -[hidden]right-> cap_circular_content_processing\ncap_circular_content_processing -[hidden]down-> db_compliance_data_store\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped",
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 80.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 85.7,
+        "overall_score": 95.9,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 80.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 85.7
+        }
+      }
+    },
+    "e0c7b86b6729f4885b0ede13033883a5": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 99.0,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 99.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Compliance Monitoring Flow\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nparticipant \"SEBI\" as ext_sebi\nparticipant \"Circular Ingestion\" as cap_circular_ingestion\nparticipant \"Circular Parsing\" as cap_circular_parsing\nparticipant \"Requirement Extraction\" as cap_requirement_extraction\nparticipant \"Gap Analysis\" as cap_gap_analysis\ndatabase \"Existing Compliance Repository\" as db_existing_compliance_repo\nparticipant \"Impact Assessment\" as cap_impact_assessment\ndatabase \"Compliance Repository\" as db_compliance_repo\n\next_sebi -> cap_circular_ingestion : Ingest Circulars\ncap_circular_ingestion -> cap_circular_parsing : Request Document Parsing\ncap_circular_parsing -> cap_requirement_extraction : Send Parsed Document\ncap_requirement_extraction -> cap_gap_analysis : Provide New Requirements\ncap_gap_analysis -> db_existing_compliance_repo : Retrieve Existing Setup\ndb_existing_compliance_repo -> cap_gap_analysis : Return Existing Setup Data\ncap_gap_analysis -> cap_impact_assessment : Send Identified Gaps\ncap_impact_assessment -> db_compliance_repo : Store Impact Assessment\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 99.0,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
+    },
+    "02f6f73a559775e0d3f6a543b597c3b1": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 99.1,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 87.5,
+          "overall_score": 99.1,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 87.5
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Component Diagram\nleft to right direction\nskinparam componentStyle uml2\nskinparam linetype ortho\nskinparam packageStyle rectangle\nskinparam shadowing false\n\nactor \"User\" as actor_user\n\ncomponent \"SEBI\" as ext_sebi <<Regulatory Source>>\n\ncomponent \"Circular Ingestion\" as cap_circular_ingestion <<service>>\ncomponent \"Circular Parsing\" as cap_circular_parsing <<service>>\ncomponent \"Compliance Impact Analysis\" as cap_compliance_impact_analysis <<service>>\ncomponent \"Organizational Compliance Management\" as cap_org_compliance_management <<service>>\ncomponent \"Requirement Extraction\" as cap_requirement_extraction <<service>>\n\nactor_user -right-> cap_compliance_impact_analysis : Views Impact Analysis\nactor_user -right-> cap_org_compliance_management : Manages Compliance & Views Gaps\ncap_circular_ingestion -down-> cap_circular_parsing : Feeds Raw Circulars\ncap_circular_parsing -down-> cap_requirement_extraction : Provides Structured Data\ncap_org_compliance_management -down-> cap_compliance_impact_analysis : Provides Compliance Context\ncap_requirement_extraction -down-> cap_org_compliance_management : Feeds New Requirements\next_sebi -left-> cap_circular_ingestion : Provides Circulars\n\n' Layout Alignment Directives\nactor_user -[hidden]right-> cap_circular_ingestion\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 87.5,
+        "overall_score": 99.1,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 87.5
+        }
+      }
+    },
+    "2c9bd0e900373ba236dc90b4c3d30a81": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 91,
+        "errors": [
+          "Graph Error: Self-loop detected on 'Compliance Analysis'.",
+          "Graph Error: Self-loop detected on 'Compliance Analysis'.",
+          "Graph Error: Duplicate relationship detected from 'Compliance Analysis' to 'Compliance Analysis'. Combine multiple messages into a single labeled edge or remove duplicates."
+        ],
+        "warnings": [],
+        "diagnostics": [
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Self-loop detected on 'Compliance Analysis'.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Self-loop detected on 'Compliance Analysis'.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Duplicate relationship detected from 'Compliance Analysis' to 'Compliance Analysis'. Combine multiple messages into a single labeled edge or remove duplicates.",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          }
+        ],
+        "traceability_metrics": {
+          "planned_components": 8,
+          "generated_components": 8,
+          "exact_matches": 8,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        },
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 40.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 90.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 40.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 90.0,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 40.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 90.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 40.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 91
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Compliance Analysis Flow\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nactor \"User\" as actor_user\nparticipant \"SEBI\" as ext_sebi\nparticipant \"Circular Ingestion\" as cap_circular_ingestion\nparticipant \"Circular Parsing\" as cap_circular_parsing\nparticipant \"Requirement Extraction\" as cap_requirement_extraction\nparticipant \"Organization Compliance Management\" as cap_org_compliance_management\nparticipant \"Compliance Analysis\" as cap_compliance_analysis\nparticipant \"Compliance Monitoring\" as cap_compliance_monitoring\n\next_sebi -> cap_circular_ingestion : Provide Circulars\ncap_circular_ingestion -> cap_circular_parsing : Submit Circular for Parsing\ncap_circular_parsing -> cap_requirement_extraction : Provide Parsed Clauses\ncap_requirement_extraction -> cap_org_compliance_management : Request Existing Compliance Setup\ncap_org_compliance_management -> cap_requirement_extraction : Return Existing Compliance Setup\ncap_requirement_extraction -> cap_compliance_analysis : Submit New Requirements & Existing Setup\ncap_compliance_analysis -> cap_compliance_analysis : Perform Gap Analysis\ncap_compliance_analysis -> cap_compliance_analysis : Assess Impact\ncap_compliance_analysis -> cap_compliance_monitoring : Submit Analysis Results\ncap_compliance_monitoring -> actor_user : Display Compliance Report\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped",
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 40.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 90.0,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 40.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
+    },
+    "5575fd46d4d8aaa73020f2c350a75874": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 98.9,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 85.7,
+          "overall_score": 98.9,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 85.7
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Processing and Compliance Impact Assessment\nleft to right direction\nskinparam componentStyle uml2\nskinparam linetype ortho\nskinparam packageStyle rectangle\nskinparam shadowing false\n\nactor \"Compliance Officer\" as actor_compliance_officer\n\ncomponent \"SEBI\" as ext_sebi <<API>>\n\ncomponent \"Circular Ingestion\" as cap_circular_ingestion <<service>>\ncomponent \"Compliance Data Management\" as cap_compliance_data_management <<service>>\ncomponent \"Document Parsing\" as cap_document_parsing <<service>>\ncomponent \"Gap Analysis\" as cap_gap_analysis <<service>>\ncomponent \"Impact Assessment\" as cap_impact_assessment <<service>>\ncomponent \"Requirement Extraction\" as cap_requirement_extraction <<service>>\ndatabase \"Compliance Data Store\" as db_compliance_data_store <<PostgreSQL>>\n\nactor_compliance_officer -right-> cap_compliance_data_management : Manages Compliance Data\nactor_compliance_officer -right-> cap_gap_analysis : Reviews Gap Analysis\nactor_compliance_officer -right-> cap_impact_assessment : Reviews Impact Assessment\ncap_circular_ingestion -down-> cap_document_parsing : Sends Circulars for Parsing\ncap_compliance_data_management -down-> db_compliance_data_store : Manages Data\ncap_document_parsing -down-> cap_requirement_extraction : Provides Parsed Documents\ncap_gap_analysis -down-> cap_compliance_data_management : Retrieves Existing Compliance\ncap_gap_analysis -down-> cap_impact_assessment : Provides Gap Analysis Results\ncap_impact_assessment -down-> cap_compliance_data_management : Stores Impact Assessment\ncap_requirement_extraction -down-> cap_compliance_data_management : Stores Requirements\ncap_requirement_extraction -down-> cap_gap_analysis : Feeds New Requirements\next_sebi -left-> cap_circular_ingestion : Provides Circulars\n\n' Layout Alignment Directives\nactor_compliance_officer -[hidden]right-> cap_circular_ingestion\ncap_circular_ingestion -[hidden]down-> db_compliance_data_store\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 85.7,
+        "overall_score": 98.9,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 85.7
+        }
+      }
+    },
+    "7911ac3f93370657b0ac59919d1a06e9": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 99.0,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 99.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Compliance Analysis Flow\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nparticipant \"SEBI\" as ext_sebi\nparticipant \"Circular Ingestion\" as cap_circular_ingestion\nparticipant \"Document Parsing\" as cap_document_parsing\nparticipant \"Requirement Extraction\" as cap_requirement_extraction\nparticipant \"Gap Analysis\" as cap_gap_analysis\nparticipant \"Impact Assessment\" as cap_impact_assessment\nparticipant \"Compliance Data Management\" as cap_compliance_data_management\ndatabase \"Compliance Data Store\" as db_compliance_data\n\next_sebi -> cap_circular_ingestion : New Circular Available\ncap_circular_ingestion -> cap_document_parsing : Submit Circular for Parsing\ncap_document_parsing -> cap_requirement_extraction : Provide Parsed Clauses\ncap_requirement_extraction -> cap_gap_analysis : Submit Requirements for Gap Analysis\ncap_gap_analysis -> cap_impact_assessment : Provide Gap Analysis Results\ncap_impact_assessment -> cap_compliance_data_management : Submit Impact Assessment\ncap_compliance_data_management -> db_compliance_data : Store Compliance Data\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 99.0,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
+    },
+    "38234d435d11dd6d1b85f5e0768e43ab": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 97.7,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 68.8,
+          "overall_score": 97.7,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 68.8
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Solution Component Diagram\nleft to right direction\nskinparam componentStyle uml2\nskinparam linetype ortho\nskinparam nodesep 60\nskinparam packageStyle rectangle\nskinparam ranksep 60\nskinparam shadowing false\n\nactor \"User\" as actor_user\n\ncomponent \"SEBI\" as ext_sebi <<External System>>\n\ncomponent \"Circular Ingestion\" as cap_circular_ingestion <<service>>\ncomponent \"Compliance Analysis\" as cap_compliance_analysis <<service>>\ncomponent \"Document Parsing\" as cap_document_parsing <<service>>\ncomponent \"Reporting\" as cap_reporting <<service>>\ncomponent \"User Interface\" as cap_user_interface <<service>>\ndatabase \"Assessment Results\" as db_assessment_results <<Relational Database>>\ndatabase \"Compliance Requirements\" as db_compliance_requirements <<Relational Database>>\ndatabase \"Parsed Documents\" as db_parsed_documents <<Structured Data>>\ndatabase \"Raw Circulars\" as db_raw_circulars <<Document Store>>\n\nactor_user -right-> cap_user_interface : Interacts with\ncap_circular_ingestion -down-> db_raw_circulars : Stores raw circulars\ncap_circular_ingestion -right-> ext_sebi : Fetches circulars from\ncap_compliance_analysis -down-> db_assessment_results : Stores analysis results\ncap_compliance_analysis -down-> db_compliance_requirements : Stores extracted requirements\ncap_compliance_analysis -down-> db_parsed_documents : Extracts requirements from\ncap_document_parsing -down-> db_parsed_documents : Stores parsed documents\ncap_document_parsing -down-> db_raw_circulars : Reads raw circulars\ncap_reporting -down-> db_assessment_results : Generates reports from\ncap_reporting -down-> db_compliance_requirements : References requirements for reports\ncap_user_interface -down-> cap_reporting : Requests reports\n\n' Layout Alignment Directives\nactor_user -[hidden]right-> cap_circular_ingestion\ncap_circular_ingestion -[hidden]down-> db_assessment_results\ndb_assessment_results -[hidden]right-> db_compliance_requirements\ndb_compliance_requirements -[hidden]right-> db_parsed_documents\ndb_parsed_documents -[hidden]right-> db_raw_circulars\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 68.8,
+        "overall_score": 97.7,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 68.8
+        }
+      }
+    },
+    "1fe4ae785c1085a20f3f3b17fe75b8d6": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 99.0,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 99.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle Automated SEBI Circular Compliance Analysis\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nactor \"System\" as actor_system\nparticipant \"Circular Ingestion\" as cap_circular_ingestion\nparticipant \"SEBI\" as ext_sebi\nparticipant \"Document Parsing\" as cap_document_parsing\nparticipant \"Compliance Analysis\" as cap_compliance_analysis\nparticipant \"Reporting\" as cap_reporting\n\nactor_system -> cap_circular_ingestion : 1. Initiate Circular Processing\ncap_circular_ingestion -> ext_sebi : 2. Request Latest Circulars\next_sebi --> cap_circular_ingestion : 3. Provide Circular Documents\ncap_circular_ingestion -> cap_document_parsing : 4. Submit Documents for Parsing\ncap_document_parsing -> cap_compliance_analysis : 5. Provide Parsed Clauses (Requirements)\ncap_compliance_analysis -> cap_reporting : 6. Submit Compliance Analysis Report (Gap/Impact)\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 99.0,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
+    },
+    "9be98b43583a680e48dc4698749ad790": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 98.0,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 73.7,
+          "overall_score": 98.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 73.7
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Solution - Core Capabilities\nleft to right direction\nskinparam ArrowThickness 1.5\nskinparam componentStyle uml2\nskinparam linetype ortho\nskinparam nodesep 50\nskinparam packageStyle rectangle\nskinparam padding 8\nskinparam ranksep 50\nskinparam shadowing false\n\npackage \"Compliance Processing\" as pkg_compliance_processing {\n  component \"Circular Parsing\" as cap_circular_parsing <<service>>\n  component \"Circular Retrieval\" as cap_circular_retrieval <<service>>\n  component \"Reporting\" as cap_reporting <<service>>\n  component \"Compliance Gap Analysis\" as cap_compliance_gap_analysis <<service>>\n  component \"Impact Assessment\" as cap_impact_assessment <<service>>\n  component \"Requirement Extraction\" as cap_requirement_extraction <<service>>\n}\n\nactor \"User\" as actor_user\n\ncomponent \"SEBI Official Sources\" as ext_sebi_official_sources <<External System>>\n\ndatabase \"Compliance Requirements\" as db_compliance_requirements\ndatabase \"Organizational Configuration\" as db_organizational_configuration\ndatabase \"Parsed Clauses\" as db_parsed_clauses\ndatabase \"Raw Circulars\" as db_raw_circulars\n\nactor_user -right-> cap_reporting : Views reports\ncap_circular_parsing -down-> db_parsed_clauses : Stores\ncap_circular_parsing -down-> db_raw_circulars : Reads\ncap_circular_retrieval -down-> db_raw_circulars : Stores\ncap_circular_retrieval -right-> ext_sebi_official_sources : Retrieves from\ncap_compliance_gap_analysis -down-> db_compliance_requirements : Reads\ncap_compliance_gap_analysis -down-> db_organizational_configuration : Reads\ncap_impact_assessment -down-> db_compliance_requirements : Reads\ncap_impact_assessment -down-> db_organizational_configuration : Reads\ncap_reporting -down-> cap_compliance_gap_analysis : Consumes results from\ncap_reporting -down-> cap_impact_assessment : Consumes results from\ncap_reporting -down-> db_compliance_requirements : Reads\ncap_requirement_extraction -down-> db_compliance_requirements : Stores\ncap_requirement_extraction -down-> db_parsed_clauses : Reads\n\n' Layout Alignment Directives\nactor_user -[hidden]right-> pkg_compliance_processing\ndb_compliance_requirements -[hidden]right-> db_organizational_configuration\ndb_organizational_configuration -[hidden]right-> db_parsed_clauses\ndb_parsed_clauses -[hidden]right-> db_raw_circulars\npkg_compliance_processing -[hidden]down-> db_compliance_requirements\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 73.7,
+        "overall_score": 98.0,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 73.7
+        }
+      }
+    },
+    "1532964f321cae916bbf1c933a9de1b0": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 99.0,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "overall_score": 99.0,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Circular Compliance Monitoring Flow\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nactor \"System\" as actor_system\nparticipant \"Document Ingestion\" as cap_document_ingestion\nparticipant \"SEBI Sources\" as ext_sebi_sources\nparticipant \"Document Parsing\" as cap_document_parsing\nparticipant \"Information Extraction\" as cap_information_extraction\nparticipant \"Compliance Analysis\" as cap_compliance_analysis\nparticipant \"Impact Assessment\" as cap_impact_assessment\nparticipant \"Reporting & UI\" as cap_reporting_ui\n\nactor_system -> cap_document_ingestion : Initiates monitoring\ncap_document_ingestion -> ext_sebi_sources : Retrieve circulars\ncap_document_ingestion -> cap_document_parsing : Submit documents for parsing\ncap_document_parsing -> cap_information_extraction : Submit parsed clauses for extraction\ncap_information_extraction -> cap_compliance_analysis : Submit extracted requirements for gap analysis\ncap_compliance_analysis -> cap_impact_assessment : Submit compliance gaps for impact assessment\ncap_impact_assessment -> cap_reporting_ui : Submit assessment results for reporting\ncap_reporting_ui -> actor_system : Present compliance report\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "overall_score": 99.0,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0
+        }
+      }
     }
   },
   "review": {}
