@@ -119,6 +119,8 @@ class DiagramExecutionState(TypedDict, total=False):
     diagram_score: Optional[float]
     is_production_ready: Optional[bool]
     score_card: Optional[Dict[str, Any]]
+    provider: Optional[str]
+    model: Optional[str]
 
 def merge_diagram_states(left: Dict[str, DiagramExecutionState], right: Dict[str, DiagramExecutionState]) -> Dict[str, DiagramExecutionState]:
     """Reducer function to merge DiagramExecutionState maps in LangGraph."""
