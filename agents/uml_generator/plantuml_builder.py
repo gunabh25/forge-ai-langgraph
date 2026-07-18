@@ -51,6 +51,10 @@ class BasePlantUMLBuilder(ABC):
 # Component Diagram Builder
 # ---------------------------------------------------------------------------
 
+class LayoutContractError(Exception):
+    """Raised when the layout contract between Planner and Builder is mismatched."""
+    pass
+
 class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
     """Deterministic PlantUML compiler for Component Diagrams."""
 
@@ -62,7 +66,23 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
                 raise ValueError("Expected ComponentDiagramCanonical instance")
 
         if layout is None:
-            layout = DeterministicLayoutEngine.compute_component_layout(diagram)
+            layout = LayoutPlanner.plan_component_layout(diagram)
+
+        try:
+            direction_directive = layout.direction_directive
+            skinparams = layout.skinparams
+            standalone_element_order = layout.standalone_element_order
+            formatted_arrows = layout.formatted_arrows
+            hidden_alignment_edges = layout.hidden_alignment_edges
+            inferred_packages = getattr(layout, "inferred_packages", [])
+        except AttributeError as e:
+            missing_attr = str(e).split("'")[-2] if "'" in str(e) else str(e)
+            raise LayoutContractError(
+                f"Missing layout attribute:\n{missing_attr}\n\n"
+                f"Expected by:\nComponentPlantUMLBuilder\n\n"
+                f"Produced by:\nLayoutPlanner\n\n"
+                f"Suggested Fix:\nSynchronize layout contract."
+            ) from e
 
         lines: List[str] = ["@startuml"]
 
@@ -72,8 +92,8 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
 
         # Orientation & Skinparams (filtered through compatibility layer)
         from agents.uml_generator.plantuml_compatibility import filter_skinparams
-        lines.append(layout.direction_directive)
-        for param in sorted(filter_skinparams(layout.dynamic_skinparams)):
+        lines.append(direction_directive)
+        for param in sorted(filter_skinparams(skinparams)):
             lines.append(param)
         lines.append("")
 
@@ -91,10 +111,9 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
             lines.append(f'package "{pkg["name"]}" as {pkg["id"]} {{')
             
             # Use the deterministic ordering computed by the Layout Engine
-            ordered_caps = layout.layers.layer_2_capabilities
             contained_ids_sorted = sorted(
                 cast(List[str], pkg["capability_ids"]),
-                key=lambda cid: ordered_caps.index(cid) if cid in ordered_caps else 999
+                key=lambda cid: standalone_element_order.index(cid) if cid in standalone_element_order else 999
             )
             
             for cap_id in contained_ids_sorted:
@@ -144,16 +163,16 @@ class ComponentPlantUMLBuilder(BasePlantUMLBuilder):
         from agents.uml_generator.readability_optimizer import ReadabilityOptimizer
         for rel in rels_sorted:
             pair = (rel.source_id, rel.target_id)
-            arrow = layout.formatted_arrows.get(pair, rel.direction or "-->")
+            arrow = formatted_arrows.get(pair, rel.direction or "-->")
             wrapped_label = ReadabilityOptimizer.wrap_label(rel.label) if rel.label else ""
             label_str = f" : {wrapped_label}" if wrapped_label else ""
             lines.append(f"{rel.source_id} {arrow} {rel.target_id}{label_str}")
 
         # 7. Render Hidden Alignment Edges for spatial grid layout
-        if layout.hidden_alignment_edges:
+        if hidden_alignment_edges:
             lines.append("")
             lines.append("' Layout Alignment Directives")
-            for edge in sorted(layout.hidden_alignment_edges):
+            for edge in sorted(hidden_alignment_edges):
                 lines.append(edge)
 
         lines.append("@enduml")
