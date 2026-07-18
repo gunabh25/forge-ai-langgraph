@@ -794,13 +794,7 @@ class UMLGeneratorAgent(BaseAgent):
         print("=" * 100 + "\n")
         # =========================================
 
-        return (
-            str(response.content)
-            .replace("```plantuml", "")
-            .replace("```puml", "")
-            .replace("```", "")
-            .strip()
-        )
+        return str(response.content).strip()
 
     # -----------------------------------------------------------------------
     # Metrics logging

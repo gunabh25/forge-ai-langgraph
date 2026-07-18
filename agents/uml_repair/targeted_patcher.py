@@ -17,6 +17,7 @@ from schemas.canonical_diagram import (
     Relationship,
     BusinessPackage,
 )
+from agents.uml_generator.canonical_parser import CanonicalDiagramParser
 from config.logging import get_logger
 
 logger = get_logger("agents.uml_repair.targeted_patcher")
@@ -128,14 +129,5 @@ class TargetedPatcher:
     @classmethod
     def parse_patch_from_response(cls, llm_response: str) -> TargetedRepairPatch:
         """Parse raw LLM JSON response into TargetedRepairPatch."""
-        cleaned = llm_response.strip()
-        if cleaned.startswith("```"):
-            lines = cleaned.splitlines()
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].startswith("```"):
-                lines = lines[:-1]
-            cleaned = "\n".join(lines).strip()
-            
-        data = json.loads(cleaned)
+        data = CanonicalDiagramParser.parse(llm_response)
         return TargetedRepairPatch.model_validate(data)

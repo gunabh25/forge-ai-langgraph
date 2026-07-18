@@ -21,6 +21,9 @@ from config.logging import get_logger
 logger = get_logger("agents.uml_generator.canonical_validator")
 
 
+from agents.uml_generator.canonical_parser import CanonicalDiagramParser, CanonicalParseError
+
+
 class CanonicalValidationError(Exception):
     """Exception raised when canonical diagram validation fails."""
     pass
@@ -43,24 +46,10 @@ class CanonicalDiagramValidator:
         Returns:
             Validated BaseCanonicalDiagram subclass (ComponentDiagramCanonical or SequenceDiagramCanonical).
         """
-        if isinstance(raw_input, str):
-            cleaned = raw_input.strip()
-            # Strip markdown code blocks if LLM wrapped JSON in ```json ... ```
-            if cleaned.startswith("```"):
-                lines = cleaned.splitlines()
-                if lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines and lines[-1].startswith("```"):
-                    lines = lines[:-1]
-                cleaned = "\n".join(lines).strip()
-            try:
-                data = json.loads(cleaned)
-            except json.JSONDecodeError as e:
-                raise CanonicalValidationError(f"Invalid JSON syntax in canonical diagram response: {e}")
-        elif isinstance(raw_input, dict):
-            data = raw_input
-        else:
-            raise CanonicalValidationError(f"Unsupported raw input type: {type(raw_input)}")
+        try:
+            data = CanonicalDiagramParser.parse(raw_input)
+        except CanonicalParseError as e:
+            raise CanonicalValidationError(str(e)) from e
 
         normalized_type = diagram_type.lower()
         try:
