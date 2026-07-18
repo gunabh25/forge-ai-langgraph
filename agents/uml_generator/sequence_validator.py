@@ -200,8 +200,9 @@ class RelationshipValidator:
             if not tgt_node:
                 errors.append(f"Graph Error: Target node '{rel.target}' is used in a relationship but was never declared. (Dangling alias)")
                 
-            if src_node and tgt_node and src_node.normalized_name == tgt_node.normalized_name:
-                errors.append(f"Graph Error: Self-loop detected on '{src_node.display_name}'.")
+            if rel.source == rel.target:
+                display = src_node.display_name if src_node else rel.source
+                errors.append(f"Graph Error: Self-loop detected on '{display}'.")
                 
             if src_node and tgt_node:
                 topology_edge = (src_node.normalized_name, tgt_node.normalized_name)

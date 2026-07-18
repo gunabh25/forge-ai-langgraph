@@ -107,15 +107,19 @@ class ExecutionDashboardAgent(BaseAgent):
                     new_artifacts += 1
 
             metrics = s.get("uml_validation_metrics") or {}
-            diag_score = s.get("diagram_score")
+            score_card = s.get("score_card") or metrics.get("score_card") or {}
+
+            diag_score = score_card.get("overall_score")
             if diag_score is None:
-                diag_score = metrics.get("diagram_score", 100.0)
+                diag_score = s.get("diagram_score")
+                if diag_score is None:
+                    diag_score = metrics.get("diagram_score", 100.0)
 
-            is_prod_ready = s.get("is_production_ready")
+            is_prod_ready = score_card.get("is_production_ready")
             if is_prod_ready is None:
-                is_prod_ready = metrics.get("is_production_ready", True)
-
-            score_card = s.get("score_card") or metrics.get("score_card")
+                is_prod_ready = s.get("is_production_ready")
+                if is_prod_ready is None:
+                    is_prod_ready = metrics.get("is_production_ready", True)
 
             grammar_st = s.get("grammar_status", "passed")
             if grammar_st == "passed":

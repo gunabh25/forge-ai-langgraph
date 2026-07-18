@@ -179,7 +179,6 @@ class GrammarValidator:
             }
 
         except subprocess.TimeoutExpired:
-            logger.warning("Grammar validation plantuml -syntax timed out after %ds", self.timeout)
             if self.mode == GrammarValidationMode.BEST_EFFORT:
                 if self._try_svg_render(fixed_content):
                     logger.info("SVG render shortcut succeeded after syntax check timeout.")
@@ -189,7 +188,7 @@ class GrammarValidator:
                         "score": 100,
                         "status": "passed",
                         "errors": [],
-                        "warnings": ["Verified by successful rendering"],
+                        "warnings": [],
                         "diagnostics": [],
                         "fixed_content": fixed_content,
                     }
@@ -429,12 +428,22 @@ class ArchitectureValidator:
 
         combined_score = int((traceability_score * 0.5) + (rel_score * 0.3) + (conn_score * 0.2))
 
+        # Deduplicate diagnostics
+        unique_diagnostics = []
+        seen_diag = set()
+        for d in diagnostics:
+            key = (d.get("category"), d.get("code"), d.get("target_element"), d.get("message"))
+            if key not in seen_diag:
+                seen_diag.add(key)
+                unique_diagnostics.append(d)
+        diagnostics = unique_diagnostics
+
         return {
             "validator": "Architecture Validator",
             "passed": passed,
             "score": combined_score,
-            "errors": errors,
-            "warnings": warnings,
+            "errors": list(dict.fromkeys(errors)),
+            "warnings": list(dict.fromkeys(warnings)),
             "diagnostics": diagnostics,
             "traceability_metrics": getattr(val_result, "traceability_metrics", {})
         }

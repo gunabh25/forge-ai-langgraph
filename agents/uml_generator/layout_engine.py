@@ -80,7 +80,9 @@ class DeterministicLayoutEngine:
         CoordinateAssigner.assign_coordinates(graph)
         
         # 6. Edge Routing
-        routing_hints = EdgeRouter.route_edges(graph)
+        from agents.uml_generator.business_flow_layout import BusinessFlowAnalyzer
+        primary_path = BusinessFlowAnalyzer.compute_primary_path(graph)
+        routing_hints = EdgeRouter.route_edges(graph, primary_path=primary_path)
         
         max_layer = getattr(graph, "max_layer", 4)
         
