@@ -93,10 +93,15 @@ class ReadabilityOptimizer:
         labels = [cap.name for cap in diagram.business_capabilities]
         avg_label_len = sum(len(l) for l in labels) / max(1, len(labels))
         
-        ranksep = min(250, max(120, 100 + total_elements + (num_packages * 10)))
-        nodesep = min(180, max(90, int(avg_label_len * 3.5)))
+        # Base compact spacing
+        ranksep = 100
+        nodesep = 60
         
-        # pyrefly: ignore [unnecessary-type-conversion]
+        # Increase only if component density exceeds a threshold
+        if total_elements > 15:
+            ranksep = min(200, 100 + ((total_elements - 15) * 5) + (num_packages * 10))
+            nodesep = min(120, max(60, int(avg_label_len * 3.5)))
+        
         return int(ranksep), int(nodesep)
 
     @classmethod

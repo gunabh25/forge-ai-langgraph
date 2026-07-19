@@ -5534,6 +5534,273 @@
           "symmetry": 100.0
         }
       }
+    },
+    "ddb4f121fb85145580bbf1af0ede1d36": {
+      "pipeline_feedback": {
+        "validator": "Architecture Validator",
+        "passed": false,
+        "score": 94,
+        "errors": [
+          "Graph Error: Target node '[bold]' is used in a relationship but was never declared. (Dangling alias)"
+        ],
+        "warnings": [
+          "Multiple valid interactions detected from 'Content Processing' to 'Regulatory Repository'. (Informational)",
+          "Multiple valid interactions detected from 'Gap Analysis' to 'Assessment Repository'. (Informational)",
+          "Multiple valid interactions detected from 'Requirement Analysis' to 'Assessment Repository'. (Informational)",
+          "Multiple valid interactions detected from 'Compliance Baseline' to 'Control Mapping'. (Informational)",
+          "Multiple valid interactions detected from 'Organizational Repositories' to 'Compliance Baseline'. (Informational)"
+        ],
+        "diagnostics": [
+          {
+            "category": "Architecture",
+            "code": "RELATIONSHIP_INTEGRITY",
+            "message": "Graph Error: Target node '[bold]' is used in a relationship but was never declared. (Dangling alias)",
+            "target_element": null,
+            "suggested_fix": "Fix relationship target or remove duplicate edge"
+          },
+          {
+            "category": "Architecture",
+            "code": "MULTIPLE_VALID_INTERACTIONS",
+            "message": "Multiple valid interactions detected from 'Content Processing' to 'Regulatory Repository'. (Informational)",
+            "target_element": null,
+            "suggested_fix": "No action required; interactions are semantically distinct"
+          },
+          {
+            "category": "Architecture",
+            "code": "MULTIPLE_VALID_INTERACTIONS",
+            "message": "Multiple valid interactions detected from 'Gap Analysis' to 'Assessment Repository'. (Informational)",
+            "target_element": null,
+            "suggested_fix": "No action required; interactions are semantically distinct"
+          },
+          {
+            "category": "Architecture",
+            "code": "MULTIPLE_VALID_INTERACTIONS",
+            "message": "Multiple valid interactions detected from 'Requirement Analysis' to 'Assessment Repository'. (Informational)",
+            "target_element": null,
+            "suggested_fix": "No action required; interactions are semantically distinct"
+          },
+          {
+            "category": "Architecture",
+            "code": "MULTIPLE_VALID_INTERACTIONS",
+            "message": "Multiple valid interactions detected from 'Compliance Baseline' to 'Control Mapping'. (Informational)",
+            "target_element": null,
+            "suggested_fix": "No action required; interactions are semantically distinct"
+          },
+          {
+            "category": "Architecture",
+            "code": "MULTIPLE_VALID_INTERACTIONS",
+            "message": "Multiple valid interactions detected from 'Organizational Repositories' to 'Compliance Baseline'. (Informational)",
+            "target_element": null,
+            "suggested_fix": "No action required; interactions are semantically distinct"
+          }
+        ],
+        "traceability_metrics": {
+          "planned_components": 16,
+          "generated_components": 16,
+          "exact_matches": 16,
+          "alias_matches": 0,
+          "normalizer_matches": 0,
+          "failed_matches": 0,
+          "traceability_score": 100
+        },
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 80.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 95.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 62.9,
+          "visual_density_score": 100.0,
+          "label_overlap_score": 100.0,
+          "average_edge_length_score": 95.0,
+          "package_balance_score": 100.0,
+          "symmetry_score": 100.0,
+          "overall_score": 96.2,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 80.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 95.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 62.9,
+            "visual_density": 100.0,
+            "label_overlap": 100.0,
+            "average_edge_length": 95.0,
+            "package_balance": 100.0,
+            "symmetry": 100.0
+          }
+        }
+      },
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 96.2,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 80.0,
+          "business_flow_score": 100.0,
+          "layout_score": 100.0,
+          "readability_score": 95.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 62.9,
+          "visual_density_score": 100.0,
+          "label_overlap_score": 100.0,
+          "average_edge_length_score": 95.0,
+          "package_balance_score": 100.0,
+          "symmetry_score": 100.0,
+          "overall_score": 96.2,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 80.0,
+            "business_flow": 100.0,
+            "layout": 100.0,
+            "readability": 95.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 62.9,
+            "visual_density": 100.0,
+            "label_overlap": 100.0,
+            "average_edge_length": 95.0,
+            "package_balance": 100.0,
+            "symmetry": 100.0
+          }
+        },
+        "architecture_score": 94
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Monitoring Component Diagram\ntop to bottom direction\nskinparam ArrowThickness 1.5\nskinparam componentStyle uml2\nskinparam defaultTextAlignment center\nskinparam linetype ortho\nskinparam nodesep 90\nskinparam packageStyle rectangle\nskinparam ranksep 126\nskinparam sameClassWidth true\nskinparam shadowing false\n\npackage \"Compliance Monitoring Solution\" as pkg_compliance_monitoring {\n  component \"Access Management\" as cap_access_management <<service>>\n  component \"Content Processing\" as cap_content_processing <<service>>\n  component \"Control Mapping\" as cap_control_mapping <<service>>\n  component \"Requirement Analysis\" as cap_requirement_analysis <<service>>\n  component \"Gap Analysis\" as cap_gap_analysis <<service>>\n  component \"Impact Assessment\" as cap_impact_assessment <<service>>\n  component \"Reporting\" as cap_reporting <<service>>\n  component \"Review Governance\" as cap_review_governance <<service>>\n}\n\nactor \"Compliance Users\" as actor_compliance_users\nactor \"System Administrators\" as actor_system_administrators\n\ncomponent \"Organizational Repositories\" as sys_organizational_repositories <<External System>>\ncomponent \"SEBI\" as sys_sebi <<External System>>\ncomponent \"SSO Provider\" as sys_sso_provider <<External System>>\n\ndatabase \"Assessment Repository\" as db_assessment_repository <<Repository>>\ndatabase \"Compliance Baseline\" as db_compliance_baseline <<Repository>>\ndatabase \"Regulatory Repository\" as db_regulatory_repository <<Repository>>\n\nactor_compliance_users -down[bold]-> cap_access_management : Accesses compliance\\ncapabilities\nactor_compliance_users -down-> cap_reporting : Views assessment results\nactor_compliance_users -down-> cap_review_governance : Reviews and approves\\nassessments\nactor_system_administrators -down-> cap_access_management : Administers access and roles\ncap_access_management -down[bold]-> sys_sso_provider : Uses SSO integration\ncap_content_processing -down-> cap_requirement_analysis : Provides parsed circular\\nclauses\ncap_content_processing -down-> db_regulatory_repository : Stores source documents,\\nmetadata, and parsed content\ncap_control_mapping -down-> cap_gap_analysis : Provides\\nrequirement-to-control\\nmappings\ncap_gap_analysis -down-> cap_impact_assessment : Provides assessed compliance\\ngaps\ncap_gap_analysis -down-> db_assessment_repository : Stores compliance gaps\ncap_impact_assessment -down-> cap_review_governance : Submits assessments for review\\nand approval\ncap_impact_assessment -down-> db_assessment_repository : Stores IT and operational\\nimpact assessments\ncap_requirement_analysis -left-> cap_control_mapping : Provides identified compliance\\nrequirements\ncap_requirement_analysis -down-> db_assessment_repository : Stores requirements\ncap_review_governance -left-> cap_reporting : Provides approved assessments\ncap_review_governance -down-> db_assessment_repository : Stores version history and\\naudit events\ndb_assessment_repository -down-> cap_reporting : Provides assessment results\ndb_compliance_baseline -right-> cap_control_mapping : Provides existing compliance\\ncontrols\ndb_compliance_baseline -down-> cap_impact_assessment : Provides processes, IT assets,\\nand applications\ndb_regulatory_repository -left-> cap_requirement_analysis : Provides clause-level records\nsys_organizational_repositories -down-> db_compliance_baseline : Provides organizational\\ncontrols, policies, processes,\\nIT assets, and applications\nsys_sebi -right-> cap_content_processing : Provides SEBI circulars\n\n' Layout Alignment Directives\nactor_compliance_users -[hidden]right-> actor_system_administrators\ncap_access_management -[hidden]right-> cap_content_processing\ncap_content_processing -[hidden]down-> db_regulatory_repository\ncap_control_mapping -[hidden]right-> cap_requirement_analysis\ncap_gap_analysis -[hidden]right-> db_assessment_repository\ncap_reporting -[hidden]right-> cap_review_governance\ncap_requirement_analysis -[hidden]down-> db_assessment_repository\ncap_requirement_analysis -[hidden]right-> db_regulatory_repository\ndb_compliance_baseline -[hidden]right-> cap_control_mapping\ndb_regulatory_repository -[hidden]right-> sys_sso_provider\nsys_organizational_repositories -[hidden]down-> db_compliance_baseline\nsys_organizational_repositories -[hidden]right-> sys_sebi\nsys_sebi -[hidden]right-> cap_access_management\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "failed",
+      "business_flow_status": "skipped",
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 80.0,
+        "business_flow_score": 100.0,
+        "layout_score": 100.0,
+        "readability_score": 95.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 62.9,
+        "visual_density_score": 100.0,
+        "label_overlap_score": 100.0,
+        "average_edge_length_score": 95.0,
+        "package_balance_score": 100.0,
+        "symmetry_score": 100.0,
+        "overall_score": 96.2,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 80.0,
+          "business_flow": 100.0,
+          "layout": 100.0,
+          "readability": 95.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 62.9,
+          "visual_density": 100.0,
+          "label_overlap": 100.0,
+          "average_edge_length": 95.0,
+          "package_balance": 100.0,
+          "symmetry": 100.0
+        }
+      }
+    },
+    "c2f8a012514cbd0a7fdae4da8323a288": {
+      "pipeline_feedback": null,
+      "uml_validation_metrics": {
+        "grammar_score": 100,
+        "diagram_score": 98.6,
+        "is_production_ready": true,
+        "score_card": {
+          "grammar_score": 100.0,
+          "architecture_score": 100.0,
+          "business_flow_score": 100.0,
+          "layout_score": 90.0,
+          "readability_score": 100.0,
+          "whitespace_score": 100.0,
+          "crossings_score": 100.0,
+          "package_cohesion_score": 100.0,
+          "relationship_clarity_score": 100.0,
+          "visual_density_score": 100.0,
+          "label_overlap_score": 100.0,
+          "average_edge_length_score": 95.0,
+          "package_balance_score": 100.0,
+          "symmetry_score": 100.0,
+          "overall_score": 98.6,
+          "is_production_ready": true,
+          "breakdown_summary": {
+            "grammar": 100.0,
+            "architecture": 100.0,
+            "business_flow": 100.0,
+            "layout": 90.0,
+            "readability": 100.0,
+            "whitespace": 100.0,
+            "crossings": 100.0,
+            "package_cohesion": 100.0,
+            "relationship_clarity": 100.0,
+            "visual_density": 100.0,
+            "label_overlap": 100.0,
+            "average_edge_length": 95.0,
+            "package_balance": 100.0,
+            "symmetry": 100.0
+          }
+        },
+        "architecture_score": 100,
+        "business_flow_score": 100
+      },
+      "syntax_valid": true,
+      "fixed_content": "@startuml\ntitle SEBI Compliance Assessment Flow\nautonumber\nskinparam maxMessageSize 200\nskinparam responseMessageBelowArrow true\nskinparam shadowing false\n\nactor \"Compliance Users\" as actor_compliance_users\nparticipant \"Enterprise SSO\" as sys_enterprise_sso\nparticipant \"Circular Intake\" as cap_circular_intake\nparticipant \"SEBI\" as sys_sebi\nparticipant \"Clause Structuring\" as cap_clause_structuring\nparticipant \"Requirement Analysis\" as cap_requirement_analysis\nparticipant \"Gap Analysis\" as cap_gap_analysis\nparticipant \"Organizational Repositories\" as sys_organizational_repositories\nparticipant \"Impact Assessment\" as cap_impact_assessment\nparticipant \"Assessment Reporting\" as cap_assessment_reporting\n\nactor_compliance_users -> sys_enterprise_sso : Authenticate\nsys_enterprise_sso -> actor_compliance_users : Confirm authenticated access\nactor_compliance_users -> cap_circular_intake : Initiate compliance assessment\ncap_circular_intake -> sys_sebi : Retrieve latest circulars\nsys_sebi -> cap_circular_intake : Provide latest circulars\ncap_circular_intake -> cap_clause_structuring : Submit circulars for clause structuring\ncap_clause_structuring -> cap_requirement_analysis : Provide structured clauses\ncap_requirement_analysis -> cap_gap_analysis : Provide identified compliance requirements\ncap_gap_analysis -> sys_organizational_repositories : Retrieve existing compliance setup\nsys_organizational_repositories -> cap_gap_analysis : Provide existing compliance information\ncap_gap_analysis -> cap_impact_assessment : Provide compliance gap findings\ncap_impact_assessment -> cap_assessment_reporting : Provide IT and operational impact findings\ncap_assessment_reporting -> actor_compliance_users : Present assessment findings for review\nactor_compliance_users -> cap_assessment_reporting : Complete review and request report\ncap_assessment_reporting -> actor_compliance_users : Provide assessment report\n@enduml",
+      "grammar_status": "passed",
+      "architecture_status": "passed",
+      "business_flow_status": "passed",
+      "llm_invoked": false,
+      "score_card": {
+        "grammar_score": 100.0,
+        "architecture_score": 100.0,
+        "business_flow_score": 100.0,
+        "layout_score": 90.0,
+        "readability_score": 100.0,
+        "whitespace_score": 100.0,
+        "crossings_score": 100.0,
+        "package_cohesion_score": 100.0,
+        "relationship_clarity_score": 100.0,
+        "visual_density_score": 100.0,
+        "label_overlap_score": 100.0,
+        "average_edge_length_score": 95.0,
+        "package_balance_score": 100.0,
+        "symmetry_score": 100.0,
+        "overall_score": 98.6,
+        "is_production_ready": true,
+        "breakdown_summary": {
+          "grammar": 100.0,
+          "architecture": 100.0,
+          "business_flow": 100.0,
+          "layout": 90.0,
+          "readability": 100.0,
+          "whitespace": 100.0,
+          "crossings": 100.0,
+          "package_cohesion": 100.0,
+          "relationship_clarity": 100.0,
+          "visual_density": 100.0,
+          "label_overlap": 100.0,
+          "average_edge_length": 95.0,
+          "package_balance": 100.0,
+          "symmetry": 100.0
+        }
+      }
     }
   },
   "review": {}
