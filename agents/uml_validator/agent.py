@@ -250,16 +250,20 @@ class UMLValidatorAgent(BaseAgent):
                 if check_res["return_code"] == 0:
                     check_res["return_code"] = 1
                 
-                formatted_feedback = (
-                    f"[{validator_name} Failed]\n"
-                    f"Score: {pipeline_feedback.get('score', 0)}\n"
-                    f"Errors:\n" + "\n".join(f"- {e}" for e in feedback_errors)
-                )
-                
-                if not check_res["stderr"]:
-                    check_res["stderr"] = formatted_feedback
+                if "diagnostics" in pipeline_feedback:
+                    # Pass through JSON payload for Repair Agent compatibility
+                    check_res["stderr"] = json.dumps({"diagnostics": pipeline_feedback["diagnostics"]})
                 else:
-                    check_res["stderr"] = check_res["stderr"] + "\n\n" + formatted_feedback
+                    formatted_feedback = (
+                        f"[{validator_name} Failed]\n"
+                        f"Score: {pipeline_feedback.get('score', 0)}\n"
+                        f"Errors:\n" + "\n".join(f"- {e}" for e in feedback_errors)
+                    )
+                    
+                    if not check_res["stderr"]:
+                        check_res["stderr"] = formatted_feedback
+                    else:
+                        check_res["stderr"] = check_res["stderr"] + "\n\n" + formatted_feedback
             # --------------------------------------------------------
             
             exec_time = int((time.time() - start_time) * 1000)

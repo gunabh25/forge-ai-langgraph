@@ -393,6 +393,10 @@ class ArchitectureValidator:
                 if any(kw in display_lower for kw in ("external", "api", "gateway", "third-party", "3rd party")):
                     is_warning = True
 
+                # Sequence diagram passive participants
+                if diagram_type == "sequence" and (node_type == "database" or "database" in display_lower or "repository" in display_lower):
+                    is_warning = True
+
                 if is_warning:
                     msg = f"Isolated optional element (warning): '{iso.display_name}'"
                     warnings.append(msg)
@@ -590,7 +594,16 @@ class BusinessFlowValidator:
                 }
 
         # Orphans
-        orphans = diagram.isolated_nodes()
+        all_orphans = diagram.isolated_nodes()
+        orphans = [
+            o for o in all_orphans
+            if not (
+                getattr(o, "node_type", "") == "database"
+                or "database" in (o.display_name.lower() if o.display_name else "")
+                or "repository" in (o.display_name.lower() if o.display_name else "")
+            )
+        ]
+        
         if orphans:
             orphan_names = [o.display_name for o in orphans]
             msg = f"Orphan participants detected (no messages): {', '.join(orphan_names)}"
@@ -853,6 +866,18 @@ class ValidationPipeline:
         if not flow_res["passed"]:
             pipeline_feedback = flow_res
             pipeline_feedback["score_card"] = score_card.to_dict()
+
+        # Deduplicate aggregated diagnostics
+        unique_diagnostics = []
+        seen = set()
+        for d in aggregated_diagnostics:
+            key = (d.get("category"), d.get("code"), d.get("target_element"), d.get("message"))
+            if key not in seen:
+                seen.add(key)
+                unique_diagnostics.append(d)
+                
+        if pipeline_feedback:
+            pipeline_feedback["diagnostics"] = unique_diagnostics
 
         return {
             "pipeline_feedback": pipeline_feedback,

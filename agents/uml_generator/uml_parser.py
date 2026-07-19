@@ -327,6 +327,9 @@ class PlantUMLParser:
         source = source_str.strip('" ')
         target = target_str.strip('" ')
 
+        source = re.split(cls.ARROW_PATTERN, source)[0].strip()
+        target = re.split(cls.ARROW_PATTERN, target)[0].strip()
+
         source = re.sub(r'^(?:left|right|up|down)\s+', '', source, flags=re.IGNORECASE).strip()
         target = re.sub(r'^(?:left|right|up|down)\s+', '', target, flags=re.IGNORECASE).strip()
         
